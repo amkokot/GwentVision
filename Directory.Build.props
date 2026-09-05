@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <Deterministic>true</Deterministic>
+    <Version>0.2.64</Version>
+    <Product>Gwent Vision</Product>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+</Project>

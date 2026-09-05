@@ -1,0 +1,8 @@
+<Project>
+  <!-- The native/runtime package supports .NET 8; its optional analyzer requires a newer Roslyn. -->
+  <Target Name="ExcludeIncompatibleOpenCvAnalyzer" BeforeTargets="CoreCompile">
+    <ItemGroup>
+      <Analyzer Remove="@(Analyzer)" Condition="'%(Analyzer.Filename)' == 'OpenCvSharp.Analyzers'" />
+    </ItemGroup>
+  </Target>
+</Project>

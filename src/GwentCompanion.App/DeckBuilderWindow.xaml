@@ -1,0 +1,143 @@
+<Window x:Class="GwentCompanion.App.DeckBuilderWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="clr-namespace:GwentCompanion.App.Controls"
+        Title="Gwent Vision · Library · Deck editor" Width="1320" Height="900" MinWidth="760" MinHeight="570"
+        WindowStartupLocation="CenterOwner" Background="#101419" SizeChanged="EditorSizeChanged" KeyDown="EditorKeyDown">
+    <Window.Resources>
+        <DataTemplate x:Key="PlainBuilderChoice"><TextBlock Text="{Binding}" Foreground="#E8E0CC"/></DataTemplate>
+        <Style TargetType="TextBox"><Setter Property="Background" Value="#111820"/><Setter Property="Foreground" Value="#EEF2F5"/><Setter Property="BorderBrush" Value="#485767"/><Setter Property="Padding" Value="8,5"/></Style>
+        <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+            <Style.Resources><Style TargetType="TextBlock"><Setter Property="Foreground" Value="#E8E0CC"/></Style></Style.Resources>
+            <Setter Property="Foreground" Value="#E8E0CC"/><Setter Property="Background" Value="#1B2428"/><Setter Property="Padding" Value="5"/><Setter Property="MaxDropDownHeight" Value="300"/><Setter Property="TextSearch.TextPath" Value="Label"/>
+            <Setter Property="ItemTemplate"><Setter.Value><DataTemplate><TextBlock Text="{Binding Label}" Foreground="#E8E0CC"/></DataTemplate></Setter.Value></Setter>
+        </Style>
+    </Window.Resources>
+    <Grid Margin="16">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+        <DockPanel Margin="0,0,0,12">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="10,0,0,0">
+                <Button x:Name="UndoEditButton" Content="Undo" Click="UndoEditClicked" Padding="8,5" IsEnabled="False" ToolTip="Undo deck change · Ctrl+Z (outside text fields)"/>
+                <Button x:Name="RedoEditButton" Content="Redo" Click="RedoEditClicked" Padding="8,5" IsEnabled="False" ToolTip="Redo deck change · Ctrl+Y (outside text fields)"/>
+                <Button Content="New deck" Click="NewClicked" Padding="8,5"/>
+                <Border Width="1" Height="22" Background="#485767" Margin="8,0" VerticalAlignment="Center"/>
+                <Button x:Name="SaveObservedDraftButton" Content="Save draft" Click="SaveObservedDraftClicked" Padding="8,5" Margin="0,0,8,0" Visibility="Collapsed" BorderBrush="#C49B46" Foreground="#E5C77E" ToolTip="Save this editable draft · Ctrl+S"/>
+                <Button x:Name="SaveDeckButton" Content="Save to library" Click="SaveClicked" Padding="8,5" Margin="0" BorderBrush="#C49B46" Foreground="#E5C77E" ToolTip="Save a complete legal deck to the library"/>
+                <Button x:Name="OverwriteDeckButton" Content="Overwrite" Click="OverwriteClicked" Padding="8,5" Margin="8,0,0,0" Visibility="Collapsed" BorderBrush="#8E5C59" Foreground="#E7B7B2" ToolTip="Replace the library version currently being edited"/>
+                <Button x:Name="ExportDeckButton" Content="Export…" Click="ExportClicked" Padding="8,5" Margin="8,0,0,0" ToolTip="Export to PlayGWENT"/>
+            </StackPanel>
+            <TextBlock x:Name="EditorTitle" Text="DECK EDITOR" FontFamily="Georgia" FontSize="21" Foreground="#E5C77E" VerticalAlignment="Center"/>
+        </DockPanel>
+        <Border x:Name="EditorDeckHeader" Grid.Row="1" BorderThickness="0,0,0,2" Padding="12,9" Margin="0,0,0,10">
+            <UniformGrid Columns="3">
+                <StackPanel Margin="0,0,12,0"><TextBlock Text="FACTION" FontSize="9" Foreground="#BBC3CB" Margin="0,0,0,4"/><TextBlock x:Name="EditorFactionName" Text="Choose faction" FontFamily="Georgia" FontSize="16" TextWrapping="Wrap"/></StackPanel>
+                <StackPanel Margin="0,0,12,0"><TextBlock Text="LEADER" FontSize="9" Foreground="#BBC3CB" Margin="0,0,0,4"/><TextBlock x:Name="EditorLeaderName" Text="Choose leader" FontFamily="Georgia" FontSize="16" TextWrapping="Wrap"/></StackPanel>
+                <StackPanel><TextBlock Text="STRATAGEM" FontSize="9" Foreground="#BBC3CB" Margin="0,0,0,4"/><TextBlock x:Name="EditorStratagemName" Text="Not selected" FontFamily="Georgia" FontSize="16" TextWrapping="Wrap"/></StackPanel>
+            </UniformGrid>
+        </Border>
+        <Expander x:Name="EditorSetup" Grid.Row="2" Header="Deck setup" IsExpanded="False" Margin="0,0,0,6">
+        <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto"><StackPanel Margin="0,8,0,0">
+        <Grid Margin="0,0,0,8">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <Grid><TextBox x:Name="TemplateSearchBox" TextChanged="TemplateSearchChanged" GotKeyboardFocus="TemplateSearchFocused" PreviewMouseDown="TemplateSearchMouseDown" PreviewKeyDown="TemplateSearchKeyDown" AutomationProperties.Name="Find a library template"/>
+                <TextBlock Text="Find a template by deck, leader or card…" IsHitTestVisible="False" Foreground="#AEB7C0" Margin="8,5"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=TemplateSearchBox}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></Grid>
+            <Button x:Name="UseTemplateButton" Grid.Column="1" Content="Use selected" Click="TemplateClicked" Margin="8,0,0,0" IsEnabled="False"/>
+            <Popup x:Name="TemplatePopup" Grid.ColumnSpan="2" PlacementTarget="{Binding ElementName=TemplateSearchBox}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True">
+                <Border Background="#182126" BorderBrush="#A88949" BorderThickness="1" MinWidth="560" MaxWidth="820" Padding="5">
+                    <DockPanel>
+                        <TextBlock x:Name="TemplateResultsText" DockPanel.Dock="Top" Foreground="#AEB7C0" FontSize="10" Margin="5,2,5,5"/>
+                        <ListBox x:Name="TemplateChoice" MaxHeight="270" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" SelectionChanged="TemplateChoiceChanged" MouseDoubleClick="TemplateChoiceDoubleClicked" AutomationProperties.Name="Matching library templates">
+                            <ListBox.ItemTemplate><DataTemplate><ui:DeckHeading Title="{Binding Deck.Name}" Subtitle="{Binding Summary}" Faction="{Binding Deck.Faction}" Leader="{Binding Deck.Leader}"/></DataTemplate></ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+                </Border>
+            </Popup>
+        </Grid>
+        <StackPanel Grid.Row="2">
+            <TextBox x:Name="DeckName" Text="My new deck" MaxLength="160" TextChanged="NameChanged" AutomationProperties.Name="Deck name" Margin="0,0,0,8"/>
+            <Grid Margin="0,0,0,9">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <StackPanel><TextBlock Text="Faction" Foreground="#AEB7C0" Margin="0,0,0,3"/><ComboBox x:Name="FactionChoice" SelectionChanged="HeaderChanged" AutomationProperties.Name="Builder faction"/></StackPanel>
+                <StackPanel Grid.Column="1" Margin="10,0,0,0"><TextBlock Text="Leader ability" Foreground="#AEB7C0" Margin="0,0,0,3"/><ComboBox x:Name="LeaderChoice" SelectionChanged="HeaderChanged" AutomationProperties.Name="Builder leader"/></StackPanel>
+                <StackPanel Grid.Column="2" Margin="10,0,0,0"><TextBlock Text="Stratagem" Foreground="#AEB7C0" Margin="0,0,0,3"/><ComboBox x:Name="StratagemChoice" SelectionChanged="HeaderChanged" AutomationProperties.Name="Builder stratagem"/></StackPanel>
+            </Grid>
+        </StackPanel>
+        </StackPanel></ScrollViewer></Expander>
+        <Grid x:Name="EditorColumns" Grid.Row="3">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="280"/></Grid.ColumnDefinitions>
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <TextBlock Text="FIND CARDS" FontSize="12" Foreground="#E5C77E" Margin="0,0,0,7"/>
+                <StackPanel Grid.Row="1">
+                    <Grid><TextBox x:Name="CardSearch" TextChanged="SearchChanged" AutomationProperties.Name="Search builder cards" ToolTip="Search name, category or ability text · Ctrl+F" Margin="0,0,0,6"/>
+                        <TextBlock Text="Name, category or ability…" Foreground="#AEB7C0" Margin="8,5" IsHitTestVisible="False" TextTrimming="CharacterEllipsis"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=CardSearch}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></Grid>
+                    <UniformGrid Columns="3" Margin="0,0,0,6">
+                        <ComboBox x:Name="CardKindFilter" ItemTemplate="{StaticResource PlainBuilderChoice}" SelectionChanged="CollectionFilterChanged" Margin="0,0,5,0" AutomationProperties.Name="Card type"/>
+                        <ComboBox x:Name="CardRarityFilter" ItemTemplate="{StaticResource PlainBuilderChoice}" SelectionChanged="CollectionFilterChanged" Margin="0,0,5,0" AutomationProperties.Name="Card color"/>
+                        <ComboBox x:Name="CardSortChoice" ItemTemplate="{StaticResource PlainBuilderChoice}" SelectionChanged="CollectionFilterChanged" AutomationProperties.Name="Card sort order"/>
+                    </UniformGrid>
+                    <ComboBox x:Name="CardUpdateFilter" ItemTemplate="{StaticResource PlainBuilderChoice}" SelectionChanged="CollectionFilterChanged" Margin="0,0,0,6" AutomationProperties.Name="Card balance changes" ToolTip="Changes since the previous catalogue."/>
+                    <WrapPanel Margin="0,0,0,4">
+                        <TextBlock Text="Provisions" Foreground="#AEB7C0" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBox x:Name="MinimumProvision" Width="40" TextChanged="SearchChanged" ToolTip="Minimum provisions; blank means no minimum" AutomationProperties.Name="Minimum card provisions"/>
+                        <TextBlock Text=" – " VerticalAlignment="Center"/><TextBox x:Name="MaximumProvision" Width="40" TextChanged="SearchChanged" ToolTip="Maximum provisions; blank means no maximum" AutomationProperties.Name="Maximum card provisions"/>
+                        <Button Content="≤9p" Click="NekkerFilterClicked" Padding="6,3" Margin="6,0,4,0" ToolTip="Collection filter only; does not change your deck constraints"/>
+                        <Button Content="Reset" Click="ResetCollectionClicked" Padding="6,3" Margin="0"/>
+                    </WrapPanel>
+                    <WrapPanel><CheckBox x:Name="AvailableCopiesOnly" Content="Available copies" Foreground="#EEF2F5" Checked="CollectionFilterChanged" Unchecked="CollectionFilterChanged" Margin="0,2,12,3" ToolTip="Hide identities fixed at the gold/bronze copy limit; AUTO copies can still be fixed."/>
+                        <CheckBox x:Name="FixedBudgetOnly" Content="Fits fixed budget" Foreground="#EEF2F5" Checked="CollectionFilterChanged" Unchecked="CollectionFilterChanged" Margin="0,2,0,3" ToolTip="Budget after your fixed cards; suggestions are replaceable. Not a full legality check."/></WrapPanel>
+                    <TextBlock x:Name="CollectionStatus" TextWrapping="Wrap" FontSize="10" Foreground="#AEB7C0" Margin="0,2,0,6"/>
+                    <DockPanel x:Name="RecommendationFocusPanel" Visibility="Collapsed" Margin="0,0,0,5">
+                        <Button DockPanel.Dock="Right" Content="×" Click="ClearRecommendationFocusClicked" Padding="5,0" Margin="4,0,0,0" AutomationProperties.Name="Use whole deck for recommendations"/>
+                        <TextBlock x:Name="RecommendationFocusText" Foreground="#E5C77E" FontSize="10" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                    </DockPanel>
+                </StackPanel>
+                <ui:DeckCardList x:Name="Collection" Grid.Row="2" RowActivated="CollectionActivated" RowInspected="CardInspected" RowHeight="45"/>
+                <StackPanel Grid.Row="3" Margin="0,6,0,0">
+                    <TextBlock x:Name="ObservedDraftNotice" Visibility="Collapsed" Text="Observed-list draft · Save draft preserves unfinished edits. Raw match records stay unchanged." Foreground="#E5C77E" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                    <CheckBox x:Name="ReviewLaterChoice" Visibility="Collapsed" Content="Needs more review later" Foreground="#E5C77E" Margin="0,0,0,4" Checked="ReviewLaterChanged" Unchecked="ReviewLaterChanged"/>
+                    <Border x:Name="BuilderExplanation" Visibility="Collapsed"><TextBlock x:Name="BuilderReason"/></Border>
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock x:Name="DraftStateText" Foreground="#E5C77E" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                        <Border Grid.Column="1" Width="1" Height="16" Background="#485767" Margin="10,0" VerticalAlignment="Center"/>
+                        <ScrollViewer Grid.Column="2" MaxHeight="42" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" VerticalAlignment="Center">
+                            <TextBlock x:Name="BuilderStatus" TextWrapping="Wrap" Foreground="#AEB7C0" FontSize="11"/>
+                        </ScrollViewer>
+                    </Grid>
+                </StackPanel>
+            </Grid>
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <StackPanel Margin="0,0,0,8">
+                    <TextBlock x:Name="CompositionStatus" FontSize="12" Foreground="#E5C77E" Text="YOUR DECK"/>
+                    <WrapPanel Margin="0,7,0,0">
+                        <CheckBox x:Name="AutoFill" Content="Auto-fill" Foreground="#EEF2F5" VerticalAlignment="Center" Margin="0,0,12,0" Checked="AutoFillChanged" Unchecked="AutoFillChanged" ToolTip="AUTO cards are replaceable; turn off to remove them."/>
+                        <Button x:Name="KeepAllButton" Content="Fix all" Click="KeepAllClicked" Padding="7,2" Margin="0" ToolTip="Keep every current suggestion as a FIXED card"/>
+                        <Button x:Name="RepairDeckButton" Content="Update deck…" Click="RepairDeckClicked" Padding="7,2" Margin="7,0,0,0" ToolTip="Preview current-patch substitutions."/>
+                        <Border Width="1" Height="20" Background="#485767" Margin="11,0,10,0" VerticalAlignment="Center"/>
+                        <Button x:Name="KeepButton" Content="Fix" Click="KeepClicked" Padding="7,2" Margin="0" IsEnabled="False" ToolTip="Keep the selected suggestion in your core"/>
+                        <Button x:Name="ReleaseButton" Content="Auto" Click="ReleaseClicked" Padding="7,2" Margin="6,0,0,0" IsEnabled="False" ToolTip="Release the selected fixed copy; auto-fill may replace it"/>
+                        <Button x:Name="RemoveButton" Content="Remove" Click="RemoveClicked" Padding="7,2" Margin="6,0,0,0" IsEnabled="False"/>
+                        <Button x:Name="RecommendationFocusButton" Content="Related" Click="RecommendationFocusClicked" Padding="7,2" Margin="6,0,0,0" IsEnabled="False" ToolTip="Rank cards related to the Ctrl/Shift-selected copies, without changing your deck"/>
+                        <Button x:Name="ClearExclusionsButton" Content="Clear exclusions" Click="ClearExcludedClicked" Padding="7,2" Margin="6,0,0,0" Visibility="Collapsed" ToolTip="Allow removed copies to be suggested again"/>
+                        <Button x:Name="CardDetailsButton" Content="Details" Click="CardDetailsClicked" Padding="7,2" Margin="6,0,0,0" ToolTip="Card text, deck statistics and template changes"/>
+                    </WrapPanel>
+                </StackPanel>
+                <ui:DeckCardList x:Name="DraftCards" Grid.Row="1" RowActivated="DraftActivated" RowInspected="CardInspected" RowHeight="42" AutomationProperties.HelpText="In opponent review, click AUTO to fix and click FIXED to remove. Elsewhere click removes; Ctrl/Shift selects copies."/>
+            </Grid>
+            <Border x:Name="EditorInspector" Grid.Column="4" Background="#172324" BorderBrush="#4A5B51" BorderThickness="1" Padding="12">
+                <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel>
+                    <TextBlock x:Name="InspectedCardName" Text="Hover a card to inspect" Foreground="#E5C77E" FontFamily="Georgia" FontSize="16" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="InspectedCardMeta" Foreground="#AEC7BC" TextWrapping="Wrap" Margin="0,5,0,8"/>
+                    <Image x:Name="InspectedCardArt" Height="145" Stretch="Uniform" Margin="0,0,0,8"/>
+                    <TextBlock x:Name="InspectedCardAbility" TextWrapping="Wrap" FontSize="12"/>
+                    <Border Height="1" Background="#506052" Margin="0,14"/>
+                    <TextBlock Text="DECK STATS" FontFamily="Georgia" Foreground="#E5C77E" Margin="0,0,0,7"/>
+                    <TextBlock x:Name="DraftStatistics" TextWrapping="Wrap" FontSize="12"/>
+                    <TextBlock x:Name="TemplateDifference" TextWrapping="Wrap" Foreground="#AEC7BC" FontSize="11" Margin="0,10,0,0"/>
+                </StackPanel></ScrollViewer>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

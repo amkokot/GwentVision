@@ -1,0 +1,8 @@
+{
+  "Recipe": "HudDigitReader.Train: small slanted pile-counter font, 16x24 masks; source fixtures in MatchDefectTests.DeckGlyphFixtures",
+  "SourceSession": "20260831-102406",
+  "VerifiedLabels": ["14", "12", "0", "15", "6", "18", "8", "13"],
+  "EmittingDigits": "01234568",
+  "AdditionalCalibration": { "Session": "20260831-122341", "Frame": "frame-000601-122441084.jpg", "RectanglePixels": [1098,592,1125,615], "Label": "13", "Note": "Manually inspected intermediate deck counter. Added glyph shapes only; adjacent frames used for development checks, not an independent-match accuracy claim." },
+  "Scope": "Additional shape references, not a count-specific rule. Existing literal OCR remains the fallback; uncalibrated or ambiguous shapes must be withheld. These crops are training data; separate frame/sequence checks exercise generalization. No current score, card cost, source name or expected deck decrement selects a glyph."
+}

@@ -1,0 +1,109 @@
+name: Bug report
+description: Tell us about something that did not work as expected.
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Gwent Vision. A short report is useful even if you do not know how to fix the problem.
+
+        Do not include player names, profile identifiers, private deck information, local file paths, or raw recordings. If you attach an image, mask every identifying detail first. Report suspected security problems privately as described in SECURITY.md.
+
+  - type: checkboxes
+    id: existing-issue
+    attributes:
+      label: Existing reports
+      options:
+        - label: I searched the open issues and did not find the same problem.
+          required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of Gwent Vision was affected?
+      options:
+        - Card or screen detection
+        - Opponent deck hypothesis
+        - Candidate cards
+        - Snapshots or diagnostic recording
+        - Deck library
+        - Installation or startup
+        - Performance
+        - Interface or accessibility
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Gwent Vision version
+      description: This appears in the release name, for example v0.2.64.
+      placeholder: v0.2.64
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Windows and display setup
+      description: If relevant, include your Windows version, display resolution, scaling, and window mode.
+      placeholder: Windows 11, 2560x1440, 125% scaling, borderless
+
+  - type: textarea
+    id: observed
+    attributes:
+      label: What happened?
+      description: Describe what Gwent Vision displayed or did.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      description: Describe the result you thought was correct.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How can it be reproduced?
+      description: List the shortest sequence that causes the problem. It is fine if the problem is intermittent.
+      placeholder: |
+        1. Open ...
+        2. Select ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often does it happen?
+      options:
+        - Every time
+        - Often
+        - Sometimes
+        - Once
+        - Unsure
+    validations:
+      required: true
+
+  - type: textarea
+    id: sanitized-evidence
+    attributes:
+      label: Optional anonymized evidence
+      description: You may drag in a cropped or masked screenshot. Do not upload raw gameplay recordings or anything containing a name, profile identifier, notification, local path, or private deck information.
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I have removed identifying and private information from everything attached to this report.
+          required: true

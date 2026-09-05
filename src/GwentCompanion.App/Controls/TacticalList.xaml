@@ -1,0 +1,34 @@
+<UserControl x:Class="GwentCompanion.App.Controls.TacticalList"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+ <Grid x:Name="Layout" Margin="5,7" SizeChanged="Layout_OnSizeChanged">
+  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*" MinHeight="70"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+  <StackPanel x:Name="ListHeader"><TextBlock x:Name="Legend" FontSize="10" TextWrapping="Wrap" Foreground="#AEB7C0"/>
+  <Button x:Name="RestoreHidden" Click="RestoreHidden_OnClick" Content="Restore hidden" Visibility="Collapsed" HorizontalAlignment="Right" FontSize="10" Padding="5,2"
+    AutomationProperties.Name="Restore hidden tactical cards"/></StackPanel>
+  <Grid x:Name="SearchPanel" Grid.Row="1" Margin="0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition x:Name="CategoryColumn" Width="110"/></Grid.ColumnDefinitions>
+  <TextBox x:Name="Search" Padding="5,3" Background="#11151A" Foreground="#E8EDF2" BorderBrush="#39434E" TextChanged="Search_OnChanged" AutomationProperties.Name="Search tactical cards"/>
+  <ComboBox x:Name="KindFilter" Grid.Column="1" Margin="5,0,0,0" Foreground="#E8E0CC" SelectedIndex="0" SelectionChanged="KindFilter_OnChanged" AutomationProperties.Name="Play category">
+   <ComboBoxItem AutomationProperties.Name="All plays"><TextBlock Text="All plays" Foreground="#E8E0CC"/></ComboBoxItem>
+   <ComboBoxItem AutomationProperties.Name="Summons"><TextBlock Text="Summons" Foreground="#E8E0CC"/></ComboBoxItem>
+   <ComboBoxItem AutomationProperties.Name="Bonuses"><TextBlock Text="Bonuses" Foreground="#E8E0CC"/></ComboBoxItem>
+  </ComboBox></Grid>
+  <ListBox x:Name="Cards" Grid.Row="2" Background="#11151A" BorderBrush="#39434E" HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled" SelectionChanged="Cards_OnChanged">
+   <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="AutomationProperties.Name" Value="{Binding Name}"/></Style></ListBox.ItemContainerStyle>
+   <ListBox.ItemTemplate><DataTemplate><StackPanel Margin="3">
+    <DockPanel><Button DockPanel.Dock="Right" Content="×" Click="Dismiss_OnClick" Padding="3,0" Margin="5,0,0,0" FontSize="12"
+      AutomationProperties.Name="{Binding Name, StringFormat=Hide {0}}"/>
+    <TextBlock Text="{Binding Name}" Foreground="{Binding Color}" FontWeight="SemiBold" FontSize="11" TextWrapping="Wrap"/></DockPanel>
+    <TextBlock Text="{Binding Status}" Foreground="{Binding Color}" FontSize="10"/>
+    <TextBlock Text="{Binding Promotion}" Foreground="#AEB7C0" FontSize="9" TextTrimming="CharacterEllipsis"/>
+   </StackPanel></DataTemplate></ListBox.ItemTemplate>
+  </ListBox>
+  <ScrollViewer x:Name="DetailPanel" Grid.Row="3" MaxHeight="250" Visibility="Collapsed" Margin="0,7,0,0" VerticalScrollBarVisibility="Auto">
+   <StackPanel>
+    <TextBlock x:Name="Detail" FontSize="11" TextWrapping="Wrap" Text="Select a card for its trigger and evidence."/>
+    <WrapPanel x:Name="Actions" Margin="0,6,0,0"/>
+    <TextBlock x:Name="ActionHelp" FontSize="10" TextWrapping="Wrap" Foreground="#AEB7C0"/>
+   </StackPanel>
+  </ScrollViewer>
+ </Grid>
+</UserControl>

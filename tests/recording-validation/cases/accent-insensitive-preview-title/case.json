@@ -1,0 +1,43 @@
+{
+  "SchemaVersion": 1,
+  "Id": "accent-insensitive-preview-title",
+  "Summary": "Matches a visible ASCII OCR title to its accented catalog spelling across repeated opponent preview frames.",
+  "AddedIn": "0.2.64",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.jpg",
+      "Bytes": 341936,
+      "Sha256": "A0E55B26AEA744E4EB4DEC69B508479C71587DB2A3843DE0B3A13DBD728A3377",
+      "Tags": [
+        "regression",
+        "accent-insensitive-preview-title"
+      ]
+    },
+    {
+      "File": "evidence-02.jpg",
+      "Bytes": 341701,
+      "Sha256": "E74C09EB26BBBFCBE77E40A2025D22E21537BCE3309C82DF7C78D392D3FFA1EA",
+      "Tags": [
+        "regression",
+        "accent-insensitive-preview-title"
+      ]
+    },
+    {
+      "File": "evidence-03.jpg",
+      "Bytes": 341361,
+      "Sha256": "0263DAEB7326618AF0CBD709852A2E8BAB9E006F0F321629961688A4EE2702BC",
+      "Tags": [
+        "regression",
+        "accent-insensitive-preview-title"
+      ]
+    }
+  ]
+}

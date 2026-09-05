@@ -1,0 +1,77 @@
+name: Feature request
+description: Suggest an improvement or a new direction for Gwent Vision.
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing an idea. You do not need to know how to build it or volunteer to implement it.
+
+  - type: checkboxes
+    id: existing-request
+    attributes:
+      label: Existing requests
+      options:
+        - label: I searched the open issues and did not find the same suggestion.
+          required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Detection accuracy
+        - Language or localization
+        - Opponent deck hypothesis
+        - Candidate cards
+        - Snapshots or diagnostic recording
+        - Deck library
+        - Performance
+        - Installation or updates
+        - Interface or accessibility
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: need
+    attributes:
+      label: What would you like to improve?
+      description: Describe the problem, limitation, or opportunity in ordinary terms.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Suggested behavior
+      description: What would a useful result look like? A rough idea is enough.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or examples
+      description: Optional examples, related tools, or workarounds that help explain the idea.
+
+  - type: textarea
+    id: performance
+    attributes:
+      label: In-game performance considerations
+      description: If relevant, note whether this could run only on demand, outside matches, or less frequently.
+
+  - type: dropdown
+    id: participation
+    attributes:
+      label: How would you like to participate?
+      options:
+        - I only want to share the idea
+        - I could answer follow-up questions
+        - I could help test it
+        - I may be able to help implement it
+    validations:
+      required: true

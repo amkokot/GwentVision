@@ -1,0 +1,43 @@
+<UserControl x:Class="GwentCompanion.App.Controls.DeckSearchBar"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+ <UserControl.Resources>
+  <DataTemplate x:Key="Choice"><TextBlock Text="{Binding}" Foreground="#E8E0CC"/></DataTemplate>
+  <Style TargetType="CheckBox"><Setter Property="Foreground" Value="#E8EDF2"/><Setter Property="Margin" Value="0,4"/></Style>
+ </UserControl.Resources>
+ <StackPanel>
+  <DockPanel><ToggleButton x:Name="MoreButton" DockPanel.Dock="Right" Content="Filters ▾" Padding="7,4" Margin="5,0,0,0" Foreground="#E8EDF2" Background="#26302F"/>
+   <Grid><TextBox x:Name="QueryBox" Padding="6,5" Foreground="#E8EDF2" Background="#11151A" BorderBrush="#39434E" TextChanged="Query_OnChanged" AutomationProperties.Name="Search decks, leaders or card names"/>
+    <TextBlock Text="Search decks, leaders or card names…" Foreground="#AEB7C0" Margin="7,5" IsHitTestVisible="False" TextTrimming="CharacterEllipsis"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=QueryBox}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></Grid>
+  </DockPanel>
+  <Grid Margin="0,5,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+   <ComboBox x:Name="FactionBox" Foreground="#E8E0CC" ItemTemplate="{StaticResource Choice}" Margin="0,0,5,0" SelectionChanged="Faction_OnChanged"/>
+   <ComboBox x:Name="LeaderBox" Grid.Column="1" Foreground="#E8E0CC" ItemTemplate="{StaticResource Choice}" MaxDropDownHeight="250" SelectionChanged="Leader_OnChanged"/>
+   <Button x:Name="ResetButton" Grid.Column="2" Content="↺" Margin="5,0,0,0" Padding="5,1" Click="Reset_OnClick" ToolTip="Reset filters" AutomationProperties.Name="Reset deck filters"/>
+  </Grid>
+  <TextBlock x:Name="ActiveText" FontSize="9" Foreground="#C9B77F" TextWrapping="Wrap" Margin="0,3,0,0" Visibility="Collapsed"/>
+  <Popup x:Name="FilterPopup" PlacementTarget="{Binding ElementName=MoreButton}" Placement="Bottom" IsOpen="{Binding IsChecked, ElementName=MoreButton, Mode=TwoWay}" StaysOpen="False" AllowsTransparency="True">
+   <Border Background="#202831" BorderBrush="#817145" BorderThickness="1" Padding="12" Width="282">
+    <ScrollViewer MaxHeight="430" VerticalScrollBarVisibility="Auto"><StackPanel>
+     <TextBlock Text="Requirements" Foreground="#E5C77E" FontSize="12"/>
+     <CheckBox x:Name="DevotionBox" Content="Devotion" Checked="Filter_OnChanged" Unchecked="Filter_OnChanged"/>
+     <CheckBox x:Name="SingletonBox" Content="Singleton (Shupe / Radeyah)" Checked="Filter_OnChanged" Unchecked="Filter_OnChanged"/>
+     <CheckBox x:Name="RenfriBox" Content="Renfri" Checked="Filter_OnChanged" Unchecked="Filter_OnChanged"/>
+     <CheckBox x:Name="NekkerBox" Content="Golden Nekker / Nova" Checked="Filter_OnChanged" Unchecked="Filter_OnChanged"/>
+     <CheckBox x:Name="MusiciansBox" Content="Musicians" Checked="Filter_OnChanged" Unchecked="Filter_OnChanged"/>
+     <TextBlock Text="Patch" Foreground="#E8EDF2" Margin="0,8,0,3" ToolTip="Patch labels prefixed with ~ are inferred"/>
+     <ComboBox x:Name="PatchBox" Foreground="#E8E0CC" ItemTemplate="{StaticResource Choice}" MaxDropDownHeight="220" SelectionChanged="Extra_OnChanged"/>
+     <TextBlock Text="Lists" Foreground="#E8EDF2" Margin="0,8,0,3"/>
+     <ComboBox x:Name="CompletenessBox" Foreground="#E8E0CC" ItemTemplate="{StaticResource Choice}" SelectionChanged="Extra_OnChanged"/>
+     <CheckBox x:Name="UnknownBox" Content="Include unknown category / patch" Checked="Filter_OnChanged" Unchecked="Filter_OnChanged"/>
+     <TextBlock Text="Contains cards" Foreground="#E8EDF2" Margin="0,8,0,3" FontSize="10"/>
+     <TextBox x:Name="CardNamesBox" Foreground="#E8EDF2" Background="#11151A" Padding="5,4" TextChanged="ExtraText_OnChanged" ToolTip="Separate names with commas. Optional copy count: 2x An Craite Raider" AutomationProperties.Name="Contains all cards"/>
+     <TextBlock Text="Excludes cards" Foreground="#E8EDF2" Margin="0,8,0,3" FontSize="10"/>
+     <TextBox x:Name="ExcludedCardsBox" Foreground="#E8EDF2" Background="#11151A" Padding="5,4" TextChanged="ExtraText_OnChanged" AutomationProperties.Name="Exclude cards" ToolTip="Separate names with commas. Only complete cached lists can prove a card is absent."/>
+     <TextBlock x:Name="SortLabel" Text="Result order" Foreground="#E8EDF2" Margin="0,8,0,3"/>
+     <ComboBox x:Name="SortBox" ItemTemplate="{StaticResource Choice}" SelectionChanged="Extra_OnChanged" AutomationProperties.Name="Library result order"/>
+     <Button Content="Clear extra filters" Click="ClearExtra_OnClick" Margin="0,10,0,0"/>
+    </StackPanel></ScrollViewer>
+   </Border>
+  </Popup>
+ </StackPanel>
+</UserControl>

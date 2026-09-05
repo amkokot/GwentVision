@@ -1,0 +1,9 @@
+{
+  "source": "deck-scans/20260827-140327-db4212/page-001.jpg",
+  "rectangle": { "x": 322, "y": 566, "width": 16, "height": 19 },
+  "sourceClientWidth": 1706,
+  "sourceClientHeight": 961,
+  "label": "Manually verified static x2 UI glyph beside Griffin; no card artwork",
+  "heldOutCheck": "page-011.jpg, other bronze badges and unmarked single-copy rows, plus synthetic 0.75x/1.5x image resizes",
+  "limitation": "Calibrated to this deck-builder UI layout. Not a general card-art or arbitrary digit recognizer."
+}

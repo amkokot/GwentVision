@@ -1,0 +1,33 @@
+name: Validation
+
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  recording-corpus:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          lfs: true
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 8.0.x
+      - name: Restore
+        run: dotnet restore GwentCompanion.sln
+      - name: Build
+        run: dotnet build GwentCompanion.sln -c Release --no-restore
+      - name: Validate public release contents
+        shell: pwsh
+        run: ./tools/Test-PublicRelease.ps1 -RepositoryRoot .
+      - name: Run anonymized recording regression
+        run: dotnet run --project tests/GwentCompanion.Tests/GwentCompanion.Tests.csproj -c Release --no-build -- --recording-validation-regression
+      - name: Run extensible feature and layout validation
+        run: dotnet run --project tests/GwentCompanion.Tests/GwentCompanion.Tests.csproj -c Release --no-build -- --contributor-validation-regression

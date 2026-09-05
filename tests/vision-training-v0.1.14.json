@@ -1,0 +1,30 @@
+[
+  {
+    "CardId": "202474",
+    "Name": "Miner",
+    "Source": "20260827-184848/frame-000660-184954205.jpg",
+    "PixelRectangle": [602, 97, 77, 96],
+    "LabelSource": "Verified dark board pose after Miner's preview. Added after testing the initial three references; held-out frames remain unchanged. Same-match development evaluation, not independent-match validation."
+  },
+  {
+    "CardId": "202474",
+    "Name": "Miner",
+    "Source": "20260827-184848/frame-000590-184947189.jpg",
+    "PixelRectangle": [1045, 101, 120, 183],
+    "LabelSource": "Manually verified MINER title beside the enlarged play preview; only the portrait crop is stored. Exclude this frame from held-out checks."
+  },
+  {
+    "CardId": "202474",
+    "Name": "Miner",
+    "Source": "20260827-184848/frame-001618-185129996.jpg",
+    "PixelRectangle": [519, 113, 77, 99],
+    "LabelSource": "Manually compared the visible opponent card to the catalog portrait. Later frame than the original missed frame; only the card crop enters the reference bank."
+  },
+  {
+    "CardId": "200535",
+    "Name": "Elven Swordmaster",
+    "Source": "20260827-184848/frame-004810-185649188.jpg",
+    "PixelRectangle": [644, 224, 78, 108],
+    "LabelSource": "Manually compared the visible opponent card to the catalog portrait. Created after Bountiful Harvest; appearance training does not label starting-deck membership."
+  }
+]

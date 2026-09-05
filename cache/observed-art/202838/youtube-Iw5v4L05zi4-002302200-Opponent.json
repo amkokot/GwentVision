@@ -1,0 +1,15 @@
+{
+  "VideoId": "Iw5v4L05zi4",
+  "CardId": "202838",
+  "CardName": "Chimera",
+  "Seconds": 1382.2,
+  "Frame": "002302200-Opponent\\during.jpg",
+  "Evidence": "27 spatially consistent SIFT features",
+  "Region": {
+    "Left": 0.8,
+    "Top": 0.134,
+    "Right": 0.916,
+    "Bottom": 0.399
+  },
+  "LabelSource": "Independent exact-title evidence authenticated this high-confidence SIFT play-preview crop in the same video."
+}

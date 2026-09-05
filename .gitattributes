@@ -1,0 +1,7 @@
+sessions/**/*.jpg filter=lfs diff=lfs merge=lfs -text
+sessions/**/*.png filter=lfs diff=lfs merge=lfs -text
+tests/recording-validation/cases/**/*.jpg filter=lfs diff=lfs merge=lfs -text
+tests/recording-validation/cases/**/*.png filter=lfs diff=lfs merge=lfs -text
+cache/portraits/**/*.jpg filter=lfs diff=lfs merge=lfs -text
+cache/premium-frames/**/*.jpg filter=lfs diff=lfs merge=lfs -text
+cache/observed-art/**/*.jpg filter=lfs diff=lfs merge=lfs -text

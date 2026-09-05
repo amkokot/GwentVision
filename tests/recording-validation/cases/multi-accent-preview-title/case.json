@@ -1,0 +1,34 @@
+{
+  "SchemaVersion": 1,
+  "Id": "multi-accent-preview-title",
+  "Summary": "Matches a repeated preview title when OCR drops both accents from the catalog spelling.",
+  "AddedIn": "0.2.64",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.jpg",
+      "Bytes": 330315,
+      "Sha256": "3A26B3577EBA79881E450D1DB62467DB2229EC1A7D1736C26D0EABA2B78FF5B9",
+      "Tags": [
+        "regression",
+        "multi-accent-preview-title"
+      ]
+    },
+    {
+      "File": "evidence-02.jpg",
+      "Bytes": 330173,
+      "Sha256": "16FB19F9DB59622EEF8108E5445F3F69CDCF0F5CC5FD10F715FFE9862117CB3B",
+      "Tags": [
+        "regression",
+        "multi-accent-preview-title"
+      ]
+    }
+  ]
+}

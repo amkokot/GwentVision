@@ -1,0 +1,67 @@
+<Window x:Class="GwentCompanion.App.DeckExportWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        Title="Gwent Vision · Export deck" Width="1120" Height="800" MinWidth="790" MinHeight="590"
+        WindowStartupLocation="CenterOwner" Background="#101419">
+    <Window.Resources>
+        <Style TargetType="TextBox"><Setter Property="Background" Value="#111820"/><Setter Property="Foreground" Value="#EEF2F5"/><Setter Property="BorderBrush" Value="#485767"/><Setter Property="Padding" Value="7,5"/><Setter Property="Margin" Value="0,4,0,10"/></Style>
+        <Style x:Key="Notes" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}"><Setter Property="AcceptsReturn" Value="True"/><Setter Property="TextWrapping" Value="Wrap"/><Setter Property="VerticalScrollBarVisibility" Value="Auto"/><Setter Property="Height" Value="85"/><Setter Property="MaxLength" Value="4000"/></Style>
+    </Window.Resources>
+    <Grid Margin="14">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <StackPanel Margin="0,0,0,12">
+            <TextBlock Text="EXPORT TO PLAYGWENT" FontFamily="Georgia" FontSize="21" Foreground="#E5C77E"/>
+            <TextBlock x:Name="DeckSummary" TextWrapping="Wrap" Foreground="#AEB7C0" Margin="0,5,0,0"/>
+        </StackPanel>
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="335"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="0,0,8,0">
+                    <StackPanel x:Name="ExportDetailsPanel">
+                    <TextBlock Text="Deck name"/><TextBox x:Name="WebsiteName" MaxLength="50" AutomationProperties.Name="Website deck name" ToolTip="Website limit: 50 characters"/>
+                    <CheckBox x:Name="IncludeGuide" Content="Include guide draft" Foreground="#E5C77E" Margin="0,2,0,12"/>
+                    <Expander Header="Guide details" IsExpanded="False">
+                        <StackPanel Margin="0,10,0,0">
+                            <TextBlock Text="Guide title"/><TextBox x:Name="GuideTitle" MaxLength="50" AutomationProperties.Name="Guide title" ToolTip="Optional; defaults to the deck name"/>
+                            <TextBlock Text="Overview"/><TextBox x:Name="Overview" Style="{StaticResource Notes}" AutomationProperties.Name="Deck overview"/>
+                            <TextBlock Text="Game plan / combos"/><TextBox x:Name="GamePlan" Style="{StaticResource Notes}" AutomationProperties.Name="Deck game plan"/>
+                            <TextBlock Text="Mulligans"/><TextBox x:Name="Mulligans" Style="{StaticResource Notes}" AutomationProperties.Name="Deck mulligans"/>
+                            <TextBlock Text="Matchups / other notes"/><TextBox x:Name="Matchups" Style="{StaticResource Notes}" AutomationProperties.Name="Deck matchups"/>
+                        </StackPanel>
+                    </Expander>
+                    </StackPanel>
+                    <Button x:Name="SaveDetailsButton" Content="Save details locally" Click="SaveDetailsClicked" Margin="0,12,0,8"/>
+                    <Button x:Name="CreateButton" Content="Export entire deck" Click="CreateClicked" BorderBrush="#C49B46" Foreground="#E5C77E" Margin="0,0,0,8" IsEnabled="False"/>
+                    <Button x:Name="CancelQueuedButton" Content="Cancel queued export" Click="CancelQueuedClicked" Margin="0,0,0,8" Visibility="Collapsed"/>
+                    <Button x:Name="GuideButton" Content="Save guide draft" Click="GuideClicked" Margin="0,0,0,8" IsEnabled="False"/>
+                    <Button x:Name="ImportButton" Content="2 · Import deck into GWENT" Click="ImportClicked" Margin="0,0,0,8" IsEnabled="False"/>
+                    <Button x:Name="RetryButton" Content="I checked the website · allow retry" Click="RetryClicked" Visibility="Collapsed" Margin="0,0,0,8"/>
+                    <TextBox x:Name="DeckLink" IsReadOnly="True" TextWrapping="Wrap" AutomationProperties.Name="New PlayGWENT deck link"/>
+                    <Button x:Name="CopyLinkButton" Content="Copy deck link" Click="CopyLinkClicked" IsEnabled="False" Margin="0"/>
+                </StackPanel>
+            </ScrollViewer>
+            <Grid Grid.Column="2"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <DockPanel Margin="0,0,0,8"><Button Content="Sign in / website library" Click="LibraryClicked" Margin="0,0,8,0" Padding="7,5"/>
+                    <TextBlock x:Name="BrowserAddress" Text="Official PlayGWENT / GOG sign-in" Foreground="#AEB7C0" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/></DockPanel>
+                <Border Grid.Row="1" BorderBrush="#485767" BorderThickness="1"><wv:WebView2 x:Name="Website"/></Border>
+                <Border x:Name="ExportPreviewPanel" Grid.RowSpan="2" Background="#171D22" BorderBrush="#485767" BorderThickness="1" Padding="14">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="READY TO TRANSFER" FontFamily="Georgia" Foreground="#E5C77E" FontSize="18" Margin="0,0,0,8"/>
+                        <TextBlock DockPanel.Dock="Top" x:Name="TransferSummary" TextWrapping="Wrap" Foreground="#AEC7BC" Margin="0,0,0,12"/>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto"><ItemsControl x:Name="TransferCards"><ItemsControl.ItemTemplate><DataTemplate>
+                            <Grid Margin="0,0,0,3" Background="#10171C"><Grid.ColumnDefinitions><ColumnDefinition Width="35"/><ColumnDefinition Width="*"/><ColumnDefinition Width="36"/></Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding Count, StringFormat=×{0}}" Foreground="#E5C77E" Margin="8,6"/>
+                                <TextBlock Grid.Column="1" Text="{Binding Card.Name}" TextWrapping="Wrap" Margin="0,6"/>
+                                <TextBlock Grid.Column="2" Text="{Binding Card.Provision, StringFormat={}{0}p}" Foreground="#AEB7C0" Margin="0,6"/>
+                            </Grid>
+                        </DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </Grid>
+        <ScrollViewer Grid.Row="2" MaxHeight="92" VerticalScrollBarVisibility="Auto" Margin="0,12,0,0">
+            <TextBlock x:Name="ExportStatus" Text="Preparing the automatic transfer…" Foreground="#E5C77E" TextWrapping="Wrap"/>
+        </ScrollViewer>
+    </Grid>
+</Window>

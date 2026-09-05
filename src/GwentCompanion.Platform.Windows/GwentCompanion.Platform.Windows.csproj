@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\GwentCompanion.Core\GwentCompanion.Core.csproj" />
+    <PackageReference Include="OpenCvSharp4.Windows" Version="4.13.0.20260627" />
+    <Content Include="..\..\assets\vision\graveyard-header.png" Link="vision-assets\graveyard-header.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\assets\vision\score-digits.json" Link="vision-assets\score-digits.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\assets\vision\rank-digits.json" Link="vision-assets\rank-digits.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\assets\vision\coin-digits.json" Link="vision-assets\coin-digits.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\assets\vision\deck-counter-digits.json" Link="vision-assets\deck-counter-digits.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\assets\vision\deck-counter-small-digits.json" Link="vision-assets\deck-counter-small-digits.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\assets\vision\board-power-digits.json" Link="vision-assets\board-power-digits.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\assets\vision\deck-builder-copies-x2.png" Link="vision-assets\deck-builder-copies-x2.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\assets\vision\leaders\*.jpg" Link="vision-assets\leaders\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <PlatformTarget>x64</PlatformTarget>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+</Project>

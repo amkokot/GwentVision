@@ -1,0 +1,14 @@
+[
+  { "CardId": "203101", "Source": "20260826-225210/frame-008743-230653981.jpg", "PixelRectangle": [286,167,64,84], "LabelSource": "Reviewed Cyrus artwork against catalog portrait; separate frame and board lighting from evaluation" },
+  { "CardId": "201701", "Source": "20260827-081435/frame-000940-081609033.jpg", "PixelRectangle": [602,98,75,94], "LabelSource": "Reviewed Barbegazi artwork; separate resting animation phase without hover from evaluation" },
+  { "CardId": "201701", "Source": "20260827-081435/frame-001400-081655032.jpg", "PixelRectangle": [445,98,75,94], "LabelSource": "Reviewed Barbegazi artwork; different row position and animation phase from evaluation" },
+  { "CardId": "201700", "Source": "20260827-081435/frame-001400-081655032.jpg", "PixelRectangle": [758,98,77,94], "LabelSource": "Reviewed Bridge Troll lantern and log artwork against catalog; not Foglet" },
+  { "CardId": "202436", "Source": "20260827-081435/frame-004901-082245138.jpg", "PixelRectangle": [603,98,74,94], "LabelSource": "Reviewed Cave Troll artwork against catalog; separate animation phase from evaluation" },
+  { "CardId": "132304", "Source": "20260827-081435/frame-002500-081845040.jpg", "PixelRectangle": [602,113,77,98], "LabelSource": "Reviewed Drone artwork; adjacent copy has explicit Drone tooltip; unhovered copy cropped" },
+  { "CardId": "202474", "Source": "20260827-184848/frame-002001-185208287.jpg", "PixelRectangle": [479,114,77,97], "LabelSource": "Reviewed Miner artwork against catalog and earlier verified references; separate frame from evaluation" },
+  { "CardId": "202474", "Source": "20260827-184848/frame-002401-185248296.jpg", "PixelRectangle": [474,113,82,99], "LabelSource": "Reviewed Miner alternate animation pose, complete projected card bounds; held-out frames use other poses and positions" },
+  { "CardId": "201700", "Source": "20260827-081435/frame-001901-081745123.jpg", "PixelRectangle": [722,113,85,98], "LabelSource": "Reviewed Bridge Troll lantern and log artwork; four-card row, after withheld targeting and shifted-row samples" },
+  { "CardId": "202436", "Source": "20260827-081435/frame-004717-082226738.jpg", "PixelRectangle": [1046,101,119,181], "LabelSource": "Exact Cave Troll preview tooltip; separate large preview and animation phase, not a tested board frame" },
+  { "CardId": "202436", "Source": "20260827-081435/frame-004941-082249137.jpg", "PixelRectangle": [600,113,80,99], "LabelSource": "Reviewed unobscured Cave Troll board animation; six seconds before original test and sixteen before shifted-row test. Same development recording, not independent-game validation" },
+  { "CardId": "201700", "Source": "20260827-081435/frame-001651-081720130.jpg", "PixelRectangle": [757,97,82,97], "LabelSource": "Reviewed Bridge Troll with full projected bounds and alternate lantern phase; five seconds after targeting test and fifteen before shifted-row test. Same development recording" }
+]

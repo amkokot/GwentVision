@@ -1,0 +1,14 @@
+[
+  {
+    "Digit": "8",
+    "Aspect": 0.4444444444444444,
+    "Mask": "AAAAAP//////////AAAAAAAAAAD//////////wAAAABVVVVV/////6qqqqpVVVVV//////////8AAAAA////////////////AAAAAP//////////VVVVVQAAAAD//////////wAAAAAAAAAA//////////8AAAAAAAAAAP//////////AAAAAAAAAAD//////////wAAAAAAAAAA//////////9VVVVVVVVVVf////////////////////////////////////////////////////9VVVVVVVVVVf//////////AAAAAAAAAAD//////////wAAAAAAAAAA//////////8AAAAAAAAAAP//////////AAAAAAAAAAD//////////1VVVVUAAAAA////////////////AAAAAP///////////////wAAAAD///////////////\u002Bqqqqq////////////////////////////////////////////////",
+    "Emit": true
+  },
+  {
+    "Digit": "7",
+    "Aspect": 0.375,
+    "Mask": "AAAAAAAAAAAAAFX//////wAAAAAAAAAAAABV//////8AAAAAAAAAAAAAVf//////AAAAAAAAAAAAAFX//////wAAAAAAAAAAAABV//////8AAAAAAAAAAAAAVf//////AAAAAACq/////////////wAAAAAAqv////////////8AAAAAAKr/////////////AAAAAACq/////6oAAAAAAAAAAAAAqv////\u002BqAAAAAAAAAAAAAKr/////qgAAAAAAAAAAAACq/////6oAAAAAAAAAAAAAqv////\u002BqAAAAAAAAAAAAAKr/////qgAAAAAA/////////////6oAAAAAAP////////////\u002BqAAAAAAD/////////////qgAAAAAA//////9VAAAAAAAAAAAAAP//////VQAAAAAAAAAAAAD//////1UAAAAAAAAAAAAA//////9VAAAAAAAAAAAAAP//////VQAAAAAAAAAAAAD//////1UAAAAAAAAAAAAA",
+    "Emit": true
+  }
+]
