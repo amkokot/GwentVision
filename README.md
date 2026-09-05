@@ -1,42 +1,40 @@
 # Gwent Vision
 
-Gwent Vision is a free, open-source Windows companion for *GWENT: The Witcher Card Game*. It runs alongside GWENT, uses computer vision to record cards played by an opponent, and turns those observations into a possible deck composition. It also includes snapshots, optional recording, and an extended deck library.
+Gwent Vision is a free, open-source Windows companion for *GWENT: The Witcher Card Game*. It runs alongside Gwent, uses computer vision to record cards played by an opponent, and turns those observations into a possible deck composition. It also includes snapshots, optional recording, and an extended deck library.
 
 This is an unofficial, not-for-profit fan project made for the community. It is not a bot and provides no means to automate the game.
 
 [Download the latest Windows release](../../releases/latest) · [Open the complete interface tour](docs/SCREENSHOTS.md) · [Report a bug](../../issues/new?template=bug_report.yml) · [Request a feature](../../issues/new?template=feature_request.yml)
 
-## Interface tour
+## Interface
 
-The easiest way to understand Gwent Vision is to see how its tools fit together. In full-screen mode, the main in-game display contains the opponent's hypothesized deck, other highly correlated candidate cards, and a snapshot utility for keeping tabs on useful information.
+In full-screen mode, the main in-game display contains the opponent's hypothesized deck, other highly correlated candidate cards, and a snapshot utility for keeping tabs on useful information.
 
 ![Gwent Vision showing the hypothesized opponent deck, candidate cards, and a selected snapshot](docs/images/live-analysis-with-snapshot.png)
 
 *Full-screen Live view: hypothesized opponent deck on the left, candidate cards in the center, and pinned snapshots on the right.*
 
-The same tools can be displayed as a single column alongside a windowed GWENT game for users without a second monitor. The original combined analysis layout remains available as an opt-in experimental view in Settings.
+The same tools can be displayed as a single column alongside a windowed GWENT game for users without a second monitor.
 
 ## Features
 
 ### Extended Library
 
-Outside of games, the Library is one of the most useful parts of Gwent Vision. There is no limit on the number of decks you can store, and they can be searched, filtered, grouped into related variants, and compared with ease.
+Outside of games, the Library is one of the most useful parts of Gwent Vision. There is no limit on the number of decks you can store, and they can be easily searched and filtered.
 
 ![The Gwent Vision deck library](docs/images/deck-library.png)
 
-Deck information can be pulled from individual PlayGWENT links or spreadsheets of links and cached directly in the Library. If you are working from the in-game deck builder, a screen scan can move that deck into Gwent Vision.
-
-A deck stored in Gwent Vision can also be prepared as a PlayGWENT link on the user's account and then imported into GWENT. This makes it possible to handle deck building outside the game and leaves room for community-driven quality-of-life improvements.
+Deck information can be pulled from individual PlayGWENT links or spreadsheets of links and cached directly in the Library. If you are working from the in-game deck builder, a screen scan can move that deck into Gwent Vision. A deck stored in Gwent Vision can also be prepared as a PlayGWENT link on the user's account and then imported into Gwent.
 
 ### Snapshots and Recording
 
-The rightmost panel in the Live view takes fresh screen captures during a game. This is useful for keeping track of information involving cards such as Maxii or Vial of Forbidden Knowledge without leaving the main analysis display.
+The rightmost panel in the Live view can be used to store screen captures during a game. This is useful for keeping track of information involving cards such as Maxii or Vial of Forbidden Knowledge without leaving the main analysis display.
 
 ![Gwent Vision snapshot review](docs/images/snapshot-review.png)
 
 *Snapshot history and the selected image remain together for quick review.*
 
-Optional recording can capture games for personal review or help reproduce recognition bugs. Recordings remain local unless the user deliberately shares them. Any evidence submitted publicly must first have names and other identifying information removed.
+Optional recording can capture games for personal review or help reproduce recognition bugs. Recordings remain local unless the user deliberately shares them.
 
 ### Deck Recognition
 
@@ -71,9 +69,7 @@ Gwent Vision supports Windows 10 or later and is released as a self-contained x6
 
 ## Compatibility and current testing
 
-For reliable recognition, use a 16:9 GWENT resolution, such as 1280×720, 1920×1080, or 3840×2160. Clearly letterboxed displays are normalized automatically. If an unfamiliar aspect ratio cannot be mapped safely, recognition pauses rather than updating the deck from uncertain screen regions.
-
-Battlefield cosmetics do not require separate configuration because card identity is matched from visible card artwork rather than the board texture. Hands-on testing has primarily used one Windows laptop and the default battlefield. The automated validation suite covers resolution bounds, dark and textured backgrounds, letterboxing, and fail-closed handling for unknown layouts, but reports from other hardware, scaling settings, resolutions, and battlefield cosmetics are especially useful.
+For reliable recognition, use a 16:9 GWENT resolution, such as 1280×720, 1920×1080, or 3840×2160. Clearly letterboxed displays are normalized automatically.
 
 ## Project boundaries
 
@@ -97,7 +93,7 @@ dotnet run --project tests/GwentCompanion.Tests/GwentCompanion.Tests.csproj -c R
 dotnet run --project tests/GwentCompanion.Tests/GwentCompanion.Tests.csproj -c Release -- --contributor-validation-regression
 ```
 
-Contributors add the expected behavior and test evidence for their own changes. After a case is committed, the validation runners discover it automatically. GitHub repeats these checks for pull requests and performs a ClamAV malware sweep before release. Detector evidence must be reviewed and anonymized; the full workflow and privacy rules are in the contributor guide.
+Contributors add the expected behavior and test evidence for their own changes. After a case is committed, the validation runners discover it automatically. GitHub repeats these checks for pull requests and performs a ClamAV malware sweep before release.
 
 ## Open directions
 
