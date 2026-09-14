@@ -108,7 +108,7 @@ public partial class MainWindow
         var manual = ThreatCardChoice.SelectedItem is CardDefinition;
         FollowHoverButton.Visibility = manual ? Visibility.Visible : Visibility.Collapsed;
         ThreatChooseButton.ToolTip = manual ? "Manual card selected" : "Choose a reference card";
-        ThreatChoiceHelp.Text = ThreatCardChoice.Items.Count == 0 ? "Pin your deck in Reference → My deck to choose a card here. Game hover still works."
+        ThreatChoiceHelp.Text = ThreatCardChoice.Items.Count == 0 ? "Choose your deck from Library to select a card here. Game hover still works."
             : "Choose from My deck; selection does not confirm a card is in hand.";
         var accent = (System.Windows.Media.Brush)FindResource("AccentBrush");
         if (manual || ThreatChoicePanel.Visibility == Visibility.Visible) ThreatChooseButton.BorderBrush = accent;
@@ -164,7 +164,7 @@ public partial class MainWindow
             }).ToImmutableArray(),
             User = sourceBoard.User with { CurrentLeaderId = snapshot is null ? sourceBoard.User.CurrentLeaderId : LeaderId(snapshot.User) },
             Opponent = sourceBoard.Opponent with { CurrentLeaderId = snapshot is null ? sourceBoard.Opponent.CurrentLeaderId : LeaderId(snapshot.Opponent),
-                StartingDeckIds = _confirmedOpponentDeck is { CardCount: >= 25 } pin ? pin.Cards.Select(item => item.Card.Id).ToImmutableHashSet() : null,
+                StartingDeckIds = null,
                 Devotion = _lastProjection?.Devotion.State switch { ConstraintState.Confirmed => true, ConstraintState.RuledOut => false, _ => null } },
             CardValues = (sourceBoard.CardValues ?? []).Concat(_liveValues.Growing.Select(value => new PositionCardValue(value.Side, value.CardId, value.Unit.Replace(' ', '-'),
                     value.Minimum, value.Maximum)))

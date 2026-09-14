@@ -13,8 +13,7 @@ public partial class MainWindow
         static void Check(bool condition, string message)
         { if (!condition) throw new InvalidOperationException(message); }
 
-        foreach (var navigation in new FrameworkElement[] { LibraryNavigation, GameplayNavigation,
-            AnalysisNavigation, ReferenceNavigation, LiveModeBar, ReferenceModeBar })
+        foreach (var navigation in new FrameworkElement[] { LibraryNavigation, LiveModeBar })
             Check(navigation.ToolTip is null, "Redundant navigation tooltip: " + navigation.Name);
 
         var spent = new TextBlock(); var remaining = new TextBlock();

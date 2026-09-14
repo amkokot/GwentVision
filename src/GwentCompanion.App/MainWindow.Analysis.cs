@@ -20,19 +20,6 @@ public partial class MainWindow
     private bool _waitingOnMenu, _closedAtNextGame;
     private Task? _autoStopTask;
 
-    private void ExperimentalAnalysis_OnChanged(object sender, RoutedEventArgs e)
-    {
-        if (_libraryReady && !_restoringReviewPreference) SaveUserSettings();
-        if (!ExperimentalOverviewEnabled && _page == UiPage.Plays) ShowPage(UiPage.Deck);
-        else UpdateWorkspaceLayout();
-        if (ExperimentalOverviewEnabled)
-        {
-            ShowAnalysisStatus("Experimental Overview layout enabled. Live analysis behavior is unchanged.");
-        }
-        else
-            ShowAnalysisStatus("Standard Live layout: opponent deck, candidate cards, and snapshots.");
-    }
-
     private void AutoStopOnMmr_OnChanged(object sender, RoutedEventArgs e)
     { if (_libraryReady && !_restoringReviewPreference) SaveUserSettings(); }
 
@@ -75,7 +62,6 @@ public partial class MainWindow
         // update is already drained above; also wait for the coalesced ledger writer
         // so the saved provision floor cannot trail the final event stream.
         if (_valueWriter is not null) await _valueWriter.Idle;
-        OpenSessionButton.IsEnabled = _diagnosticSession?.CurrentSessionDirectory is not null;
         ShowAnalysisStatus(status);
         MemoryStatusText.Text = _autoEncounterError is { } error ? "Encounter auto-save needs attention: " + error + ". Observation snapshot retained." :
             _observedPostMatchMmr?.RatingAfter is null && _observedPostMatchRank is null

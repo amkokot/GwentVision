@@ -37,7 +37,7 @@ public partial class MainWindow
     private void ObserveZoneInspection(VisibleZoneInspection inspection, DateTimeOffset at)
     {
         var ownFaction = _selectedUserDeck?.Faction ?? (_userTracker.HasStableFaction ? _userTracker.Faction : null);
-        var opponentFaction = _opponentTracker.HasStableFaction ? _opponentTracker.Faction : _confirmedOpponentDeck?.Faction;
+        var opponentFaction = _opponentTracker.HasStableFaction ? _opponentTracker.Faction : null;
         foreach (var card in inspection.Cards)
         {
             PlayerSide? side = null;

@@ -16,12 +16,21 @@ internal static class UiShellTests
         XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
         var elements = document.Descendants().ToArray();
         XElement Named(string name) => elements.Single(item => (string?)item.Attribute(x + "Name") == name);
-        foreach (var name in new[] { "LibraryNavigation", "GameplayNavigation", "AnalysisNavigation", "ReferenceNavigation", "LiveModeBar", "ReferenceModeBar" })
+        foreach (var name in new[] { "LibraryNavigation", "LiveModeBar" })
             Check(Named(name).AncestorsAndSelf().All(item => item.Attribute("ToolTip") is null), "Redundant navigation hover returned: " + name);
-        var tabs = Named("GameplayNavigation").Elements().Select(item => (string?)item.Attribute("Tag")).ToArray();
-        Check(tabs.SequenceEqual(new[] { "Deck", "Reference" }), "Analysis and Reference are the two main gameplay entries.");
+        Check(!elements.Any(item => (string?)item.Attribute(x + "Name") is "GameplayNavigation" or "AnalysisNavigation" or
+            "ReferenceNavigation" or "ReferenceModeBar" or "ReferencePage" or "MyDeckPage"),
+            "Retired opponent-reference navigation or page returned.");
         Check(!elements.Any(item => item.Name.LocalName is "TabControl" or "TabItem"), "No hidden/nested legacy tab bars.");
-        Check(int.Parse(Named("LibraryNavigation").Attribute("Grid.Row")!.Value) < int.Parse(Named("GameplayNavigation").Attribute("Grid.Row")!.Value), "Library is separate and above gameplay navigation.");
+        var banner = Named("PlayerDeckBanner");
+        Check(banner.Attribute("Grid.Row")?.Value == "3" && Named("LibraryNavigation").Attribute("Grid.Row")?.Value == "2" &&
+            banner.Descendants().Any(item => item.Attribute("Click")?.Value == "ChoosePlayerDeck_OnClick") &&
+            banner.Descendants().Any(item => (string?)item.Attribute(x + "Name") == "ActiveUserDeckText"),
+            "Selected player deck must occupy the retired navigation row with a direct chooser.");
+        Check(Named("WindowLayout").Elements().Single(item => item.Name.LocalName == "Grid.ColumnDefinitions").Elements().Count() == 3,
+            "Wide navigation needs three columns so the selected deck can use only the rightmost third.");
+        Check(Named("UseUserDeckButton").Attribute("Content")?.Value == "Use selected" && Named("ClearUserDeckButton") is not null,
+            "Library must make player-deck selection obvious.");
         Check(!elements.Any(item => (string?)item.Attribute(x + "Name") == "WorkspaceNavigation"), "Compact and expanded layouts reuse the same navigation, rather than divergent tab labels.");
         Check(!elements.Any(item => item.Name.LocalName == "Expander" && ((string?)item.Attribute("Header"))?.StartsWith("Threats") == true) &&
             !Named("HoverThreatBanner").Ancestors().Contains(Named("Pages")), "Reach must have one top-level hover surface, not a duplicate page section.");
@@ -29,13 +38,16 @@ internal static class UiShellTests
             Check(Named(name).Ancestors().Contains(Named("DeckPage")), "Keep deck candidates and rule indicators: " + name);
         foreach (var name in new[] { "CandidateCardSearch", "CandidateCardTray" })
             Check(Named(name).Ancestors().Contains(Named("CandidatesPage")), "Candidates have a dedicated expandable workspace lane: " + name);
-        Check(Named("LiveModeBar").Elements().Select(item => (string?)item.Attribute("Tag")).SequenceEqual(new[] { "Plays", "Deck", "Candidates", "Pinned" }), "Compact analysis must retain the opt-in Overview alongside the standard three panels.");
-        Check(Named("LiveOverviewNavigation").Attribute("Visibility")?.Value == "Collapsed", "Overview must be hidden until explicitly enabled.");
-        Check(Named("EnableExperimentalAnalysisChoice").Attribute("IsChecked")?.Value == "False", "Experimental Overview layout must require explicit opt in.");
+        Check(Named("LiveModeBar").Elements().Select(item => (string?)item.Attribute("Tag")).SequenceEqual(new[] { "Deck", "Candidates", "Pinned" }), "Compact live navigation must contain seen cards, candidates and snapshots only.");
+        Check(Named("LiveOpponentNavigation").Attribute("Content")?.Value == "Opponent Cards", "Observed opponent cards need an unambiguous label.");
+        Check(Named("PublicMmrSiteButton").Attribute("Content")?.Value == "View public MMR curves ↗", "Settings need a direct link to the public season charts.");
+        Check(!elements.Any(item => (string?)item.Attribute(x + "Name") is "LiveOverviewNavigation" or "EnableExperimentalAnalysisChoice" or
+            "TopmostCheckBox" or "PinCurrentButton" or "OpenSessionButton"), "Retired experimental, window and duplicate capture controls returned.");
+        Check(!elements.Any(item => item.Attribute("Header")?.Value == "Advanced information" ||
+            item.Attribute("Text")?.Value == "Deck hypothesis" ||
+            item.Attribute("Content")?.Value == "Use unseen cards as guesses"), "Retired advanced or predictive wording returned.");
         Check(Named("SnapshotButton").Attribute("Click")?.Value == "Camera_OnClick", "Camera captures and pins a fresh image.");
-        Check(Named("ReferenceModeBar").Elements().Select(item => (string?)item.Attribute("Tag")).SequenceEqual(new[] { "Reference", "MyDeck" }), "Reference keeps only opponent and known-player deck tabs after snapshots move to Analysis.");
-        Check(Named("ReferenceModeBar").Elements().All(item => item.Name.LocalName == "RadioButton"), "Reference views are immediately clickable, not hidden in a dropdown.");
-        Check(Named("GameplayNavigation").Elements().Append(Named("LibraryNavigation")).All(item => item.Attribute("Checked")?.Value == "Navigate_OnClick"), "Keyboard and accessibility selection navigate as well as pointer clicks.");
+        Check(Named("LibraryNavigation").Attribute("Checked")?.Value == "Navigate_OnClick", "Keyboard and accessibility selection navigate as well as pointer clicks.");
         var names = elements.Select(item => (string?)item.Attribute(x + "Name")).OfType<string>().ToArray();
         Check(names.Length == names.Distinct().Count(), "Unique control identities.");
         Check(!Named("PinnedPage").Descendants().Any(item => item.Name.LocalName == "Style" &&

@@ -26,9 +26,8 @@ public partial class MainWindow
         _cachedDecks = _library.Decks.Select(CurrentDeck).ToArray();
         _deckSearchOptionsDirty = true;
         if (_selectedUserDeck is { } own) _selectedUserDeck = CurrentDeck(_library.Find(own.Id)?.Deck ?? own);
-        if (_confirmedOpponentDeck is { } opponent) _confirmedOpponentDeck = CurrentDeck(_library.Find(opponent.Id)?.Deck ?? opponent);
-        RefreshDeckList(); InvalidatePointCatalog(); RenderLiveInference();
-        if (_selectedUserDeck is { } selected) UserDeckStatusText.Text = $"My deck: {selected.Name} · {selected.Faction} · {selected.Leader}";
+        RefreshDeckList(); RenderLiveInference();
+        UpdateSelectedUserDeckDisplay();
     }
     private void OpenLibrary_OnClick(object sender, RoutedEventArgs e) => OpenLibrary(null);
     private async void EditLibraryDeck_OnClick(object sender, RoutedEventArgs e)

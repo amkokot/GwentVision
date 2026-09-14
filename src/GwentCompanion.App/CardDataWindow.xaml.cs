@@ -31,7 +31,8 @@ public partial class CardDataWindow : Window
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_cancel.Token);
                 timeout.CancelAfter(TimeSpan.FromSeconds(45));
                 using var client = new HttpClient();
-                client.DefaultRequestHeaders.UserAgent.ParseAdd("GwentVision/0.2.47");
+                var version = typeof(CardDataWindow).Assembly.GetName().Version?.ToString(3) ?? "0.3.0";
+                client.DefaultRequestHeaders.UserAgent.ParseAdd($"GwentVision/{version}");
                 candidate = await Task.Run(() => operation == "Import"
                     ? CardDataUpdater.ImportAsync(importPath!, timeout.Token)
                     : CardDataUpdater.DownloadAsync(client, timeout.Token));

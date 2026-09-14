@@ -25,7 +25,7 @@ public partial class MainWindow
     {
         Title += " · OFFLINE REVIEW";
         // Review never discovers/captures the game, writes match records or changes saved deck selection.
-        SnapshotButton.IsEnabled = false; PinCurrentButton.IsEnabled = false;
+        SnapshotButton.IsEnabled = false;
         DiagnosticButton.IsEnabled = false;
         SyncDecksButton.IsEnabled = false;
         GameStatusText.Text = "OFFLINE REVIEW · capture disabled";

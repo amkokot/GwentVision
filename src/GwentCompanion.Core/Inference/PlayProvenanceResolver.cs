@@ -14,7 +14,7 @@ public sealed class PlayProvenanceResolver
 {
     private static TimeSpan CreationWindow(CardDefinition source) => TimeSpan.FromSeconds(
         source.Name.EndsWith(" Runestone",StringComparison.OrdinalIgnoreCase) ? 35 : 30);
-    private readonly Dictionary<PlayerSide, (DateTimeOffset At, CardDefinition Source)> _creations = [];
+    private readonly Dictionary<PlayerSide, (DateTimeOffset At, CardDefinition Source, int? DeckCount)> _creations = [];
     private readonly Dictionary<PlayerSide, (DateTimeOffset At, CardDefinition Source)> _deckPlays = [];
     private readonly Dictionary<PlayerSide, (DateTimeOffset At, CardDefinition Source)> _graveyardPlays = [];
     private readonly Dictionary<(PlayerSide Side, string Id), DateTimeOffset> _confirmedDeckPlays = [];
@@ -67,13 +67,14 @@ public sealed class PlayProvenanceResolver
             // Observe normally requires the output to follow the creator. Put the
             // recovered source one tick earlier so an out-of-order event from the
             // same detector batch can take the ordinary bounded-creation path.
-            _creations[targetEvent.Sighting.Side]=(sourceEvent.ObservedAt.AddTicks(-1),sourceEvent.Sighting.Card);
+            _creations[targetEvent.Sighting.Side]=(sourceEvent.ObservedAt.AddTicks(-1),sourceEvent.Sighting.Card,null);
             _coTemporalBoardCreations[(targetEvent.Sighting.Side,targetEvent.Sighting.Card.Id)]=
                 (targetEvent.ObservedAt,sourceEvent.Sighting.Card);
         }
     }
 
-    public PlayOriginAssessment Observe(VisionEvidenceEvent evidence, DeckDefinition? userReference = null)
+    public PlayOriginAssessment Observe(VisionEvidenceEvent evidence, DeckDefinition? userReference = null,
+        int? remainingDeckCount = null)
     {
         var sighting = evidence.Sighting;
         var card = sighting.Card;
@@ -180,19 +181,27 @@ public sealed class PlayProvenanceResolver
         }
         if (sighting.Source == CardSightSource.PlayPreview)
         {
-            var pending = _creations.TryGetValue(sighting.Side, out var value) ? value : ((DateTimeOffset At, CardDefinition Source)?)null;
+            var pending = _creations.TryGetValue(sighting.Side, out var value) ? value :
+                ((DateTimeOffset At, CardDefinition Source, int? DeckCount)?)null;
             // Repeated OCR episodes of the same lingering creator preview are not its target.
             if (pending is not { } same || same.Source.Id != card.Id)
                 _creations.Remove(sighting.Side);
             if (pending is { } creation && creation.Source.Id != card.Id &&
                 evidence.ObservedAt > creation.At && evidence.ObservedAt - creation.At <= CreationWindow(creation.Source) &&
+                !ConditionalGenerationRuledOut(creation.Source,creation.DeckCount) &&
                 CanBeCreated(creation.Source, card, sighting.Side, userReference))
             {
                 var exactBoardRoute=_coTemporalBoardCreations.TryGetValue((sighting.Side,card.Id),out var coTemporal) &&
                     coTemporal.At==evidence.ObservedAt && coTemporal.Source.Id==creation.Source.Id;
-                provenance = exactBoardRoute ? CardProvenance.Created : CardProvenance.Unknown;
+                var conditionalBranchProven = ConditionalGenerationProven(creation.Source,creation.DeckCount);
+                var guaranteedGeneratedPlay = AlwaysPlaysOutsideStartingDeck(creation.Source) || conditionalBranchProven;
+                provenance = exactBoardRoute || guaranteedGeneratedPlay ? CardProvenance.Created : CardProvenance.Unknown;
                 reason = exactBoardRoute
                     ? $"Exact compatible play preview emitted with newly corroborated {creation.Source.Name}; classified as its Create-and-play output, not a starting-deck provision."
+                    : conditionalBranchProven
+                    ? $"Compatible played output of {creation.Source.Name}; the observed remaining deck count of {creation.DeckCount} proves its outside-starting-deck generation branch."
+                    : guaranteedGeneratedPlay
+                    ? $"Compatible played output of {creation.Source.Name}; its printed choice is always outside the starting deck."
                     : $"Possible creation following {creation.Source.Name}; excluded from starting-deck constraints unless independently corroborated.";
                 RememberAmbiguity(sighting.Side, card.Id, reason, DirectlyPlaysCreatedCard(creation.Source));
                 if(DirectlyPlaysCreatedCard(creation.Source))
@@ -233,7 +242,7 @@ public sealed class PlayProvenanceResolver
             // it is the next compatible play inside the short window.
             if (OpensCreationWindow(card) && (pending is not { } sameCreator || sameCreator.Source.Id != card.Id))
             {
-                _creations[sighting.Side] = (evidence.ObservedAt, card);
+                _creations[sighting.Side] = (evidence.ObservedAt, card, remainingDeckCount);
                 var key=(sighting.Side,card.Id);
                 _generationSourceUses[key]=Math.Min(9,_generationSourceUses.GetValueOrDefault(key)+1);
             }
@@ -312,6 +321,10 @@ public sealed class PlayProvenanceResolver
         source.Id == "203045" ? card.Kind == CardKind.Special && FactionCompatibility.IsPlayableBy(card, "Scoia'tael") :
         source.Id == "201583" ? !card.IsGold && card.CanBeInStartingDeck && FactionCompatibility.IsPlayableBy(card, "Nilfgaard") :
         source.Id == "162315" ? !card.IsGold && card.CanBeInStartingDeck && card.Faction is not "Neutral" and not "Nilfgaard" :
+        source.Id == "152403" ? card.Kind == CardKind.Unit && card.CanBeInStartingDeck &&
+            FactionCompatibility.IsPlayableBy(card, "Skellige") && (card.HasCategory("Beast") || card.HasCategory("Human")) :
+        source.Id == "203112" ? card.IsGold && card.CanBeInStartingDeck &&
+            FactionCompatibility.IsPlayableBy(card, "Skellige") :
         card.Kind == CardKind.Unit && !card.IsGold && card.CanBeInStartingDeck &&
         card.Faction != "Neutral" &&
         (source.Id == "202658" && FactionCompatibility.IsPlayableBy(card, "Nilfgaard") &&
@@ -329,6 +342,7 @@ public sealed class PlayProvenanceResolver
             SpawnCanCreate(spawn.Card,sight.Card) ||
         _ambiguousCreations.ContainsKey((sight.Side, sight.Card.Id)) ||
         _creations.TryGetValue(sight.Side, out var source) && source.Source.Id != sight.Card.Id && at >= source.At &&
+            !ConditionalGenerationRuledOut(source.Source,source.DeckCount) &&
             at - source.At <= CreationWindow(source.Source) && CanBeCreated(source.Source,sight.Card,sight.Side,null) ||
         _mahakamPass.Contains(sight.Side) && sight.Card.Kind==CardKind.Unit && !sight.Card.IsGold &&
             sight.Card.CanBeInStartingDeck && sight.Card.Faction!="Neutral" &&
@@ -340,7 +354,8 @@ public sealed class PlayProvenanceResolver
 
     public bool HasNonOrderCopyRisk(CardSighting sight, DateTimeOffset at) =>
         _ambiguousCreations.ContainsKey((sight.Side,sight.Card.Id)) ||
-        _creations.TryGetValue(sight.Side,out var creation) && at>=creation.At && at-creation.At<=CreationWindow(creation.Source) &&
+        _creations.TryGetValue(sight.Side,out var creation) && at>=creation.At &&
+            !ConditionalGenerationRuledOut(creation.Source,creation.DeckCount) && at-creation.At<=CreationWindow(creation.Source) &&
             CanBeCreated(creation.Source,sight.Card,sight.Side,null) ||
         _spawnCreators.TryGetValue(sight.Side,out var spawn) && at>=spawn.At && at-spawn.At<=TimeSpan.FromSeconds(30) && SpawnCanCreate(spawn.Card,sight.Card);
 
@@ -349,7 +364,8 @@ public sealed class PlayProvenanceResolver
     public bool HasHandAcquisitionRisk(CardSighting sight, DateTimeOffset at) =>
         _ambiguousCreations.ContainsKey((sight.Side,sight.Card.Id)) &&
             !_boardOnlyNamedSpawns.Contains((sight.Side,sight.Card.Id)) ||
-        _creations.TryGetValue(sight.Side,out var creation) && at>=creation.At && at-creation.At<=CreationWindow(creation.Source) &&
+        _creations.TryGetValue(sight.Side,out var creation) && at>=creation.At &&
+            !ConditionalGenerationRuledOut(creation.Source,creation.DeckCount) && at-creation.At<=CreationWindow(creation.Source) &&
             CanBeCreated(creation.Source,sight.Card,sight.Side,null) ||
         _spawnCreators.TryGetValue(sight.Side,out var spawn) && at>=spawn.At && at-spawn.At<=TimeSpan.FromSeconds(30) && SpawnCanCreate(spawn.Card,sight.Card);
 
@@ -367,7 +383,9 @@ public sealed class PlayProvenanceResolver
         Regex.IsMatch(OrderText(source),@"\b(?:Spawn|Create)\b[^.\n]*\b(?:play|copy)\b",RegexOptions.IgnoreCase);
     private static string CreationText(CardDefinition source) => string.Join('\n',(source.AbilityText??"").Split('\n')
         .Where(line=>!line.Contains("Order:",StringComparison.OrdinalIgnoreCase) &&
-            Regex.IsMatch(line,@"\bCreate\b",RegexOptions.IgnoreCase)));
+            (Regex.IsMatch(line,@"\bCreate\b",RegexOptions.IgnoreCase) ||
+             line.Contains("not in your starting deck",StringComparison.OrdinalIgnoreCase) &&
+             Regex.IsMatch(line,@"\bSpawn and play\b",RegexOptions.IgnoreCase))));
     private static bool HasBoundedCreation(CardDefinition source) => CreationText(source).Length>0;
     // A few effects acquire/play an unknown card without using the literal word
     // "Create" in their current rules text. Keep those established bounded routes
@@ -375,7 +393,23 @@ public sealed class PlayProvenanceResolver
     private static bool OpensCreationWindow(CardDefinition source) => HasBoundedCreation(source) ||
         source.Id is "203109" or "203210" or "203045" or "201583" or "162315";
     private static bool DirectlyPlaysCreatedCard(CardDefinition source) =>
-        Regex.IsMatch(CreationText(source),@"\bCreate and play\b",RegexOptions.IgnoreCase);
+        Regex.IsMatch(CreationText(source),@"\bCreate and play\b",RegexOptions.IgnoreCase) ||
+        CreationText(source).Contains("not in your starting deck",StringComparison.OrdinalIgnoreCase) &&
+        Regex.IsMatch(CreationText(source),@"\bSpawn and play\b",RegexOptions.IgnoreCase);
+    private static bool AlwaysPlaysOutsideStartingDeck(CardDefinition source) =>
+        DirectlyPlaysCreatedCard(source) &&
+        CreationText(source).Contains("not in your starting deck",StringComparison.OrdinalIgnoreCase) &&
+        !Regex.IsMatch(CreationText(source),@"\bIf there are fewer than\b",RegexOptions.IgnoreCase);
+    private static int? ConditionalGenerationThreshold(CardDefinition source)
+    {
+        var match=Regex.Match(CreationText(source),@"\bIf there are fewer than\s+(?<count>\d+)\s+cards? in your deck\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        return match.Success ? int.Parse(match.Groups["count"].Value,System.Globalization.CultureInfo.InvariantCulture) : null;
+    }
+    private static bool ConditionalGenerationProven(CardDefinition source,int? deckCount) =>
+        ConditionalGenerationThreshold(source) is { } threshold && deckCount is { } count && count<threshold;
+    private static bool ConditionalGenerationRuledOut(CardDefinition source,int? deckCount) =>
+        ConditionalGenerationThreshold(source) is { } threshold && deckCount is { } count && count>=threshold;
     private static bool MovesEnemyToOwnDeck(CardDefinition source) => Regex.IsMatch(source.AbilityText??"",
         @"\bMove an enemy unit to the top of your deck\b",RegexOptions.IgnoreCase);
     private static Match GraveyardPlayClause(CardDefinition source) => Regex.Match(NonOrderText(source),

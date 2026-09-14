@@ -72,6 +72,17 @@ internal sealed class DataContributionValidationCase : IContributorValidationCas
             (string?)element.Attributes().FirstOrDefault(attribute => attribute.Name.LocalName == "Name") == "PublishAnonymousCurveChoice" &&
             (string?)element.Attribute("IsChecked") == "True"), "Anonymous curve display is not on by default.");
 
+        var consentXaml = XDocument.Load(context.PathFromRoot("src", "GwentCompanion.App", "DataContributionConsentWindow.xaml"));
+        var consentElements = consentXaml.Descendants().ToArray();
+        Check(consentElements.Any(element => (string?)element.Attribute("Text") is { } text &&
+                text.Contains("Balance Council", StringComparison.Ordinal)) &&
+            consentElements.Any(element => (string?)element.Attribute("Text") is { } text &&
+                text.Contains("anonymized", StringComparison.OrdinalIgnoreCase) && text.Contains("never published", StringComparison.OrdinalIgnoreCase)) &&
+            consentElements.Any(element => element.Name.LocalName == "Expander" &&
+                (string?)element.Attributes().FirstOrDefault(attribute => attribute.Name.LocalName == "Name") == "PrivacyDetails" &&
+                (string?)element.Attribute("IsExpanded") == "False"),
+            "First-start consent must lead with Balance Council value and private anonymized records, with concrete details collapsed.");
+
         var appProject = File.ReadAllText(context.PathFromRoot("src", "GwentCompanion.App", "GwentCompanion.App.csproj"));
         Check(appProject.Contains("cache\\data-service.json", StringComparison.OrdinalIgnoreCase) &&
             appProject.Contains("CopyToPublishDirectory=\"PreserveNewest\"", StringComparison.Ordinal),

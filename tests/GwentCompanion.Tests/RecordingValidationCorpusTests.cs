@@ -105,9 +105,6 @@ internal static class RecordingValidationCorpusTests
         await ExactTitle("20260827-081435","frame-004089-082123937.jpg","202216");
         await ExactTitle("20260901-124026","frame-006274-125054648.jpg","203220");
         await ExactTitle("20260901-152643","play-events/20260901-153012049-Opponent/during.png","162305");
-        await ExactTitle("20260901-152643","play-events/20260901-153514529-Opponent/during.png","203242");
-        await ExactTitle("20260901-152643","play-events/20260901-153524147-Opponent/during.png","202547");
-        await ExactTitle("20260901-152643","frame-005226-153526826.jpg","162305");
 
         var falseTooltipPixels=VisionEfficiencyTests.Load(Path.Combine(project,"sessions","20260901-204341","frame-001700-204631565.jpg"));
         var falseTooltipScreen=await screenReader.AnalyzeAsync(falseTooltipPixels);
@@ -149,25 +146,6 @@ internal static class RecordingValidationCorpusTests
         }
         await ConfirmedHover("20260901-181048","202677","frame-001390-181307431.jpg","frame-001393-181307732.jpg","frame-001395-181307937.jpg");
         await ConfirmedHover("20260901-181048","202809","frame-007826-182351339.jpg","frame-007828-182351538.jpg","frame-007830-182351737.jpg","frame-007835-182352232.jpg");
-
-        async Task<(VisionEvidenceEvent Event,GwentVisualObservation Screen)> PixelEvent(string relative,string id,DateTimeOffset at)
-        {
-            var pixels=VisionEfficiencyTests.Load(Path.Combine(project,"sessions","20260901-152643",relative));
-            var screen=await screenReader.AnalyzeAsync(pixels);
-            var sight=(await titles.RecognizeAsync(pixels,screen,screenReader)).Single(item=>item.Card.Id==id &&
-                item.Side==PlayerSide.Opponent && item.Source==CardSightSource.PlayPreview);
-            return (new(at,sight,"Retained reviewed play-preview pixels"),screen);
-        }
-        var battlePixels=await PixelEvent("play-events/20260901-153514529-Opponent/during.png","203242",new(2026,9,1,15,35,14,529,TimeSpan.FromHours(-4)));
-        var hunterPixels=await PixelEvent("play-events/20260901-153524147-Opponent/during.png","202547",new(2026,9,1,15,35,24,147,TimeSpan.FromHours(-4)));
-        var arbalestPixels=await PixelEvent("frame-005226-153526826.jpg","162305",new(2026,9,1,15,35,26,728,TimeSpan.FromHours(-4)));
-        var handEvidence=new HandCommitTracker();
-        Check(handEvidence.Observe(battlePixels.Event.ObservedAt,battlePixels.Screen,[battlePixels.Event]).Count==0,
-            "Battle Stations became one of its own bounded hand-play children.");
-        var refillHunter=handEvidence.Observe(hunterPixels.Event.ObservedAt,hunterPixels.Screen,[hunterPixels.Event]);
-        var refillArbalest=handEvidence.Observe(arbalestPixels.Event.ObservedAt,arbalestPixels.Screen,[arbalestPixels.Event]);
-        Check(refillHunter.Single().Sighting.Card.Id=="202547" && refillArbalest.Single().Sighting.Card.Id=="162305",
-            "Retained Battle Stations pixels did not recover the Hunter and Arbalest as two bounded hand plays.");
 
         var backup=cards.Single(card=>card.Id=="203220");
         var simlas=cards.Single(card=>card.Id=="202985");

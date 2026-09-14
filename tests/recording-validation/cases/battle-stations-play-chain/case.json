@@ -1,0 +1,88 @@
+{
+  "SchemaVersion": 1,
+  "Id": "battle-stations-play-chain",
+  "Summary": "Battle Stations must retain both bounded hand-play children when two copies of the same card are presented around a sparse scanned animation gap.",
+  "AddedIn": "v0.3.0",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 2113289,
+      "Sha256": "623B1D2CC7B3E411FB75D5E701BE0EF4E873A081EFF9B3CFCEC5BB8EE2CF43AF",
+      "Tags": [
+        "regression",
+        "battle-stations-play-chain"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 2093882,
+      "Sha256": "B1BA4902D0A2AC6527A66653299524DA061042E9BF997D5428FEBFE341B14DC1",
+      "Tags": [
+        "regression",
+        "battle-stations-play-chain"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 1843849,
+      "Sha256": "AB6836474AD87D052A3902D7CB192E107F265EA48051604352E6E656399C54C2",
+      "Tags": [
+        "regression",
+        "battle-stations-play-chain"
+      ]
+    },
+    {
+      "File": "evidence-04.png",
+      "Bytes": 1827781,
+      "Sha256": "0F581B9318F9075FB0A90EB3E0ED9A02804B9F022EF7D6571DB75A22A8B73167",
+      "Tags": [
+        "regression",
+        "battle-stations-play-chain"
+      ]
+    },
+    {
+      "File": "evidence-05.png",
+      "Bytes": 1828574,
+      "Sha256": "98C7F303F5EE9F116B2DC09B43EA10C4C2515C8B81CBF12755978D42B5F0D936",
+      "Tags": [
+        "regression",
+        "battle-stations-play-chain"
+      ]
+    },
+    {
+      "File": "evidence-06.png",
+      "Bytes": 1831594,
+      "Sha256": "8E0DCD1450E5CD6E6447FFCB28256BE5C6637427F3CA0DED8318E6FB078F476F",
+      "Tags": [
+        "regression",
+        "battle-stations-play-chain"
+      ]
+    },
+    {
+      "File": "evidence-07.png",
+      "Bytes": 1831049,
+      "Sha256": "0A0A9652FE4D31991B351C597E28F23A5490B01AD59B762108A67C4F4A2239AF",
+      "Tags": [
+        "regression",
+        "battle-stations-play-chain"
+      ]
+    },
+    {
+      "File": "evidence-08.png",
+      "Bytes": 1835803,
+      "Sha256": "64089AC9BC9886087A19810CF4DDD11B24DA2FFCADE8BF8D6B6EB3E0F37ECC4B",
+      "Tags": [
+        "regression",
+        "battle-stations-play-chain"
+      ]
+    }
+  ]
+}

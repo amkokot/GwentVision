@@ -9,16 +9,11 @@ public partial class MainWindow
 {
     private TextBox DeckSearchBox => LibrarySearch.Query;
     private TextBox DeckCardsFilter => LibrarySearch.CardNames;
-    private TextBox OpponentDeckSearchBox => ReferenceSearch.Query;
-    private ComboBox ReferenceFactionFilter => ReferenceSearch.Faction;
-    private ComboBox ReferenceLeaderFilter => ReferenceSearch.Leader;
-    private Button ReferenceObservedButton => ReferenceSearch.Reset;
     private bool _settingSearchOptions;
     private bool _deckSearchOptionsDirty = true;
     private void ConfigureDeckSearch()
     {
         LibrarySearch.Configure("Library", "DeckSearchBox", false);
-        ReferenceSearch.Configure("Reference", "OpponentDeckSearchBox", true);
     }
     private void RefreshDeckSearchOptions()
     {
@@ -30,45 +25,37 @@ public partial class MainWindow
                 .Concat(GwentOneCardCatalog.StartingLeaders(_candidateCatalog ?? []).Select(c => (c.Name, c.Faction))).ToArray();
             var patches = _cachedDecks.SelectMany(d => d.Patches ?? []).Concat(_deckIndexEntries.SelectMany(d => d.Patches ?? []))
                 .Select(p => p.Label).ToArray();
-            LibrarySearch.SetOptions(leaders, patches); ReferenceSearch.SetOptions(leaders, patches);
+            LibrarySearch.SetOptions(leaders, patches);
             _deckSearchOptionsDirty = false;
         }
         finally { _settingSearchOptions = false; }
     }
     private void LibrarySearch_OnChanged(object? sender, EventArgs e) { if (!_settingSearchOptions) ApplyDeckFilter(); }
     private void LibrarySearch_OnReset(object? sender, EventArgs e) => LibrarySearch.ClearAll();
-    private void ReferenceSearch_OnChanged(object? sender, EventArgs e)
+    private Window? _opponentCardsWindow;
+    private DeckCardList? _expandedOpponentCards;
+    private TextBlock? _expandedOpponentCardsHeading;
+    private void ExpandOpponentCards_OnClick(object sender, RoutedEventArgs e)
     {
-        if (_updatingReferenceFilters || _settingSearchOptions) return;
-        if (ReferenceSearch.ChangedField is "Faction" or "Leader") _referenceFiltersManual = true;
-        UpdateReferenceCandidates();
-    }
-    private void ReferenceSearch_OnReset(object? sender, EventArgs e) { _referenceFiltersManual = false; UpdateReferenceCandidates(); }
-
-    private Window? _hypothesisWindow;
-    private DeckCardList? _hypothesisCards;
-    private TextBlock? _hypothesisHeading;
-    private void ExpandHypothesis_OnClick(object sender, RoutedEventArgs e)
-    {
-        if (_hypothesisWindow is not null) { _hypothesisWindow.Activate(); return; }
-        var window = new Window { Owner = this, Title = "Opponent deck · live hypothesis", Width = 470,
+        if (_opponentCardsWindow is not null) { _opponentCardsWindow.Activate(); return; }
+        var window = new Window { Owner = this, Title = "Opponent cards", Width = 470,
             Height = Math.Min(920, SystemParameters.WorkArea.Height - 20), MinHeight = 400, MinWidth = 350,
             WindowStartupLocation = WindowStartupLocation.CenterOwner, Topmost = false };
         var panel = new DockPanel { Margin = new Thickness(10) };
-        _hypothesisHeading = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) };
-        DockPanel.SetDock(_hypothesisHeading, Dock.Top); panel.Children.Add(_hypothesisHeading);
-        _hypothesisCards = new DeckCardList { RowHeight = 29, ShowDetails = false };
-        _hypothesisCards.RowActivated += OpponentSlot_OnActivated; panel.Children.Add(_hypothesisCards);
-        window.Content = panel; _hypothesisWindow = window;
-        System.Windows.Automation.AutomationProperties.SetAutomationId(window, "OpponentHypothesisWindow");
-        window.Closed += (_, _) => { _hypothesisWindow = null; _hypothesisCards = null; _hypothesisHeading = null; };
-        RefreshHypothesisWindow(); window.Show();
+        _expandedOpponentCardsHeading = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) };
+        DockPanel.SetDock(_expandedOpponentCardsHeading, Dock.Top); panel.Children.Add(_expandedOpponentCardsHeading);
+        _expandedOpponentCards = new DeckCardList { RowHeight = 29, ShowDetails = false };
+        _expandedOpponentCards.RowActivated += OpponentSlot_OnActivated; panel.Children.Add(_expandedOpponentCards);
+        window.Content = panel; _opponentCardsWindow = window;
+        System.Windows.Automation.AutomationProperties.SetAutomationId(window, "OpponentCardsWindow");
+        window.Closed += (_, _) => { _opponentCardsWindow = null; _expandedOpponentCards = null; _expandedOpponentCardsHeading = null; };
+        RefreshOpponentCardsWindow(); window.Show();
     }
-    private void RefreshHypothesisWindow()
+    private void RefreshOpponentCardsWindow()
     {
-        if (_hypothesisCards is null || _hypothesisHeading is null) return;
-        _hypothesisCards.Rows = OpponentDeckCards.Rows;
-        _hypothesisHeading.Text = OpponentDeckSummary.Text + "\n" + OpponentProvisionText.Text + "\n" +
-            (_confirmedOpponentDeck is null ? "Edit candidates in the main Deck tab; click unseen rows here to remove." : OpponentPinSummary.Text);
+        if (_expandedOpponentCards is null || _expandedOpponentCardsHeading is null) return;
+        _expandedOpponentCards.Rows = OpponentDeckCards.Rows;
+        _expandedOpponentCardsHeading.Text = OpponentDeckSummary.Text + "\n" + OpponentProvisionText.Text + "\n" +
+            (_useOpponentModel ? "Edit candidates in the main opponent-card view." : "Observed starting-deck evidence only.");
     }
 }

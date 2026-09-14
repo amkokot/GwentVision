@@ -64,14 +64,13 @@ public partial class MainWindow
             var item = window.CreateDeckItems([raw]).First(i => i.Deck?.Id == raw.Id);
             Check(item.Deck!.Cards.Single(c => c.Card.Id == card.Id).Card.Power == card.Power + 1, "Library result used stale values.");
             Check(JsonSerializer.Serialize(window._library.Records) == state, "Displaying current values edited the library.");
-            window._confirmedOpponentDeck = raw;
             window._expandedWorkspace = true; window._workspaceZoom = 1.15;
             window.Left = 40; window.Top = 35; window.Width = 1350; window.Height = 900;
             var next = window.CreateCardDataReloadWindow(importing.Result!); windows.Add(next); next.Loaded -= next.OnLoaded;
             Check(next._expandedWorkspace && next._workspaceZoom == 1.15 && next.Left == 40 && next.Width == 1350 && next._page == UiPage.Settings,
                 "Reload factory lost display mode/location or update result page.");
-            Check(next._confirmedOpponentDeck?.Id == raw.Id && next._currentCardValues is not null && next.CardDataChanges.Text.Contains(card.Name),
-                "Reload factory lost pinned reference or change report.");
+            Check(next._currentCardValues is not null && next.CardDataChanges.Text.Contains(card.Name),
+                "Reload factory lost current card values or change report.");
             next.RefreshCardDataStatus(); next.CardDataChangesPanel.IsExpanded = true;
             next.HideLoadingShell();
             next.UpdateWorkspaceLayout(1350);

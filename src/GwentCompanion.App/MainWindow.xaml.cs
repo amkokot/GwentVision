@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -31,14 +30,10 @@ public partial class MainWindow
     private GwentWindowSnapshot? _gameWindow;
     private DeckIndexEntry[] _deckIndexEntries = Array.Empty<DeckIndexEntry>();
     private DeckDefinition[] _cachedDecks = Array.Empty<DeckDefinition>();
-    private DeckDefinition? _confirmedOpponentDeck;
     private DeckDefinition? _selectedUserDeck;
     private BitmapSource? _lastPreview;
     private int _recordedPlayEvents;
-    private CardPointEstimate[] _pointCatalog = Array.Empty<CardPointEstimate>();
-    private bool _pointCatalogDirty = true;
     private DeckListItem[] _deckListItems = Array.Empty<DeckListItem>();
-    private CardPointModelListItem[] _pointModelItems = Array.Empty<CardPointModelListItem>();
     private DateTimeOffset _lastDiscoveryReport = DateTimeOffset.MinValue;
 
     public MainWindow()
@@ -47,7 +42,6 @@ public partial class MainWindow
         if (_analysisControlTest) Title += " · OFFLINE REVIEW · ANALYSIS CONTROL TEST";
         ConfigureDeckSearch();
         ShowPage(UiPage.Deck);
-        Topmost = false;
         var workArea = SystemParameters.WorkArea;
         Height = Math.Max(MinHeight, Math.Min(Height, workArea.Height - 48));
         Left = Math.Max(workArea.Left, workArea.Right - Width - 24);
@@ -196,34 +190,6 @@ public partial class MainWindow
         }
     }
 
-    private void SnapshotButton_OnClick(object sender, RoutedEventArgs e)
-    {
-        if (!RequireGameWindow(out var window))
-        {
-            return;
-        }
-
-        try
-        {
-            var source = _frameCapture.Capture(window);
-            _lastPreview = source;
-            PreviewImage.Source = source;
-            PreviewPlaceholder.Visibility = Visibility.Collapsed;
-            PinCurrentButton.IsEnabled = true;
-            UpdateVisualObservation(new GwentVisualStateDetector().Analyze(BitmapFrameAdapter.ToPixelFrame(source)));
-            var directory = ResolveManualCaptureDirectory();
-            Directory.CreateDirectory(directory);
-            var path = Path.Combine(directory, $"snapshot-{DateTimeOffset.Now:yyyyMMdd-HHmmssfff}.png");
-            SavePng(source, path);
-            DiagnosticStatusText.Text = $"Saved {Path.GetFileName(path)}";
-            FooterStatusText.Text = path;
-        }
-        catch (Exception exception)
-        {
-            DiagnosticStatusText.Text = exception.Message;
-        }
-    }
-
     private async void DiagnosticButton_OnClick(object sender, RoutedEventArgs e)
     {
         if (_windowClosing || _analysisTransition || _reviewEvidencePath is not null && !_analysisControlTest) return;
@@ -254,7 +220,6 @@ public partial class MainWindow
             {
                 _userTracker.SetFactionPrior(_selectedUserDeck.Faction);
             }
-            _confirmedOpponentDeck = null;
             _recordedPlayEvents = 0;
             DetectedPlayText.Text = "No recognized play-preview episodes yet. Board sightings are listed separately.";
             RenderLiveInference();
@@ -270,7 +235,6 @@ public partial class MainWindow
             _diagnosticSession.Start(window);
             SyncDecksButton.IsEnabled = false;
             SetAnalysisButtonState(true);
-            OpenSessionButton.IsEnabled = false;
             ShowAnalysisStatus((_diagnosticSession.RetainTrainingFrames ? $"Analyzing · training recording on at {_diagnosticSession.RetainedFramesPerSecond} FPS." : "Analyzing · training recording off.") +
                 " Recognition runs in the background.");
         }
@@ -324,51 +288,10 @@ public partial class MainWindow
             return (_selectedUserDeck.Leader, _selectedUserDeck.Faction, 1);
         }
 
-        if (tracker.Side == PlayerSide.Opponent && _confirmedOpponentDeck is not null)
-        {
-            return (_confirmedOpponentDeck.Leader, _confirmedOpponentDeck.Faction, 1);
-        }
-
         // A single compatible cached deck is not proof of the opponent's ability.
         return (null, tracker.Faction, 0);
     }
 
-
-    private void OpponentCandidateList_OnSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
-    {
-        if (OpponentCandidateList.SelectedItem is not LiveDeckCandidateItem item)
-        {
-            OpponentCandidateDetailText.Text = "Select a candidate to inspect its full card list.";
-            CandidateDeckCards.Rows = null;
-            ConfirmOpponentDeckButton.IsEnabled = false;
-            return;
-        }
-
-        ConfirmOpponentDeckButton.IsEnabled = true;
-        OpponentCandidateDetailText.Text = $"{item.Deck.Name} · {item.Deck.CardCount} cards · {item.Deck.ProvisionTotal}p";
-        CandidateDeckCards.Rows = OpponentDeckProjector.Reference(item.Deck).Select(Strip).ToArray();
-    }
-
-    private void ConfirmOpponentDeckButton_OnClick(object sender, RoutedEventArgs e)
-    {
-        if (OpponentCandidateList.SelectedItem is not LiveDeckCandidateItem item)
-        {
-            return;
-        }
-
-        _confirmedOpponentDeck = item.Deck;
-        RenderLiveInference();
-        PersistCurrentMatch();
-        ReferencePicker.IsExpanded = false;
-        ShowPage(UiPage.Reference);
-    }
-
-    private void ClearOpponentDeckButton_OnClick(object sender, RoutedEventArgs e)
-    {
-        _confirmedOpponentDeck = null;
-        RenderLiveInference();
-        PersistCurrentMatch();
-    }
 
     private static string ShortState(ConstraintState state) => state switch
     {
@@ -408,7 +331,6 @@ public partial class MainWindow
             var assessment = tracker.Side == PlayerSide.Opponent ? _opponentKnowledge.Assess(deckObservations) : StartingDeckRules.EvaluateObservedDeck(deckObservations);
             var compatible = inference.CompatibleDecks(_cachedDecks, deckObservations, inferenceFaction, assessment);
             var best = tracker.Side == PlayerSide.User ? _selectedUserDeck?.Id
-                : _confirmedOpponentDeck is not null ? _confirmedOpponentDeck.Id
                 : compatible.Count == 0
                     ? null
                     : inference.Rank(compatible, deckObservations, inferenceFaction, null, 1)[0].Deck.Id;
@@ -434,8 +356,8 @@ public partial class MainWindow
                     RecognitionVersion: 2,
                     Devotion: assessment.Devotion.State,
                     DevotionEvidence: assessment.Devotion.Reason,
-                    PinnedDeckId: tracker.Side == PlayerSide.Opponent ? _confirmedOpponentDeck?.Id : _selectedUserDeck?.Id,
-                    PinnedDevotionAssumption: tracker.Side == PlayerSide.Opponent ? _lastProjection?.DevotionAssumption : null,
+                    PinnedDeckId: tracker.Side == PlayerSide.User ? _selectedUserDeck?.Id : null,
+                    PinnedDevotionAssumption: null,
                     TrainingOnly: tracker.Side == PlayerSide.User,
                     ManualPicks: tracker.Side == PlayerSide.Opponent ? _opponentEdits.Included.Keys.Select(key => new StoredDeckAssumption(key.CardId, key.Copy)).ToArray() : null,
                     DismissedSuggestions: tracker.Side == PlayerSide.Opponent ? _opponentEdits.Excluded.Select(key => new StoredDeckAssumption(key.CardId, key.Copy)).ToArray() : null,
@@ -445,36 +367,6 @@ public partial class MainWindow
             _observedDeckRecords = (_observedDeckRecords ?? []).Where(item =>
                     item.Side != record.Side || !item.SessionId.Equals(record.SessionId, StringComparison.OrdinalIgnoreCase))
                 .Append(record).OrderByDescending(item => item.RecordedAt).ToArray();
-        }
-    }
-
-    private void OpenSessionButton_OnClick(object sender, RoutedEventArgs e)
-    {
-        var path = _diagnosticSession?.CurrentSessionDirectory;
-        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
-        {
-            return;
-        }
-
-        Process.Start(new ProcessStartInfo("explorer.exe", path) { UseShellExecute = true });
-    }
-
-    private void PinCurrentButton_OnClick(object sender, RoutedEventArgs e)
-    {
-        if (_reviewEvidencePath is not null || _lastPreview is null)
-        {
-            return;
-        }
-
-        try
-        {
-            var path = SavePinned(_lastPreview);
-            RefreshPinnedCaptures(path);
-            DiagnosticStatusText.Text = $"Pinned {Path.GetFileName(path)}";
-        }
-        catch (Exception exception)
-        {
-            DiagnosticStatusText.Text = $"Could not pin view: {exception.Message}";
         }
     }
 
@@ -525,11 +417,6 @@ public partial class MainWindow
         var directory = ResolvePinnedCaptureDirectory();
         Directory.CreateDirectory(directory);
         Process.Start(new ProcessStartInfo("explorer.exe", directory) { UseShellExecute = true });
-    }
-
-    private void TopmostCheckBox_OnChanged(object sender, RoutedEventArgs e)
-    {
-        Topmost = TopmostCheckBox.IsChecked == true;
     }
 
     private void DockBeside(GwentWindowSnapshot window)
@@ -628,7 +515,6 @@ public partial class MainWindow
             _deckSearchOptionsDirty = true;
             RestoreSelectedUserDeck();
             BeginVisionWarmup();
-            InvalidatePointCatalog();
             // Deck search must be available even while vision is loading or unavailable.
             var deckItems = await Task.Run(BuildDeckListItems);
             if (_windowClosing) return;
@@ -838,85 +724,6 @@ public partial class MainWindow
 
     private void ClearDeckSearch_OnClick(object sender, RoutedEventArgs e) { DeckSearchBox.Clear(); DeckCardsFilter.Clear(); }
 
-    private void RebuildPointCatalog()
-    {
-        var cards = BuiltInCardCatalog.Merge(_cachedDecks
-            .SelectMany(deck => deck.Cards)
-            .Select(item => item.Card)).Select(CurrentCard).ToArray();
-        _pointCatalog = new CardPointEstimator().BuildCatalog(cards).ToArray();
-        var exact = _pointCatalog.Count(item => item.Status == PointEstimateStatus.ExactImmediate);
-        var bounded = _pointCatalog.Count(item => item.Status == PointEstimateStatus.BoundedImmediate);
-        var contextual = _pointCatalog.Count(item => item.Status == PointEstimateStatus.NeedsBoardContext);
-        PointModelStatusText.Text =
-            $"{_pointCatalog.Length:N0} cached cards classified · {exact:N0} exact immediate · " +
-            $"{bounded:N0} bounded · {contextual:N0} awaiting board context. Unknown maxima are never fabricated.";
-        _pointModelItems = _pointCatalog
-            .OrderBy(item => item.Status)
-            .ThenBy(item => item.CardName)
-            .Select(item => new CardPointModelListItem(
-                item.CardName,
-                PointRangeText(item),
-                item.Explanation))
-            .ToArray();
-        _pointCatalogDirty = false;
-        ApplyPointFilter();
-
-        if (_reviewEvidencePath is not null) return;
-        var path = ResolvePointCatalogPath();
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(
-            path,
-            JsonSerializer.Serialize(
-                _pointCatalog,
-                new JsonSerializerOptions
-                {
-                    WriteIndented = true,
-                    Converters = { new JsonStringEnumConverter() },
-                }));
-    }
-
-    private void InvalidatePointCatalog()
-    {
-        _pointCatalogDirty = true;
-        _pointCatalog = [];
-        _pointModelItems = [];
-        if (PointModelList is not null) PointModelList.ItemsSource = null;
-        if (PointModelStatusText is not null)
-            PointModelStatusText.Text = "Open this tool to build point classifications from the current library.";
-    }
-
-    private void ApplyPointFilter()
-    {
-        if (PointModelList is null || PointSearchBox is null)
-        {
-            return;
-        }
-
-        var query = PointSearchBox.Text.Trim();
-        PointModelList.ItemsSource = string.IsNullOrWhiteSpace(query)
-            ? _pointModelItems
-            : _pointModelItems
-                .Where(item => item.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                               item.Range.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                               item.Explanation.Contains(query, StringComparison.OrdinalIgnoreCase))
-                .ToArray();
-    }
-
-    private void PointSearchBox_OnTextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e) =>
-        ApplyPointFilter();
-
-    private static string PointRangeText(CardPointEstimate estimate)
-    {
-        if (estimate.MinimumImmediatePoints is not null && estimate.MaximumImmediatePoints is not null)
-        {
-            return estimate.MinimumImmediatePoints == estimate.MaximumImmediatePoints
-                ? $"Intrinsic: {estimate.MaximumImmediatePoints} · excludes board triggers · {estimate.Status}"
-                : $"Intrinsic: {estimate.MinimumImmediatePoints}–{estimate.MaximumImmediatePoints} · excludes board triggers · {estimate.Status}";
-        }
-
-        return $"Printed body: {estimate.PrintedPower} · point estimate unavailable · {estimate.Status}";
-    }
-
     private static PixelFrame LoadPixelFrame(string path)
     {
         using var stream = File.OpenRead(path);
@@ -956,10 +763,9 @@ public partial class MainWindow
         _selectedUserDeck = deck;
         _userTracker.SetFactionPrior(deck.Faction);
         SaveUserSettings();
-        UserDeckStatusText.Text = $"My deck: {deck.Name} · {deck.Faction} · {deck.Leader}";
+        UpdateSelectedUserDeckDisplay();
         RenderLiveInference();
-        LibraryManagement.IsExpanded = false;
-        ShowPage(UiPage.MyDeck);
+        ShowPage(_lastGameplayPage);
     }
 
     private void ClearSelectedUserDeckButton_OnClick(object sender, RoutedEventArgs e)
@@ -967,7 +773,7 @@ public partial class MainWindow
         _selectedUserDeck = null;
         _userTracker.ClearFactionPrior();
         SaveUserSettings();
-        UserDeckStatusText.Text = "No own-deck reference selected.";
+        UpdateSelectedUserDeckDisplay();
         RenderLiveInference();
     }
 
@@ -978,7 +784,7 @@ public partial class MainWindow
             var path = ResolveSettingsPath();
             if (!File.Exists(path))
             {
-                UserDeckStatusText.Text = "No own-deck reference selected.";
+                UpdateSelectedUserDeckDisplay();
                 return;
             }
 
@@ -992,7 +798,6 @@ public partial class MainWindow
                 RecordTrainingChoice.IsChecked = settings?.RecordTraining ?? false;
                 ShowObservedDecksChoice.IsChecked = settings?.ShowObservedDecks ?? true;
                 AutoStopOnMmrChoice.IsChecked = settings?.AutoStopOnMmr ?? false;
-                EnableExperimentalAnalysisChoice.IsChecked = settings?.EnableExperimentalAnalysis ?? false;
                 SelectRecordingFrameRate(settings?.TrainingRecordingFps ?? TrainingRecordingFrameRate.Recommended);
             }
             finally { _restoringReviewPreference = false; }
@@ -1000,9 +805,7 @@ public partial class MainWindow
                 ? null
                 : _library.Find(settings.SelectedUserDeckId)?.Deck;
             if (_selectedUserDeck is { } selected) _selectedUserDeck = CurrentDeck(selected);
-            UserDeckStatusText.Text = _selectedUserDeck is null
-                ? "Saved own-deck reference is not in the current cache."
-                : $"My deck: {_selectedUserDeck.Name} · {_selectedUserDeck.Faction} · {_selectedUserDeck.Leader}";
+            UpdateSelectedUserDeckDisplay();
             if (_selectedUserDeck is not null)
             {
                 _userTracker.SetFactionPrior(_selectedUserDeck.Faction);
@@ -1012,6 +815,20 @@ public partial class MainWindow
         {
             UserDeckStatusText.Text = "Own-deck settings could not be read; select the deck again.";
         }
+    }
+
+    private void UpdateSelectedUserDeckDisplay()
+    {
+        if (UserDeckStatusText is null || ActiveUserDeckText is null) return;
+        var text = _selectedUserDeck is null
+            ? "No deck selected · choose a complete Library deck"
+            : $"{_selectedUserDeck.Name} · {_selectedUserDeck.Faction} · {_selectedUserDeck.Leader}";
+        var palette = Controls.FactionPalette.For(_selectedUserDeck?.Faction);
+        PlayerDeckBanner.Background = Controls.FactionPalette.Brush(palette.Surface);
+        PlayerDeckBanner.BorderBrush = Controls.FactionPalette.Brush(palette.Edge);
+        UserDeckStatusText.Text = text;
+        ActiveUserDeckText.Text = text;
+        ClearUserDeckButton.IsEnabled = _selectedUserDeck is not null;
     }
 
     private void SaveUserSettings()
@@ -1024,7 +841,7 @@ public partial class MainWindow
             JsonSerializer.Serialize(
                 new UserSettings(_selectedUserDeck?.Id, ReviewNewDecksChoice.IsChecked == true, DetailedReachChoice.IsChecked == true,
                     RecordTrainingChoice.IsChecked == true, ShowObservedDecksChoice.IsChecked != false, AutoStopOnMmrChoice.IsChecked == true,
-                    EnableExperimentalAnalysisChoice.IsChecked == true, SelectedRecordingFrameRate, _useOpponentModel),
+                    SelectedRecordingFrameRate, _useOpponentModel),
                 new JsonSerializerOptions { WriteIndented = true }));
     }
 
@@ -1073,9 +890,6 @@ public partial class MainWindow
 
     private static string ResolveSettingsPath() =>
         Path.Combine(FindDataRoot(), "cache", "settings.json");
-
-    private static string ResolvePointCatalogPath() =>
-        Path.Combine(FindDataRoot(), "cache", "point-model", "cards.json");
 
     private void WriteDiscoveryReportIfDue()
     {
@@ -1127,9 +941,8 @@ public partial class MainWindow
     }
     private sealed record LiveDeckCandidateItem(string Name, string Context, DeckDefinition Deck);
     private sealed record PinnedCaptureItem(string Name, string Path);
-    private sealed record CardPointModelListItem(string Name, string Range, string Explanation);
     private sealed record UserSettings(string? SelectedUserDeckId, bool ReviewNewOpponentDecks = true, bool DetailedReach = false,
-        bool RecordTraining = false, bool ShowObservedDecks = true, bool AutoStopOnMmr = false, bool EnableExperimentalAnalysis = false,
+        bool RecordTraining = false, bool ShowObservedDecks = true, bool AutoStopOnMmr = false,
         int TrainingRecordingFps = TrainingRecordingFrameRate.Recommended, bool UseOpponentModel = false);
 
 }

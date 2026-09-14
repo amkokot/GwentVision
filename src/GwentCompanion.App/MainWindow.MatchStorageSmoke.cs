@@ -69,9 +69,13 @@ public partial class MainWindow
             DeckBuilderSmoke.Render(window, Path.Combine(folder, "settings.png"), 510, 850);
             DeckBuilderSmoke.Render(window, Path.Combine(folder, "settings-compact.png"), 370, 850);
             consent = new DataContributionConsentWindow();
-            DeckBuilderSmoke.Render(consent, Path.Combine(folder, "data-consent.png"), 570, 570);
-            Check(consent.PublishAnonymousCurve && consent.AutomaticMonthlyUpload,
-                "Consent dialog defaults do not match the disclosed opt-in choices.");
+            DeckBuilderSmoke.Render(consent, Path.Combine(folder, "data-consent.png"), 540, 440);
+            Check(consent.PublishAnonymousCurve && consent.AutomaticMonthlyUpload && !consent.PrivacyDetails.IsExpanded &&
+                consent.ConsentSummaryText.Text.Contains("Balance Council") &&
+                consent.PrivateRecordSummaryText.Text.Contains("anonymized") && consent.PrivateRecordSummaryText.Text.Contains("never published"),
+                "Consent dialog defaults or concise privacy promise do not match the disclosed opt-in choices.");
+            consent.PrivacyDetails.IsExpanded = true;
+            DeckBuilderSmoke.Render(consent, Path.Combine(folder, "data-consent-details.png"), 540, 650);
             Check(window.SettingsPage.Visibility == Visibility.Visible, "Settings page unavailable.");
             File.WriteAllText(Path.Combine(folder, "result.txt"), "PASS: menu startup waits; confirmed final scores saved; next game closes capture with best unconfirmed rating; no new-game card/score leakage; persistent identity; Settings and first-start consent rendered. No capture, network, or live data writes.");
             return 0;

@@ -333,7 +333,16 @@ public sealed class MatchVisionLedger
                 if (_previews.TryGetValue(side, out var missing))
                 {
                     missing.MissingSince ??= at;
-                    if (at - missing.MissingSince >= TimeSpan.FromSeconds(2)) _previews.Remove(side);
+                    missing.MissingArtworkScans++;
+                    // Artwork work is intentionally sparse while a tooltip is open.
+                    // Two independent full scans with no preview, separated by at
+                    // least a second, are therefore enough to prove a real gap even
+                    // when the first scan arrived late. This preserves separately
+                    // animated same-name children, such as the two Slave Drivers
+                    // played from hand by Battle Stations.
+                    if (at - missing.MissingSince >= TimeSpan.FromSeconds(2) ||
+                        missing.MissingArtworkScans >= 2 && at - missing.MissingSince >= TimeSpan.FromSeconds(1))
+                        _previews.Remove(side);
                 }
                 continue;
             }
@@ -372,6 +381,7 @@ public sealed class MatchVisionLedger
             if (_previews.TryGetValue(side, out var episode) && episode.CardId == preview.Card.Id)
             {
                 episode.MissingSince = null;
+                episode.MissingArtworkScans = 0;
                 if (_namedMultiPlays.TryGetValue(side, out var named) && at >= named.At &&
                     at - named.At <= TimeSpan.FromSeconds(20) && named.TargetNames.Contains(preview.Card.Name) &&
                     named.Presentations.TryGetValue(preview.Card.Id, out var presentation) && !presentation.ResolvedPair)
@@ -1230,6 +1240,7 @@ public sealed class MatchVisionLedger
     {
         public string CardId { get; } = cardId;
         public DateTimeOffset? MissingSince { get; set; }
+        public int MissingArtworkScans { get; set; }
     }
     private sealed record BoardVote(DateTimeOffset LastSeen, int Count);
     private sealed record WeakAutomaticVote(DateTimeOffset FirstSeen, DateTimeOffset LastSeen, int Count,

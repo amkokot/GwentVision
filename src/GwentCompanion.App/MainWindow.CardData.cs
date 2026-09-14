@@ -46,7 +46,7 @@ public partial class MainWindow
         _analysisTransition || _diagnosticSession?.IsRunning == true || _visionWorker is not null || _flushInProgress ? "Stop live analysis (■) before updating card data." :
         _libraryWindow is not null || _builderWindow is not null ? "Save your work and close the editor before updating card data." :
         _libraryTransferBusy || _autoEncounterBusy || _autoEncounterSave is { IsCompleted: false } || _editingLibraryDeck ||
-        _deckLoads > 0 || !SyncDecksButton.IsEnabled || !UseUserDeckButton.IsEnabled ? "Wait for the deck operation to finish." : null;
+        _deckLoads > 0 || !SyncDecksButton.IsEnabled ? "Wait for the deck operation to finish." : null;
 
     private async void CardData_OnClick(object sender, RoutedEventArgs e)
     {
@@ -103,14 +103,12 @@ public partial class MainWindow
         var next = new MainWindow
         {
             Left = Left, Top = Top, Width = Width, Height = Height, WindowState = WindowState,
-            WindowStyle = WindowStyle, ResizeMode = ResizeMode, Topmost = Topmost,
+            WindowStyle = WindowStyle, ResizeMode = ResizeMode,
             _expandedWorkspace = _expandedWorkspace, _fullScreen = _fullScreen, _workspaceZoom = _workspaceZoom,
             _compactBounds = _compactBounds, _compactWindowState = _compactWindowState,
             _windowedBounds = _windowedBounds, _windowedState = _windowedState,
         };
-        next.TopmostCheckBox.IsChecked = Topmost;
         next.ShowHoverThreats.IsChecked = ShowHoverThreats.IsChecked;
-        if (_confirmedOpponentDeck is { } pinned) next._confirmedOpponentDeck = next.CurrentDeck(pinned);
         next.UpdateWorkspaceLayout(); next.ShowPage(UiPage.Settings);
         next.CardDataChanges.Text = string.Join(Environment.NewLine, result.Changes);
         next.CardDataChangesPanel.Visibility = result.Changes.Count > 0 ? Visibility.Visible : Visibility.Collapsed;

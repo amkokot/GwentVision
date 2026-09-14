@@ -26,7 +26,7 @@ body:
       description: Which part of Gwent Vision was affected?
       options:
         - Card or screen detection
-        - Opponent deck hypothesis
+        - Opponent Cards tracking
         - Candidate cards
         - Snapshots or diagnostic recording
         - Deck library
@@ -41,8 +41,8 @@ body:
     id: version
     attributes:
       label: Gwent Vision version
-      description: This appears in the release name, for example v0.2.64.
-      placeholder: v0.2.64
+      description: This appears in the release name, for example v0.3.0.
+      placeholder: v0.3.0
     validations:
       required: true
 

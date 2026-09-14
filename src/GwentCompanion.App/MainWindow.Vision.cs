@@ -227,7 +227,6 @@ public partial class MainWindow
                 _lastPreview = progress.Preview;
                 PreviewImage.Source = progress.Preview;
                 PreviewPlaceholder.Visibility = System.Windows.Visibility.Collapsed;
-                PinCurrentButton.IsEnabled = true;
             }
             DiagnosticStatusText.Text = progress.Error is null && _visionError is null
                 ? $"Captured {progress.CapturedFrames:N0}; training frames {progress.SavedFrames:N0}; analyzed {_analyzedFrames:N0} · vision lag {_visionLagSeconds:F1}s" +
@@ -496,7 +495,10 @@ public partial class MainWindow
             var sighting = evidence.Sighting;
             var tracker = sighting.Side == PlayerSide.User ? _userTracker : _opponentTracker;
             _deckMutations.Observe(evidence, _selectedUserDeck?.Faction ?? _userTracker.Faction, _opponentTracker.Faction);
-            var baseOrigin = _playOrigins.Observe(evidence, _selectedUserDeck);
+            var recentDeckCount=sighting.Side==PlayerSide.Opponent
+                ? RecentDeckCount(result.Screen.OpponentDeckCount,_gameState.Current.Opponent.DeckCount,evidence.ObservedAt)
+                : RecentDeckCount(result.Screen.UserDeckCount,_gameState.Current.User.DeckCount,evidence.ObservedAt);
+            var baseOrigin = _playOrigins.Observe(evidence, _selectedUserDeck, recentDeckCount);
             var origin = _zones.OriginRisk(sighting, tracker.Observations) ?? _deckMutations.OriginRisk(sighting, evidence.ObservedAt, tracker.Observations) ??
                 _opponentKnowledge.BoardOrigin(evidence, _opponentTracker.HasStableFaction ? _opponentTracker.Faction : null) ?? Watch?.ArrivalOrigin(evidence, _opponentKnowledge.Opportunities) ?? baseOrigin;
             if (tracker.Observations.Any(item => item.Card.Id == sighting.Card.Id))
@@ -555,6 +557,10 @@ public partial class MainWindow
         TryAutoCacheOpponent();
         TryAutoStopOnMmr(result);
     }
+
+    private static int? RecentDeckCount(int? current, GwentCompanion.Core.GameState.StateFact<int>? prior,
+        DateTimeOffset at) => current ?? (prior is { } fact && at>=fact.At && at-fact.At<=TimeSpan.FromSeconds(5)
+            ? fact.Value : null);
 
     private bool ObserveLeaderStartingDeckAssumptions(CardDefinition leader, DateTimeOffset at)
     {

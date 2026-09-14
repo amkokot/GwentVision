@@ -43,8 +43,8 @@ Copy-ProjectTree '.github' { param($file, $local) $true }
 Copy-ProjectTree 'docs' { param($file, $local) $true }
 Copy-ProjectTree 'backend' { param($file, $local) $local -notmatch '(^|[\\/])(\.env|\.temp)([\\/]|$)' }
 Copy-ProjectTree 'site' { param($file, $local) $true }
+Copy-ProjectTree 'packaging' { param($file, $local) $true }
 Copy-ProjectTree 'src' { param($file, $local) $local -notmatch '(^|[\\/])(bin|obj)([\\/]|$)' }
-Copy-ProjectTree 'site' { param($file, $local) $true }
 Copy-ProjectTree 'assets' { param($file, $local) $true }
 Copy-ProjectTree 'tests/GwentCompanion.Tests' { param($file, $local) $local -notmatch '(^|[\\/])(bin|obj)([\\/]|$)' }
 foreach ($file in @('tests/board-recovery-training.json', 'tests/vision-fixtures.json', 'tests/vision-training-v0.1.14.json')) { Copy-ProjectFile $file }

@@ -68,7 +68,7 @@ internal static partial class DeckBuilderSmoke
             Check(Result(builder).Cards.All(c => c.Card.Id != autoCard.Id) || Result(builder).Cards.Single(c => c.Card.Id == autoCard.Id).Count < template.CountOf(autoCard.Id),
                 "Auto-fill immediately restored the clicked-away copy.");
             Undo(); await Settled(builder);
-            // All six headings share the same control used in Library, Reference, memory and templates.
+            // All six headings share the same control used in Library, memory and templates.
             var panel = new StackPanel { Background = FactionPalette.Brush("#101419") };
             foreach (var faction in catalog.Where(c => c.Kind == CardKind.Leader && c.Faction != "Neutral").Select(c => c.Faction).Distinct())
             {

@@ -30,14 +30,15 @@ jobs:
       - name: Publish self-contained Windows build
         shell: pwsh
         run: |
-          dotnet publish src/GwentCompanion.App/GwentCompanion.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:DebugType=None -p:DebugSymbols=false -o dist/GwentVision
-          New-Item -ItemType Directory -Force dist/GwentVision/cache | Out-Null
-          Copy-Item cache/gwent-one-cards.json,cache/create-point-profiles.json,cache/deck-library.json,cache/data-service.json dist/GwentVision/cache
+          dotnet publish src/GwentCompanion.App/GwentCompanion.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:DebugType=None -p:DebugSymbols=false -o dist/package/GwentVision
+          New-Item -ItemType Directory -Force dist/package/GwentVision/cache | Out-Null
+          Copy-Item cache/gwent-one-cards.json,cache/create-point-profiles.json,cache/deck-library.json,cache/data-service.json dist/package/GwentVision/cache
           foreach ($folder in @('portraits','premium-frames','observed-art')) {
-            if (Test-Path "cache/$folder") { Copy-Item "cache/$folder" dist/GwentVision/cache -Recurse }
+            if (Test-Path "cache/$folder") { Copy-Item "cache/$folder" dist/package/GwentVision/cache -Recurse }
           }
-          Copy-Item README.md,LICENSE,THIRD_PARTY_NOTICES.md dist/GwentVision
-          Compress-Archive -Path dist/GwentVision -DestinationPath dist/GwentVision-Windows-x64.zip -CompressionLevel Optimal
+          Copy-Item README.md,LICENSE,THIRD_PARTY_NOTICES.md dist/package/GwentVision
+          Copy-Item 'packaging/Gwent Vision.cmd' dist/package
+          Compress-Archive -Path dist/package/* -DestinationPath dist/GwentVision-Windows-x64.zip -CompressionLevel Optimal
           $hash = (Get-FileHash dist/GwentVision-Windows-x64.zip -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  GwentVision-Windows-x64.zip" | Set-Content dist/GwentVision-Windows-x64.zip.sha256
       - uses: actions/upload-artifact@v7
@@ -66,6 +67,8 @@ jobs:
           (cd release-package && sha256sum --check GwentVision-Windows-x64.zip.sha256)
           mkdir release-expanded
           unzip -q release-package/GwentVision-Windows-x64.zip -d release-expanded
+          test -f 'release-expanded/Gwent Vision.cmd'
+          test -f release-expanded/GwentVision/GwentVision.exe
           clamscan --recursive --infected --max-filesize=700M --max-scansize=4G release-expanded
           clamscan --recursive --infected --max-filesize=700M --max-scansize=4G release-package
       - uses: softprops/action-gh-release@v3

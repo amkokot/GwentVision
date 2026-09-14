@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using GwentCompanion.Core.Data;
@@ -10,6 +11,7 @@ namespace GwentCompanion.App;
 
 public partial class MainWindow
 {
+    private static readonly Uri PublicMmrSite = new("https://amkokot.github.io/GwentVision/");
     private MatchAcquisition? _matchAcquisition;
     private MatchAnalysisWindow? _matchAnalysisWindow;
     private InstallationIdentity? _matchIdentity;
@@ -83,7 +85,7 @@ public partial class MainWindow
         QueueMatchCheckpoint(force: true, stopped: true);
         _projectionQueue?.Dispose(); _projectionQueue = null; _projectionEncounter = null;
         _userTracker.Reset(); _opponentTracker.Reset(); ResetOpponentKnowledge();
-        _opponentEdits.Clear(); _confirmedOpponentDeck = null; _lastProjection = null;
+        _opponentEdits.Clear(); _lastProjection = null;
         _playOrigins.Reset(); _gameState.Reset(_manualEncounterId, _selectedUserDeck);
         _lastGameStateUpdate = null;
         BeginMatchAcquisition();
@@ -330,6 +332,12 @@ public partial class MainWindow
     private void CopySeasonCode_OnClick(object sender, RoutedEventArgs e)
     {
         if (!string.IsNullOrWhiteSpace(SeasonCodeText.Text)) Clipboard.SetText(SeasonCodeText.Text);
+    }
+
+    private void OpenPublicMmrSite_OnClick(object sender, RoutedEventArgs e)
+    {
+        try { Process.Start(new ProcessStartInfo(PublicMmrSite.AbsoluteUri) { UseShellExecute = true }); }
+        catch (Exception error) { MatchStorageStatus.Text = "Cannot open the public MMR curves: " + error.Message; }
     }
 
     private async Task UpdateCurveVisibilityAsync()

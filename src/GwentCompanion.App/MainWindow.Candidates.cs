@@ -11,12 +11,6 @@ public partial class MainWindow
     private void RenderCandidateTray()
     {
         if (CandidateCardTray is null || _lastProjection is null) return;
-        if (_useOpponentModel && _confirmedOpponentDeck is not null)
-        {
-            CandidateCardTray.Rows = null;
-            CandidateTrayStatus.Text = "A full reference is pinned. Clear the pin to edit individual assumptions.";
-            return;
-        }
         try
         {
             _candidateCatalog ??= GwentOneCardCatalog.Load(Path.Combine(FindDataRoot(), "cache", "gwent-one-cards.json"));
@@ -52,7 +46,7 @@ public partial class MainWindow
                 ? $"Candidate copy {item.Copy}, not a sighting. Click to assume it in the deck and reweight related suggestions. " +
                   (item.Copy == 1 && item.Package is not null ? item.Package.Explanation + " " : "") +
                   item.Meta?.CopyRecommendations?.ElementAtOrDefault(item.Copy - 1)?.Evidence +
-                  (_opponentEdits.CorrectedEvidence.Contains(new(item.Card.Id, item.Copy)) ? " You removed this detected copy from the hypothesis; click to restore it." :
+                  (_opponentEdits.CorrectedEvidence.Contains(new(item.Card.Id, item.Copy)) ? " You removed this detected copy from Opponent Cards; click to restore it." :
                    _opponentEdits.Excluded.Contains(new(item.Card.Id, item.Copy)) ? " You dismissed this suggestion; it will not auto-fill again this match." : "")
                 : $"Eligible starting-deck card · copy {item.Copy} · deck-builder order.",
             _useOpponentModel && item.Copy == 1 ? item.Package : null))).ToArray();
@@ -71,11 +65,11 @@ public partial class MainWindow
             CandidateTrayStatus.Text = "Candidate catalog · deck-builder order.";
             return;
         }
-        if (_confirmedOpponentDeck is not null || row is not DeckStripRow { Slot.Card: { } card } item || _lastProjection is null) return;
+        if (row is not DeckStripRow { Slot.Card: { } card } item || _lastProjection is null) return;
         if (_opponentEdits.RestoreEvidence(card, item.Slot.Copy))
         {
             RenderLiveInference(); PersistCurrentMatch();
-            FooterStatusText.Text = $"Restored the detected {card.Name} copy to the working hypothesis.";
+            FooterStatusText.Text = $"Restored the detected {card.Name} copy to Opponent Cards.";
             return;
         }
         if (_lastProjection.Slots.All(slot => slot.State is DeckSlotState.Observed or DeckSlotState.Selected))
@@ -98,13 +92,8 @@ public partial class MainWindow
             if (item.Slot.Card is { } observedCard && _opponentEdits.RejectEvidence(observedCard, observedCopies))
             {
                 RenderLiveInference(); PersistCurrentMatch();
-                FooterStatusText.Text = $"Removed one detected {observedCard.Name} copy from the working hypothesis. The raw sighting remains in the audit journal; click it in candidates to restore it.";
+                FooterStatusText.Text = $"Removed one detected {observedCard.Name} copy from Opponent Cards. The raw sighting remains in the audit journal; click it in Candidates to restore it.";
             }
-            return;
-        }
-        if (_confirmedOpponentDeck is not null)
-        {
-            FooterStatusText.Text = "Clear the full-deck pin before editing individual assumptions.";
             return;
         }
         if (item.Slot.Card is null) { CandidateCardSearch.Focus(); return; }

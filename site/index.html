@@ -4,15 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="referrer" content="no-referrer">
+  <meta name="description" content="Anonymous Gwent Vision season MMR progression and faction trends.">
   <title>Gwent Vision · Season MMR</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header>
-    <div class="brand">GV</div>
-    <div><p class="eyebrow">GWENT VISION</p><h1>Season MMR field</h1></div>
+    <div class="identity"><div class="brand"><span>GV</span></div>
+      <div><p class="eyebrow">GWENT VISION</p><h1>Season MMR field</h1></div></div>
+    <nav aria-label="Project links"><a href="https://github.com/amkokot/GwentVision/releases/latest">Download</a><a href="https://github.com/amkokot/GwentVision">Source</a></nav>
   </header>
   <main>
+    <p class="intro">Compare anonymous contributor progress through the current patch. Total MMR is the running sum of each player's best rating in up to four factions; unseen factions count as zero, so the total never falls. Ratings begin only after Gwent exposes faction MMR.</p>
     <section class="panel controls" aria-label="Chart controls">
       <label>Season<select id="season"></select></label>
       <label>Display<select id="display">
@@ -21,8 +24,9 @@
         <option value="faction">One faction</option>
       </select></label>
       <label>Faction<select id="faction" disabled></select></label>
-      <form id="highlight-form"><label>Season code<span class="code-row"><input id="code" maxlength="16" autocomplete="off" spellcheck="false" placeholder="Enter your code"><button>Highlight</button></span></label></form>
+      <form id="highlight-form"><label>Season code<span class="code-row"><input id="code" maxlength="16" autocomplete="off" spellcheck="false" placeholder="Enter your code" aria-describedby="code-help"><button>Highlight</button></span></label></form>
     </section>
+    <p id="code-help" class="code-help">Your code is issued after a successful contribution. It identifies one season curve and is sent only when you press Highlight.</p>
 
     <p id="status" class="status" role="status">Loading seasons…</p>
     <section class="panel chart-panel">
@@ -39,7 +43,7 @@
       <p class="summary">Daily cells appear only after at least five installations contributed to that faction. Match share uses visible cells; win rate excludes draws. These are contributor-sample estimates, not the full Gwent population.</p>
     </section>
   </main>
-  <footer>No player names, decks, opponents, match IDs, installation IDs, or exact timestamps are published.</footer>
+  <footer>No player names, decks, opponents, match IDs, installation IDs, or exact timestamps are published. <a href="https://github.com/amkokot/GwentVision/blob/main/docs/DATA-CONTRIBUTION-PRIVACY.md">Read the data policy</a>.</footer>
   <script src="runtime-config.js"></script>
   <script src="app.js"></script>
 </body>

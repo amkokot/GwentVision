@@ -12,8 +12,8 @@
       "result notification identity"
     ]
   },
-  "FileCount": 4974,
-  "Bytes": 1680783916,
+  "FileCount": 4960,
+  "Bytes": 1662165634,
   "Files": [
     {
       "File": "sessions/20260826-103944/frame-000093-104007398.jpg",
@@ -36044,40 +36044,11 @@
       ]
     },
     {
-      "File": "sessions/20260901-152643/frame-005099-153514131.jpg",
-      "Bytes": 311898,
-      "Sha256": "D55193A52D0EBA52ECD8B3E1D571D88DF1EBF9564606979F4D45E12DFE35739E",
-      "Tags": [
-        "explicit-reference",
-        "reviewed-hard-case"
-      ]
-    },
-    {
       "File": "sessions/20260901-152643/frame-005103-153514529.jpg",
       "Bytes": 316410,
       "Sha256": "B3A675BBDDE712974093DBC0D89F72918009785440E278699C2AB0DD7EC0E68D",
       "Tags": [
-        "explicit-reference",
-        "reviewed-hard-case",
         "sequence:recorded action evidence"
-      ]
-    },
-    {
-      "File": "sessions/20260901-152643/frame-005107-153514922.jpg",
-      "Bytes": 316566,
-      "Sha256": "8E4B27D341BF296CD5FBF5817E37AA0CE0AB826F2F2E682407FF6133E96630C6",
-      "Tags": [
-        "explicit-reference",
-        "reviewed-hard-case"
-      ]
-    },
-    {
-      "File": "sessions/20260901-152643/frame-005197-153523930.jpg",
-      "Bytes": 317316,
-      "Sha256": "68A35CF260BAA82EE8F28E0D4369316F52FC5C54370C657C22ED79569B8E786D",
-      "Tags": [
-        "explicit-reference",
-        "reviewed-hard-case"
       ]
     },
     {
@@ -36085,27 +36056,7 @@
       "Bytes": 317376,
       "Sha256": "BB31D6C028B305C543CDADDCC6AED56469EE99F34B94DDA212195790CD372FDA",
       "Tags": [
-        "explicit-reference",
-        "reviewed-hard-case",
         "sequence:recorded action evidence"
-      ]
-    },
-    {
-      "File": "sessions/20260901-152643/frame-005202-153524447.jpg",
-      "Bytes": 317458,
-      "Sha256": "00E6BB0C4A4F840145115DB0528565638D43BAD4923DAFA49DD0F7022E62AE14",
-      "Tags": [
-        "explicit-reference",
-        "reviewed-hard-case"
-      ]
-    },
-    {
-      "File": "sessions/20260901-152643/frame-005212-153525438.jpg",
-      "Bytes": 316940,
-      "Sha256": "871F68CDBB3CD69CAD25E2A6F980A5FBEA92319A3175557BEDD038947D8BE3CC",
-      "Tags": [
-        "explicit-reference",
-        "reviewed-hard-case"
       ]
     },
     {
@@ -36114,36 +36065,7 @@
       "Sha256": "8FEBA53AE3C7CC629D1A05D9D2D70CB649D3F1927B6034498E3A3C79244AB5F8",
       "Tags": [
         "difficult-current-reader",
-        "explicit-reference",
-        "reviewed-hard-case",
         "sequence:recorded action evidence"
-      ]
-    },
-    {
-      "File": "sessions/20260901-152643/frame-005218-153526039.jpg",
-      "Bytes": 319121,
-      "Sha256": "A3549FEC3464C3D1F8E754FB7F0D787F616043016932E86B04E8EBBB1F7E0B09",
-      "Tags": [
-        "explicit-reference",
-        "reviewed-hard-case"
-      ]
-    },
-    {
-      "File": "sessions/20260901-152643/frame-005226-153526826.jpg",
-      "Bytes": 320803,
-      "Sha256": "220982D7A64A1FD37BCAA266EF56992D84C0F8993288EF8F1821C09C23852D22",
-      "Tags": [
-        "explicit-reference",
-        "reviewed-hard-case"
-      ]
-    },
-    {
-      "File": "sessions/20260901-152643/frame-005239-153528138.jpg",
-      "Bytes": 315949,
-      "Sha256": "D6EADEE4ECC1055C0FE6C410CEFA852F3DA50BB0616FBE53B83E7A951BDBDDFD",
-      "Tags": [
-        "explicit-reference",
-        "reviewed-hard-case"
       ]
     },
     {
@@ -36494,87 +36416,6 @@
       "File": "sessions/20260901-152643/play-events/20260901-153012049-Opponent/during.png",
       "Bytes": 2161375,
       "Sha256": "505F15ADDDAAD11580DA7678C244F719A98DD4E172646E90FD72CC926F60CF5A",
-      "Tags": [
-        "explicit-reference",
-        "reviewed-hard-case"
-      ]
-    },
-    {
-      "File": "sessions/20260901-152643/play-events/20260901-153514529-Opponent/after.png",
-      "Bytes": 2113139,
-      "Sha256": "6CDC3EFC312DF70D2271CE9EED8CE89BA3358045A880AE32946B864BFCDA1159",
-      "Tags": [
-        "explicit-reference",
-        "reviewed-hard-case"
-      ]
-    },
-    {
-      "File": "sessions/20260901-152643/play-events/20260901-153514529-Opponent/before.png",
-      "Bytes": 2128304,
-      "Sha256": "0267E260571EEB33F64E3311C0490E30B4CDBEAB04B32111AC1FE05CB7261E9A",
-      "Tags": [
-        "explicit-reference",
-        "reviewed-hard-case"
-      ]
-    },
-    {
-      "File": "sessions/20260901-152643/play-events/20260901-153514529-Opponent/during.png",
-      "Bytes": 2113289,
-      "Sha256": "623B1D2CC7B3E411FB75D5E701BE0EF4E873A081EFF9B3CFCEC5BB8EE2CF43AF",
-      "Tags": [
-        "explicit-reference",
-        "reviewed-hard-case"
-      ]
-    },
-    {
-      "File": "sessions/20260901-152643/play-events/20260901-153524147-Opponent/after.png",
-      "Bytes": 2093066,
-      "Sha256": "8BB26DAA19C6DD17AF0DE0FCF5A69028A028D23ABEC15D4E539629982727B15A",
-      "Tags": [
-        "explicit-reference",
-        "reviewed-hard-case"
-      ]
-    },
-    {
-      "File": "sessions/20260901-152643/play-events/20260901-153524147-Opponent/before.png",
-      "Bytes": 2095190,
-      "Sha256": "B7AA1FFC26A96E3F9F21189850148483144BB9BF714E048FDE0DCA316DCB2051",
-      "Tags": [
-        "explicit-reference",
-        "reviewed-hard-case"
-      ]
-    },
-    {
-      "File": "sessions/20260901-152643/play-events/20260901-153524147-Opponent/during.png",
-      "Bytes": 2093882,
-      "Sha256": "B1BA4902D0A2AC6527A66653299524DA061042E9BF997D5428FEBFE341B14DC1",
-      "Tags": [
-        "explicit-reference",
-        "reviewed-hard-case"
-      ]
-    },
-    {
-      "File": "sessions/20260901-152643/play-events/20260901-153525631-Opponent/after.png",
-      "Bytes": 2136293,
-      "Sha256": "A24E6043D4B20FA65086D76AE7C28F04CE1E7EE39E416BC93D3C7CCE2CDB3748",
-      "Tags": [
-        "explicit-reference",
-        "reviewed-hard-case"
-      ]
-    },
-    {
-      "File": "sessions/20260901-152643/play-events/20260901-153525631-Opponent/before.png",
-      "Bytes": 2135258,
-      "Sha256": "430007C5409CF58BEB4FDB23ADCB638D99BE6B1E680E5650C8336EEF99438AB9",
-      "Tags": [
-        "explicit-reference",
-        "reviewed-hard-case"
-      ]
-    },
-    {
-      "File": "sessions/20260901-152643/play-events/20260901-153525631-Opponent/during.png",
-      "Bytes": 2133432,
-      "Sha256": "A26A95B7506ACD8BE948AC6ABD016B0D202BB66A0ACB638B19102FCB982E6F42",
       "Tags": [
         "explicit-reference",
         "reviewed-hard-case"
@@ -39206,54 +39047,6 @@
       ]
     },
     {
-      "File": "sessions/20260913-111340/play-events/20260913-112327949-User/after.png",
-      "Bytes": 2302651,
-      "Sha256": "BED18805670E18F31D3D880B9A2107A662D87360466AC25684E7BDFB2E9A2524",
-      "Tags": [
-        "event-sequence:deck-choice"
-      ]
-    },
-    {
-      "File": "sessions/20260913-111340/play-events/20260913-112327949-User/before.png",
-      "Bytes": 2303861,
-      "Sha256": "231F1572BEC91FE9E3D0149DBE0E2E9D7FED949ABEB6A51086CE1637C41E9ABC",
-      "Tags": [
-        "event-sequence:deck-choice"
-      ]
-    },
-    {
-      "File": "sessions/20260913-111340/play-events/20260913-112327949-User/during.png",
-      "Bytes": 2302802,
-      "Sha256": "3DC3A5D9F5AFEDCAA52160C14706F344B391FF3359E8E0FC2CB2B1CC6182049B",
-      "Tags": [
-        "event-sequence:deck-choice"
-      ]
-    },
-    {
-      "File": "sessions/20260913-111340/play-events/20260913-112825144-User/after.png",
-      "Bytes": 2292034,
-      "Sha256": "B97DC8D507ECB296B67C85C9B08E407B3FFB3F7BD3882751460D2E56F013EC92",
-      "Tags": [
-        "event-sequence:title"
-      ]
-    },
-    {
-      "File": "sessions/20260913-111340/play-events/20260913-112825144-User/before.png",
-      "Bytes": 2258543,
-      "Sha256": "E352F3E81CE7AC8CCFB4AAC52DECD9EFF731AEE85564330FD088DD280D452EEA",
-      "Tags": [
-        "event-sequence:title"
-      ]
-    },
-    {
-      "File": "sessions/20260913-111340/play-events/20260913-112825144-User/during.png",
-      "Bytes": 2254535,
-      "Sha256": "FCF9CB99636841627865989859915D3D00F262438E55746156A0A30FD8C3E907",
-      "Tags": [
-        "event-sequence:title"
-      ]
-    },
-    {
       "File": "sessions/20260913-123813/frame-000001-123813873.jpg",
       "Bytes": 306735,
       "Sha256": "3950B6BD2D423F55E6B213E09CB4844080157CB097823851236CE86FF46BCC15",
@@ -41048,51 +40841,123 @@
       ]
     },
     {
-      "File": "sessions/20260913-123832/play-events/20260913-164820949-Opponent/after.png",
-      "Bytes": 2270933,
-      "Sha256": "7ACE2C24861BC00300E32F38A3BD37F393CB988316A813C13485D5CF086F22DE",
+      "File": "sessions/20260913-143019/play-events/20260913-183045430-User/after.png",
+      "Bytes": 2240340,
+      "Sha256": "4A0E92D7F6A100F4985B82613CC9370570CEC747F1225ABEB80776C9DF6545A5",
+      "Tags": [
+        "event-sequence:deck-choice"
+      ]
+    },
+    {
+      "File": "sessions/20260913-143019/play-events/20260913-183045430-User/before.png",
+      "Bytes": 2197010,
+      "Sha256": "F9827834710CBFA7F1FFC5B6429CF0F18D91560C63AEDB7FAF1FF7C06A2B686C",
+      "Tags": [
+        "event-sequence:deck-choice"
+      ]
+    },
+    {
+      "File": "sessions/20260913-143019/play-events/20260913-183045430-User/during.png",
+      "Bytes": 2199514,
+      "Sha256": "88BA763F111EFE0971E80E4630A8436F97CF99147E743C22623F5B093DA9E915",
+      "Tags": [
+        "event-sequence:deck-choice"
+      ]
+    },
+    {
+      "File": "sessions/20260913-143019/play-events/20260913-184340171-Opponent/after.png",
+      "Bytes": 2288176,
+      "Sha256": "35E6918D8BEC154F069B9C05294182FB8A0143872335B199CA5FF6C16FCA6787",
+      "Tags": [
+        "event-sequence:deck-choice"
+      ]
+    },
+    {
+      "File": "sessions/20260913-143019/play-events/20260913-184340171-Opponent/before.png",
+      "Bytes": 2276059,
+      "Sha256": "E8B0893C504B05B929ACF35F287D3D078C85069BEDD42C5DC9AB632D3F3DA4CC",
+      "Tags": [
+        "event-sequence:deck-choice"
+      ]
+    },
+    {
+      "File": "sessions/20260913-143019/play-events/20260913-184340171-Opponent/during.png",
+      "Bytes": 2276334,
+      "Sha256": "763ABD03D244D8AF1345E91D8ABE31F54A170F9A9FF4E289A2854185DC30B54C",
+      "Tags": [
+        "event-sequence:deck-choice"
+      ]
+    },
+    {
+      "File": "sessions/20260913-214033/play-events/20260914-015423167-User/after.png",
+      "Bytes": 1994562,
+      "Sha256": "108E5D1EA61B9C34EB66D39A4D2FB6FD5208A4B452C80AC92893152E2C2B3F1A",
       "Tags": [
         "event-sequence:title"
       ]
     },
     {
-      "File": "sessions/20260913-123832/play-events/20260913-164820949-Opponent/before.png",
-      "Bytes": 2261001,
-      "Sha256": "A9A0EE0B7F63D674E85A149415FB26FCFCF1EC5DA6F2D8BB57B99F0A9EC88625",
+      "File": "sessions/20260913-214033/play-events/20260914-015423167-User/before.png",
+      "Bytes": 1993416,
+      "Sha256": "0904F1E22C2953CC8686BD3B4677E90C609CAC076CAE1A844AE8C10F5A862DF2",
       "Tags": [
         "event-sequence:title"
       ]
     },
     {
-      "File": "sessions/20260913-123832/play-events/20260913-164820949-Opponent/during.png",
-      "Bytes": 2274179,
-      "Sha256": "563B3609041E4571F9AEE191C77D4881F1216FDA6764072A164A9E2B83E064C2",
+      "File": "sessions/20260913-214033/play-events/20260914-015423167-User/during.png",
+      "Bytes": 945859,
+      "Sha256": "505749A89B1D9F66ED6D9A58490FE5A45544EFBBE59C1C89602E813ED90E342C",
       "Tags": [
         "event-sequence:title"
       ]
     },
     {
-      "File": "sessions/20260913-123832/play-events/20260913-164911449-User/after.png",
-      "Bytes": 2312569,
-      "Sha256": "2C77C3833DB9B85249420483EB6D7CF1769E9AC061DA84073356DACF7248052C",
+      "File": "sessions/20260913-214033/play-events/20260914-015456681-User/after.png",
+      "Bytes": 2040167,
+      "Sha256": "28768E869F508CFDA18D3A8DC3A2D7C2C3CCC0ECF7CDC359DB4CF9C148AD9DA5",
       "Tags": [
         "event-sequence:hand-commit"
       ]
     },
     {
-      "File": "sessions/20260913-123832/play-events/20260913-164911449-User/before.png",
-      "Bytes": 2293273,
-      "Sha256": "E3C1DDFD7E9682F5267C39873EEE39C3673CE276972689B4718BE9A0F38949DE",
+      "File": "sessions/20260913-214033/play-events/20260914-015456681-User/before.png",
+      "Bytes": 2048029,
+      "Sha256": "E77567CF7492054CE70FECFDF838BB5776414CD9A473013DB4747C1EA79AF2B6",
       "Tags": [
         "event-sequence:hand-commit"
       ]
     },
     {
-      "File": "sessions/20260913-123832/play-events/20260913-164911449-User/during.png",
-      "Bytes": 2322126,
-      "Sha256": "03C643C038552D4B83AB4BC3A75173C924639F16C530D9D7C91C48217BF30E37",
+      "File": "sessions/20260913-214033/play-events/20260914-015456681-User/during.png",
+      "Bytes": 2019119,
+      "Sha256": "88CA2C24A5D7D91EBC7B609D4CE160BB3A0223F99F3A33CDA7C941F4DC595A70",
       "Tags": [
         "event-sequence:hand-commit"
+      ]
+    },
+    {
+      "File": "sessions/20260913-214033/play-events/20260914-015521290-Opponent/after.png",
+      "Bytes": 1951086,
+      "Sha256": "51A13F2C40E8AB66C79812DCD0C874A802733A7D0ADA2F4CFACFF5B0220974C6",
+      "Tags": [
+        "event-sequence:title"
+      ]
+    },
+    {
+      "File": "sessions/20260913-214033/play-events/20260914-015521290-Opponent/before.png",
+      "Bytes": 1962970,
+      "Sha256": "89730FB4BDF60A478E97625354F462F0EA92BBC74E89A623310FE654C75F983A",
+      "Tags": [
+        "event-sequence:title"
+      ]
+    },
+    {
+      "File": "sessions/20260913-214033/play-events/20260914-015521290-Opponent/during.png",
+      "Bytes": 1975488,
+      "Sha256": "AB09A44C3F18C5F83B7529C2476E0995CE8E191FB327280563880FE31954E01D",
+      "Tags": [
+        "event-sequence:title"
       ]
     }
   ]

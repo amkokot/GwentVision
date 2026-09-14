@@ -31,7 +31,11 @@ internal sealed class DataServiceContractValidationCase : IContributorValidation
         var clientSource = Read("src", "GwentCompanion.Platform.Windows", "Data", "DataContributionClient.cs");
         var workflow = Read(".github", "workflows", "data-service.yml");
         var pagesWorkflow = Read(".github", "workflows", "pages.yml");
+        var releaseWorkflow = Read(".github", "workflows", "release.yml");
         var site = Read("site", "index.html") + Read("site", "app.js");
+        var appShell = Read("src", "GwentCompanion.App", "MainWindow.xaml") +
+            Read("src", "GwentCompanion.App", "MainWindow.MatchStorage.cs");
+        var launcher = Read("packaging", "Gwent Vision.cmd");
         var runbook = Read("docs", "DATABASE-SETUP-RUNBOOK.md");
 
         Check(schema.Contains("partition by list (season_id)", StringComparison.OrdinalIgnoreCase) &&
@@ -95,8 +99,15 @@ internal sealed class DataServiceContractValidationCase : IContributorValidation
             pagesWorkflow.Contains("actions/deploy-pages", StringComparison.Ordinal) &&
             site.Contains("all-factions", StringComparison.Ordinal) &&
             site.Contains("population-measure", StringComparison.Ordinal) &&
+            site.Contains("https://github.com/amkokot/GwentVision", StringComparison.Ordinal) &&
             !site.Contains("localStorage", StringComparison.Ordinal),
             "The public dashboard lacks all-faction curves, aggregate comparisons, safe configuration, or code privacy.");
+        Check(appShell.Contains("PublicMmrSiteButton", StringComparison.Ordinal) &&
+            appShell.Contains("https://amkokot.github.io/GwentVision/", StringComparison.Ordinal) &&
+            launcher.Contains("%~dp0GwentVision\\GwentVision.exe", StringComparison.OrdinalIgnoreCase) &&
+            releaseWorkflow.Contains("dist/package/GwentVision", StringComparison.Ordinal) &&
+            releaseWorkflow.Contains("packaging/Gwent Vision.cmd", StringComparison.Ordinal),
+            "The desktop site link or portable release launcher is missing.");
         Check(runbook.Contains("Do not enable the production configuration yet", StringComparison.Ordinal) &&
             runbook.Contains("normal users never", StringComparison.Ordinal) &&
             runbook.Contains("Repeated Pushes", StringComparison.Ordinal),

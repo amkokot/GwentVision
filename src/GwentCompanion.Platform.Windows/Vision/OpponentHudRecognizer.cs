@@ -90,8 +90,17 @@ public sealed class OpponentHudRecognizer
         // farther left than the ordinary board camera. Read that literal fixed
         // crop independently; the live recognizer still requires two matching
         // one-second samples before publishing a deck count.
-        foreach (var tightRegion in new[] { new NormalizedRegion(.735,.050,.759,.083), new(.708,.083,.744,.137) })
+        foreach (var tightRegion in new[]
         {
+            // Standard 16:9 board camera. The far pile's diamond sits lower than
+            // the card art and was outside both older opening-animation crops.
+            new NormalizedRegion(.735,.095,.765,.145),
+            new(.735,.050,.759,.083),
+            new(.708,.083,.744,.137)
+        })
+        {
+            var tightGlyph=DeckCounterDigitReader.Read(frame,tightRegion,minimumHeightFraction:.009);
+            if(tightGlyph is >=0 and <=99) return tightGlyph;
             var tight=await reader.ReadLinesAsync(frame,tightRegion,2,enhance:false,whiteLetterMask:true,smooth:true).ConfigureAwait(false);
             var parsed=ParseDeck(string.Join('\n',tight.Select(line=>line.Text))) ??
                 ParseDeck(await reader.ReadAsync(frame,tightRegion).ConfigureAwait(false));

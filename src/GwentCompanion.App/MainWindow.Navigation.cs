@@ -8,54 +8,37 @@ namespace GwentCompanion.App;
 
 public partial class MainWindow
 {
-    private enum UiPage { Plays, Deck, Candidates, Reference, Library, Pinned, Settings, Advanced, Audit, Memory, MyDeck, Points }
+    private enum UiPage { Plays, Deck, Candidates, Library, Pinned, Settings, Memory }
     private UiPage _page = UiPage.Deck;
     private UiPage _lastGameplayPage = UiPage.Deck;
-    private UiPage _lastReferencePage = UiPage.Reference;
-    private bool _changingReferenceMode;
     private bool _changingNavigation;
     private string? _selectedRule;
     private void ShowPage(UiPage page)
     {
-        if (page == UiPage.Plays && !ExperimentalOverviewEnabled && !_analysisControlTest && _reviewEvidencePath is null)
+        if (page == UiPage.Plays && !_analysisControlTest && _reviewEvidencePath is null)
             page = UiPage.Deck;
-        if (page == UiPage.Points && _pointCatalogDirty) RebuildPointCatalog();
         if (page != UiPage.Library) CancelLibraryPreview();
         _page = page;
         if (page == UiPage.Library) RefreshLibraryPreview();
-        var isReference = page is UiPage.Reference or UiPage.MyDeck;
         var isLive = page is UiPage.Plays or UiPage.Deck or UiPage.Candidates or UiPage.Pinned;
-        if (isLive || isReference) _lastGameplayPage = page;
+        if (isLive) _lastGameplayPage = page;
         foreach (var child in Pages.Children.OfType<FrameworkElement>()) child.Visibility = child.Name == page + "Page" ? Visibility.Visible : Visibility.Collapsed;
         _changingNavigation = true;
-        foreach (var button in GameplayNavigation.Children.OfType<RadioButton>().Append(LibraryNavigation)) button.IsChecked = (string)button.Tag == (isReference ? UiPage.Reference : isLive ? UiPage.Deck : page).ToString();
+        LibraryNavigation.IsChecked = page == UiPage.Library;
         foreach (var button in LiveModeBar.Children.OfType<RadioButton>()) button.IsChecked = (string)button.Tag == page.ToString();
         _changingNavigation = false;
-        PageBackBar.Visibility = isLive || page == UiPage.Library || isReference ? Visibility.Collapsed : Visibility.Visible;
-        ReferenceModeBar.Visibility = isReference ? Visibility.Visible : Visibility.Collapsed;
-        if (isReference)
-        {
-            _lastReferencePage = page;
-            _changingReferenceMode = true;
-            ReferenceDeckNavigation.IsChecked = page == UiPage.Reference;
-            ReferenceMyDeckNavigation.IsChecked = page == UiPage.MyDeck;
-            _changingReferenceMode = false;
-        }
-        AuxiliaryPageTitle.Text = page switch { UiPage.MyDeck => "My deck", UiPage.Pinned => "Snapshots", _ => page.ToString() };
-        if (isReference || page == UiPage.Pinned) { RefreshPinnedCaptures(); RefreshPinnedOpponentReference(); }
+        PageBackBar.Visibility = isLive ? Visibility.Collapsed : Visibility.Visible;
+        PlayerDeckBanner.Visibility = isLive ? Visibility.Visible : Visibility.Collapsed;
+        AuxiliaryPageTitle.Text = page.ToString();
+        if (page == UiPage.Pinned) RefreshPinnedCaptures();
+        UpdateSelectedUserDeckDisplay();
         RefreshHoverBanner();
         UpdateWorkspaceLayout();
     }
-    private bool ExperimentalOverviewEnabled => EnableExperimentalAnalysisChoice?.IsChecked == true;
     private void Navigate_OnClick(object sender, RoutedEventArgs e)
     {
         if (_changingNavigation) return;
-        if (sender is FrameworkElement { Tag: string name } && Enum.TryParse<UiPage>(name, out var page)) ShowPage(page == UiPage.Reference ? _lastReferencePage : page);
-    }
-    private void ReferenceMode_OnChanged(object sender, RoutedEventArgs e)
-    {
-        if (!_changingReferenceMode && Pages is not null && sender is FrameworkElement { Tag: string name }
-            && Enum.TryParse<UiPage>(name, out var page)) ShowPage(page);
+        if (sender is FrameworkElement { Tag: string name } && Enum.TryParse<UiPage>(name, out var page)) ShowPage(page);
     }
     private void BackToGame_OnClick(object sender, RoutedEventArgs e) => ShowPage(_lastGameplayPage);
     private void SetAnalysisButtonState(bool running)
