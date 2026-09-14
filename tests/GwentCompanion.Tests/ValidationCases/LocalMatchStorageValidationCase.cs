@@ -100,6 +100,11 @@ internal sealed class LocalMatchStorageValidationCase : IContributorValidationCa
         var invalidHypothesisRejected = false;
         try { collector.SetHypothesis(observations); } catch (ArgumentException) { invalidHypothesisRejected = true; }
         Check(invalidHypothesisRejected, "Hypothesis accepted observed claims.");
+        collector.RetainPostMatchRating(new(2412, null, true, "one-frame fixture",
+            Confirmed: false, ReadCount: 1));
+        Check(collector.Snapshot(stopped: true) is { MmrAfter: 2412, MmrChange: null, MmrPeak: null,
+                FactionMmr: true, MmrUnconfirmed: true },
+            "A one-frame partial MMR fallback was not retained with its uncertainty marker.");
         var endTime = at.AddMinutes(10);
         var end = screen with { ScreenHeader = "VICTORY", MatchHudVisible = false, PostMatchMmr = new(2420, 8, true, "Faction", 2450) };
         collector.Observe(tracker.Observe(new(endTime, end, [], [], false)), end, [], observations);

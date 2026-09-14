@@ -30,11 +30,18 @@ public sealed class MatchCaptureLifecycle
         if (_resultSeen && menu) _menuSeenAfterResult = true;
         if (!_resultSeen) return;
         var reading = screen.PostMatchMmr ?? screen.PostMatchMmrCandidate;
-        if (reading is not { IsFactionRating: true, RatingAfter: >= 0 and <= 10000 }) return;
+        if (reading is not { IsFactionRating: true } ||
+            reading.RatingAfter is < 0 or > 10000 || reading.Change is < -1000 or > 1000 ||
+            reading.SeasonPeak is < 0 or > 10000 ||
+            reading.RatingAfter is null && reading.Change is null && reading.SeasonPeak is null) return;
         if (BestRating is null || reading.Confirmed && !BestRating.Confirmed ||
-            reading.Confirmed == BestRating.Confirmed && reading.ReadCount >= BestRating.ReadCount)
+            reading.Confirmed == BestRating.Confirmed && (reading.ReadCount > BestRating.ReadCount ||
+                reading.ReadCount == BestRating.ReadCount && Completeness(reading) >= Completeness(BestRating)))
             BestRating = reading;
     }
+
+    private static int Completeness(PostMatchMmr reading) =>
+        (reading.RatingAfter.HasValue ? 1 : 0) + (reading.Change.HasValue ? 1 : 0) + (reading.SeasonPeak.HasValue ? 1 : 0);
 
     public void Reset()
     { _started = false; _resultSeen = false; _menuSeenAfterResult = false; _lastAt = default; NewGameStarted = false; BestRating = null; }

@@ -115,17 +115,7 @@ public sealed class MatchAcquisition
         if (!UserReferenceRejected && _selectedUserReference is { } reference)
             _user = reference with { Observations = _user.Observations, Hypothesis = _user.Hypothesis };
         _opponent = Player(_state.Opponent, opponentObservations.Where(c => Seen(PlayerSide.Opponent, c)).ToArray(), CombinedHypotheses());
-        if (screen.PostMatchMmr is { } mmr && !(_mmr is { Confirmed: true } && !mmr.Confirmed))
-        {
-            // Partial later reads cannot erase an already confirmed rating or its scope.
-            if (_mmr is null || mmr.IsFactionRating == _mmr.IsFactionRating || mmr.IsFactionRating)
-                _mmr = _mmr is { } previous && previous.IsFactionRating == mmr.IsFactionRating &&
-                    (mmr.RatingAfter is null || previous.RatingAfter == mmr.RatingAfter)
-                    ? mmr with { RatingAfter = mmr.RatingAfter ?? previous.RatingAfter,
-                        Change = mmr.Change ?? previous.Change, SeasonPeak = mmr.SeasonPeak ?? previous.SeasonPeak }
-                    : mmr;
-            _resultObserved = true;
-        }
+        RetainPostMatchRating(screen.PostMatchMmr);
         if (screen.PostMatchRank?.Rank is { } rank) { _rank = rank; _resultObserved = true; }
         var header = screen.ScreenHeader?.Trim().ToUpperInvariant();
         if (header is "VICTORY" or "DEFEAT" or "DRAW") { _result = header; _resultObserved = true; }
@@ -148,6 +138,47 @@ public sealed class MatchAcquisition
         _userProjectionHypotheses = cards.ToArray();
         _user = _user with { Hypothesis = CombinedUserHypotheses() }; _revision++;
     }
+
+    /// <summary>
+    /// Preserve the strongest valid rating read, including a one-frame fallback
+    /// supplied when capture ends. Missing fields may be filled by a compatible
+    /// read, but a weaker or conflicting read cannot replace stronger evidence.
+    /// </summary>
+    public void RetainPostMatchRating(GwentCompanion.Core.Vision.PostMatchMmr? reading)
+    {
+        if (reading is null || reading.RatingAfter is < 0 or > 10000 ||
+            reading.Change is < -1000 or > 1000 || reading.SeasonPeak is < 0 or > 10000 ||
+            reading.RatingAfter is null && reading.Change is null && reading.SeasonPeak is null) return;
+        var previous = _mmr;
+        if (previous is null)
+        {
+            _mmr = reading; _resultObserved = true; _revision++; return;
+        }
+        // A labelled faction rating is more useful than an unqualified aggregate.
+        // Within the same scope, confirmation and then corroborating reads decide.
+        var readingWins = reading.IsFactionRating != previous.IsFactionRating
+            ? reading.IsFactionRating
+            : reading.Confirmed != previous.Confirmed
+                ? reading.Confirmed
+                : reading.ReadCount != previous.ReadCount
+                    ? reading.ReadCount > previous.ReadCount
+                    : Completeness(reading) >= Completeness(previous);
+        var stronger = readingWins ? reading : previous;
+        var weaker = readingWins ? previous : reading;
+        if (stronger.IsFactionRating == weaker.IsFactionRating &&
+            (stronger.RatingAfter is null || weaker.RatingAfter is null || stronger.RatingAfter == weaker.RatingAfter))
+            stronger = stronger with
+            {
+                RatingAfter = stronger.RatingAfter ?? weaker.RatingAfter,
+                Change = stronger.Change ?? weaker.Change,
+                SeasonPeak = stronger.SeasonPeak ?? weaker.SeasonPeak,
+            };
+        if (stronger == previous) return;
+        _mmr = stronger; _resultObserved = true; _revision++;
+    }
+
+    private static int Completeness(GwentCompanion.Core.Vision.PostMatchMmr reading) =>
+        (reading.RatingAfter.HasValue ? 1 : 0) + (reading.Change.HasValue ? 1 : 0) + (reading.SeasonPeak.HasValue ? 1 : 0);
 
     private MatchCard[] CombinedHypotheses() => _projectionHypotheses.Concat(_trackerHypotheses)
         .GroupBy(c => (c.CardId, c.Evidence)).Select(g => g.MaxBy(c => c.Copies)!).ToArray();

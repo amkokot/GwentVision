@@ -78,7 +78,10 @@ the menu. If the next game appears first (opening redraw, ROUND 1, or match HUD)
 capture closes before accepting its cards, leaders or scores, even with rating
 auto-stop disabled. The strongest retained rating is used; an unconfirmed fallback
 is explicitly marked `MmrUnconfirmed=true`. Confirmed readings take priority over
-unconfirmed candidates; otherwise the greater consecutive-read count wins. Start
+unconfirmed candidates; otherwise the greater consecutive-read count wins. Turning
+tracking off or closing the app also writes the strongest retained one-frame or
+partial rating, provided a valid faction-MMR number was read; unread change and peak
+fields remain null and the rating remains explicitly unconfirmed. Start
 tracking again to capture that new game. If a result was missed entirely, repeated
 ROUND 1 after a later round remains a fallback for separating local match records.
 Stopping does not itself assert a completed game or complete observations.

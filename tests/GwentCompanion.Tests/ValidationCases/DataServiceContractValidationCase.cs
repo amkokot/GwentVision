@@ -131,8 +131,10 @@ internal sealed class DataServiceContractValidationCase : IContributorValidation
                 record.RootElement.GetProperty("opponent").GetProperty("observations")[0]
                     .GetProperty("evidence").GetString() == "Observed" &&
                 record.RootElement.GetProperty("opponent").GetProperty("hypothesis")[0]
+                    .GetProperty("evidence").GetString() == "Inferred" &&
+                record.RootElement.GetProperty("opponent").GetProperty("hypothesis")[0]
                     .GetProperty("copyCountIsEstimate").GetBoolean(),
-                "The app transport does not preserve lower-camel identity and explicit evidence markers.");
+                "The app transport does not preserve lower-camel identity or the observed/inferred evidence distinction.");
         }
         var handle = Guid.NewGuid(); var batch = Guid.NewGuid();
         var payload = DataContributionTransport.SerializeUploadPayload(handle, batch, "14.9", "0.3.0", 1, true, [fixture]);

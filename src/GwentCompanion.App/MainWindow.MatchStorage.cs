@@ -276,6 +276,10 @@ public partial class MainWindow
 
     private async Task FlushMatchAcquisitionAsync()
     {
+        // The user may stop while the result/menu panel has supplied only one
+        // usable MMR frame. Preserve the lifecycle's best read before the final
+        // checkpoint and mark it unconfirmed in the stored record.
+        _matchAcquisition?.RetainPostMatchRating(_matchLifecycle.BestRating);
         QueueMatchCheckpoint(force: true, stopped: true);
         await _matchStorageWrite;
         if (_matchStorageError is { } error) MatchStorageStatus.Text = "Match data save failed: " + error;
