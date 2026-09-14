@@ -1,0 +1,34 @@
+{
+  "SchemaVersion": 1,
+  "Id": "round-bound-source-expiry",
+  "Summary": "A visible Round 2 banner must retire prior-round Portal/Saskia source state so a later Runestone-created Miner cannot be assigned deck-summon origin.",
+  "AddedIn": "0.2.80",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 424823,
+      "Sha256": "3C004263B25851D985890E60139E1FFBEC5C4663CAC5DA31AD22EA2AD4A33F28",
+      "Tags": [
+        "regression",
+        "round-bound-source-expiry"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 1925039,
+      "Sha256": "1A625333AA3B44489C757302E7223CD6F940DC049C7FB3B1B715E7FE7BDD985E",
+      "Tags": [
+        "regression",
+        "round-bound-source-expiry"
+      ]
+    }
+  ]
+}

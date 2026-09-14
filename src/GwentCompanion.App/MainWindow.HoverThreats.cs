@@ -82,7 +82,7 @@ public partial class MainWindow
         var selected = ThreatCardChoice.SelectedItem as CardDefinition;
         var card = selected ?? _liveHover;
         var visible = ShowHoverThreats?.IsChecked == true && card is not null &&
-            (selected is not null || card.Id != _dismissedHoverId) && _page is UiPage.Plays or UiPage.Deck or UiPage.Candidates or UiPage.Reference or UiPage.MyDeck or UiPage.Pinned;
+            (selected is not null || card.Id != _dismissedHoverId) && _page is UiPage.Plays or UiPage.Deck or UiPage.Candidates or UiPage.Pinned;
         HoverThreatBanner.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         if (!visible) { ThreatDetailPanel.Visibility = Visibility.Collapsed; return; }
         var current = _reachTitle.StartsWith(card!.Name, StringComparison.Ordinal);

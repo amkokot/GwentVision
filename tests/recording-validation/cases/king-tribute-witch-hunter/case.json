@@ -1,0 +1,52 @@
+{
+  "SchemaVersion": 1,
+  "Id": "king-tribute-witch-hunter",
+  "Summary": "A Tribute-plausible but visually dissimilar King of Beggars automatic-arrival candidate must remain quarantined, while repeated exact Witch Hunter board-title evidence followed by the observed 8-to-7 opponent hand spend recovers the missed original play.",
+  "AddedIn": "0.2.77",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 1947684,
+      "Sha256": "873329E8ED9221A57199B64AF34C7236221F6123CBB7080C088085F25CFB80E7",
+      "Tags": [
+        "regression",
+        "king-tribute-witch-hunter"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 2012757,
+      "Sha256": "D060206ACB956BA237F9C15E3BD75A5D2F85F3571B16C47E5C3A3F9E59C77C8B",
+      "Tags": [
+        "regression",
+        "king-tribute-witch-hunter"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 2015165,
+      "Sha256": "ABEAA4733684A4588C1775958212D78E10071F958FEBFF9176D166808B9654ED",
+      "Tags": [
+        "regression",
+        "king-tribute-witch-hunter"
+      ]
+    },
+    {
+      "File": "evidence-04.png",
+      "Bytes": 2015652,
+      "Sha256": "0DD1B421D5AB74C682AD296277EA22D19D76D260C9E6562F785AE9CF5138BBED",
+      "Tags": [
+        "regression",
+        "king-tribute-witch-hunter"
+      ]
+    }
+  ]
+}

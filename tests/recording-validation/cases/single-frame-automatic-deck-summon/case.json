@@ -1,0 +1,43 @@
+{
+  "SchemaVersion": 1,
+  "Id": "single-frame-automatic-deck-summon",
+  "Summary": "A strong one-frame automatic summon is accepted only after a same-hand deck decrement.",
+  "AddedIn": "0.2.65",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.jpg",
+      "Bytes": 341624,
+      "Sha256": "F4CAA55A10A6688D0B25FA800A234F4A3EC433C56D9CF090A3E2E098F6D99225",
+      "Tags": [
+        "regression",
+        "single-frame-automatic-deck-summon"
+      ]
+    },
+    {
+      "File": "evidence-02.jpg",
+      "Bytes": 340647,
+      "Sha256": "EB4B60045A58DB9528C5A7973689A81D0BC9BC3116F54AC52D1EB9F9BEFE1B14",
+      "Tags": [
+        "regression",
+        "single-frame-automatic-deck-summon"
+      ]
+    },
+    {
+      "File": "evidence-03.jpg",
+      "Bytes": 335488,
+      "Sha256": "2182B9ED1C1CD3D244F37E9E91C593DD26F3E2BAC1C06C07276052019CD7A07C",
+      "Tags": [
+        "regression",
+        "single-frame-automatic-deck-summon"
+      ]
+    }
+  ]
+}

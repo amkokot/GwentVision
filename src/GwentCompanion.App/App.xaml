@@ -45,6 +45,7 @@
         </Style>
 
         <Style TargetType="Window">
+            <Setter Property="Icon" Value="pack://application:,,,/GwentVision;component/Assets/GwentVision.ico" />
             <Setter Property="FontFamily" Value="Segoe UI" />
             <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
             <Setter Property="Background" Value="{StaticResource PanelBrush}" />

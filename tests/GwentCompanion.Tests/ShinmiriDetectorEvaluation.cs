@@ -31,7 +31,8 @@ internal static class ShinmiriDetectorEvaluation
         var candidateScoped = args.Contains("--scoped");
         var watch = System.Diagnostics.Stopwatch.StartNew();
         using var pipeline = new CardVisionPipeline(references, cards, Path.Combine(cache, "recognition-features"),
-            candidateScoped ? VisionReferenceScope.CandidateDecks : VisionReferenceScope.FullCatalog);
+            candidateScoped ? VisionReferenceScope.CandidateDecks : VisionReferenceScope.FullCatalog,
+            allowStreamResolution: true);
         if (filter is not null)
         {
             pipeline.HoverTrace = value => Console.WriteLine("HOVER " + value);

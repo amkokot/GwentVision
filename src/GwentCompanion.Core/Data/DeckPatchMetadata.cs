@@ -6,6 +6,8 @@ namespace GwentCompanion.Core.Data;
 
 public static class DeckPatchMetadata
 {
+    private static readonly TimeZoneInfo SeasonTimeZone = FindSeasonTimeZone();
+
     // Worksheet dates describe when a list was used. Server payloads may all be
     // rewritten together by balance changes; do not turn old sheets into new meta.
     public static DateTimeOffset? HistoricalDate(IEnumerable<DeckPatch>? patches, DateTimeOffset? fallback)
@@ -28,10 +30,33 @@ public static class DeckPatchMetadata
         var last = dates.Max();
         return fallback is { } date && date < last ? date : last;
     }
-    // Post-2023 monthly convention: January 2024 = 12.1, August 2026 = 14.8.
-    // Keep inferred labels distinct; this is not a live server-version check.
-    public static DeckPatch Current(DateTimeOffset at) =>
-        new($"{at.Year - 2012}.{at.Month}", true, $"Upload month {at:yyyy-MM}");
+    // GWENTfinity seasons roll at the beginning of each month on CDPR's Warsaw
+    // clock. January 2024 = 12.1 and August 2026 = 14.8. Keep inferred labels
+    // distinct; this is a season-boundary inference, not a live version read.
+    public static DeckPatch Current(DateTimeOffset at)
+    {
+        var local = TimeZoneInfo.ConvertTime(at, SeasonTimeZone);
+        return new($"{local.Year - 2012}.{local.Month}", true, $"GWENT season month {local:yyyy-MM}");
+    }
+
+    public static bool TrySeasonWindow(string? label, out DateTimeOffset startsAtUtc, out DateTimeOffset endsAtUtc)
+    {
+        startsAtUtc = endsAtUtc = default;
+        var match = Regex.Match(label ?? "", @"^(\d{1,2})\.([1-9]|1[0-2])$", RegexOptions.CultureInvariant);
+        if (!match.Success || !int.TryParse(match.Groups[1].Value, out var major) || major < 12 ||
+            !int.TryParse(match.Groups[2].Value, out var month)) return false;
+        var startLocal = new DateTime(major + 2012, month, 1, 0, 0, 0, DateTimeKind.Unspecified);
+        startsAtUtc = new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(startLocal, SeasonTimeZone));
+        endsAtUtc = new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(startLocal.AddMonths(1), SeasonTimeZone));
+        return true;
+    }
+
+    private static TimeZoneInfo FindSeasonTimeZone()
+    {
+        foreach (var id in new[] { "Europe/Warsaw", "Central European Standard Time" })
+            if (TimeZoneInfo.TryFindSystemTimeZoneById(id, out var zone)) return zone;
+        throw new TimeZoneNotFoundException("The Warsaw time zone required for GWENT season boundaries is unavailable.");
+    }
 
     public static DeckPatch[] FromSheet(string sheet, DateTimeOffset? rowDate = null, string? explicitLabel = null)
     {

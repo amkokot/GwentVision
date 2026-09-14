@@ -53,6 +53,15 @@ public sealed partial class DeckLibrary
     public LibraryMergeResult Merge(IEnumerable<DeckDefinition> decks)
     {
         var added = 0; var merged = 0;
+        var groupingChanged = false;
+        var fingerprintIndex = _records.Select((record, index) => (record.Fingerprint, index))
+            .ToDictionary(item => item.Fingerprint, item => item.index, StringComparer.Ordinal);
+        var identityIndex = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (var index = 0; index < _records.Count; index++)
+        {
+            identityIndex.TryAdd(_records[index].Deck.Id, index);
+            foreach (var alias in _records[index].Aliases) identityIndex.TryAdd(alias, index);
+        }
         // Older payloads often lack stratagem metadata. Hash each existing
         // composition once per batch, not the entire library for every payload.
         // Metadata enrichment below never changes the base cards/faction/leader.
@@ -63,7 +72,7 @@ public sealed partial class DeckLibrary
             if (input.Cards.Count == 0 || input.Cards.Any(item => item.Count <= 0))
                 throw new InvalidDataException("A cached deck must contain positive card quantities.");
             var fingerprint = Fingerprint(input);
-            var position = _records.FindIndex(item => item.Fingerprint == fingerprint);
+            var position = fingerprintIndex.GetValueOrDefault(fingerprint, -1);
             if (position < 0)
             {
                 // Enrich an older unknown-stratagem entry only when there is one compatible identity.
@@ -77,18 +86,21 @@ public sealed partial class DeckLibrary
             if (position < 0)
             {
                 // A changed list is a variant, never a silent overwrite of the original composition.
-                var deck = (Find(input.Id) is null ? input : input with { Id = "variant-" + fingerprint })
+                var deck = (!identityIndex.ContainsKey(input.Id) ? input : input with { Id = "variant-" + fingerprint })
                     with { CachedAt = input.CachedAt ?? DateTimeOffset.UtcNow };
                 _records.Add(new LibraryDeck(deck, fingerprint, [deck.Id], [input.Name], sources));
+                var addedIndex = _records.Count - 1;
+                fingerprintIndex[fingerprint] = addedIndex;
+                identityIndex.TryAdd(deck.Id, addedIndex);
                 var baseKey = Fingerprint(deck with { Stratagem = null });
                 if (!baseIndex.TryGetValue(baseKey, out var indices)) baseIndex[baseKey] = indices = [];
-                indices.Add(_records.Count - 1);
-                added++;
+                indices.Add(addedIndex);
+                added++; groupingChanged = true;
                 continue;
             }
             var old = _records[position];
             var latest = new[] { old.Deck.LastEdited, input.LastEdited }.Max();
-            var aliasOwner = Find(input.Id);
+            var aliasOwner = identityIndex.GetValueOrDefault(input.Id, -1);
             var enriched = old.Deck with { LastEdited = latest, RecencyRank = Math.Min(old.Deck.RecencyRank, input.RecencyRank),
                 SourceUri = old.Deck.SourceUri ?? input.SourceUri, Stratagem = old.Deck.Stratagem ?? input.Stratagem,
                 SourceUpdatedAt = new[] { old.Deck.SourceUpdatedAt, input.SourceUpdatedAt }.Max(),
@@ -98,17 +110,23 @@ public sealed partial class DeckLibrary
             _records[position] = old with
             {
                 Deck = enriched, Fingerprint = Fingerprint(enriched),
-                Aliases = Union(old.Aliases, aliasOwner is null || aliasOwner == old ? [input.Id] : []),
+                Aliases = Union(old.Aliases, aliasOwner < 0 || aliasOwner == position ? [input.Id] : []),
                 OriginalNames = Union(old.OriginalNames, [input.Name]), Sources = Union(old.Sources, sources),
             };
             var newFingerprint = _records[position].Fingerprint;
             if (old.Fingerprint != newFingerprint)
+            {
+                fingerprintIndex.Remove(old.Fingerprint);
+                fingerprintIndex[newFingerprint] = position;
                 for (var groupIndex = 0; groupIndex < _variationGroups.Count; groupIndex++)
                     _variationGroups[groupIndex] = _variationGroups[groupIndex] with
                     { Members = _variationGroups[groupIndex].Members.Select(fp => fp == old.Fingerprint ? newFingerprint : fp).ToArray() };
+                groupingChanged = true;
+            }
+            foreach (var alias in _records[position].Aliases) identityIndex.TryAdd(alias, position);
             merged++;
         }
-        if (added > 0 || merged > 0) _variationGroupsDirty = true;
+        if (groupingChanged) _variationGroupsDirty = true;
         return new(added, merged);
     }
 
@@ -196,10 +214,17 @@ public sealed partial class DeckLibrary
 
     public void AddLinks(IEnumerable<DeckIndexEntry> links)
     {
+        var positions = new Dictionary<(string SourceId, Uri DeckUri), int>();
+        for (var index = 0; index < ImportedLinks.Count; index++)
+            positions.TryAdd((ImportedLinks[index].SourceId, ImportedLinks[index].DeckUri), index);
         foreach (var link in links)
         {
-            var position = ImportedLinks.FindIndex(item => item.SourceId == link.SourceId && item.DeckUri == link.DeckUri);
-            if (position < 0) ImportedLinks.Add(link);
+            var key = (link.SourceId, link.DeckUri);
+            if (!positions.TryGetValue(key, out var position))
+            {
+                positions[key] = ImportedLinks.Count;
+                ImportedLinks.Add(link);
+            }
             else ImportedLinks[position] = ImportedLinks[position] with
             { Patches = DeckPatchMetadata.Merge(ImportedLinks[position].Patches, link.Patches),
                 Occurrences = DeckOccurrences.Merge(ImportedLinks[position].Occurrences, link.Occurrences) };
@@ -227,15 +252,21 @@ public sealed partial class DeckLibrary
             if (state.Version is not (1 or 2 or 3)) throw new InvalidDataException("Unsupported deck-library version; original file has been preserved.");
             records = state.Records; links = state.ImportedLinks;
         }
+        var identities = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var fingerprints = new HashSet<string>(StringComparer.Ordinal);
         foreach (var record in records)
         {
-            if (record.Fingerprint != Fingerprint(record.Deck) || library.Find(record.Deck.Id) is not null ||
-                library._records.Any(item => item.Fingerprint == record.Fingerprint))
+            if (record.Fingerprint != Fingerprint(record.Deck) || identities.Contains(record.Deck.Id) ||
+                !fingerprints.Add(record.Fingerprint))
                 throw new InvalidDataException("Invalid deck-library identity; original file has been preserved.");
             library._records.Add(record);
+            identities.Add(record.Deck.Id);
+            identities.UnionWith(record.Aliases);
         }
         library.AddLinks(links);
         library.ValidateVariationGroups();
+        var grouped = library._variationGroups.SelectMany(group => group.Members).ToHashSet(StringComparer.Ordinal);
+        library._variationGroupsDirty = library.VariationPolicy is null || records.Any(record => !grouped.Contains(record.Fingerprint));
         return library;
     }
 

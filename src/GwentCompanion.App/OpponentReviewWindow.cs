@@ -12,9 +12,10 @@ public sealed class OpponentReviewWindow : DeckBuilderWindow
 {
     public OpponentReviewWindow(LearnedOpponentDeck record, IReadOnlyList<CardDefinition> catalog,
         DeckLibrary library, string libraryPath, Action changed, Action<DeckEditorDraft, bool> save,
-        Func<CardDefinition, ImageSource?>? art = null, Action<DeckEditorDraft>? saveDraft = null)
+        Func<CardDefinition, ImageSource?>? art = null, Action<DeckEditorDraft>? saveDraft = null,
+        CardBalanceChanges? balanceChanges = null)
         : base(library, libraryPath, catalog, OpponentReviewDraft.Template(record, catalog), changed, art,
-            OpponentReviewDraft.SourceKey(record), saveDraft, new(record, save))
+            OpponentReviewDraft.SourceKey(record), saveDraft, new(record, save), balanceChanges)
     {
         Title = "Review opponent · " + record.Name;
         WindowState = WindowState.Maximized;

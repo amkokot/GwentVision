@@ -1,0 +1,34 @@
+{
+  "SchemaVersion": 1,
+  "Id": "sir-scratch-title",
+  "Summary": "A short opponent preview for Sir Scratch-a-Lot remains visible for two frames before the hand decrement; the title must commit despite the stylized hyphenated name.",
+  "AddedIn": "0.2.74",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 1870894,
+      "Sha256": "A2F01E0558790BF1F5E0F1BB8E67892DFBEAA9AA96EA3FD7AF79BB0241B28599",
+      "Tags": [
+        "regression",
+        "sir-scratch-title"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 1874934,
+      "Sha256": "ACA51F8DBC6C1F5A7EEE015467D7B67210B2F683AE08AF3B30FED622403AF0B1",
+      "Tags": [
+        "regression",
+        "sir-scratch-title"
+      ]
+    }
+  ]
+}

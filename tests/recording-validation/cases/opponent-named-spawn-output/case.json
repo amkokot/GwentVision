@@ -1,0 +1,43 @@
+{
+  "SchemaVersion": 1,
+  "Id": "opponent-named-spawn-output",
+  "Summary": "A committed opponent source must arm its explicitly named generated unit so Savolla Frightener is visible to the candidate-scoped board detector.",
+  "AddedIn": "0.2.67",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 1931698,
+      "Sha256": "C95721A965EA7AFC66855F94226D6424E938254C07983D9DB88211B6FA52592D",
+      "Tags": [
+        "regression",
+        "opponent-named-spawn-output"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 1970599,
+      "Sha256": "83E1DA701D93C113D427B8B3F3CCEB447891FC347F3539C30BB3AA93647C6152",
+      "Tags": [
+        "regression",
+        "opponent-named-spawn-output"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 1963108,
+      "Sha256": "E5B54F341BAE9E5510695D0387EF52F751F00490250DCA338033AA8FC87129D8",
+      "Tags": [
+        "regression",
+        "opponent-named-spawn-output"
+      ]
+    }
+  ]
+}

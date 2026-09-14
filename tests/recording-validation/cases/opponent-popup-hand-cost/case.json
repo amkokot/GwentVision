@@ -1,0 +1,43 @@
+{
+  "SchemaVersion": 1,
+  "Id": "opponent-popup-hand-cost",
+  "Summary": "A difficult one-frame opponent play preview is recovered only when repeated exact popup text and a subsequent one-card opponent hand decrement agree.",
+  "AddedIn": "0.2.66",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 2169618,
+      "Sha256": "9A90EF9CADB42B17DC3E6EABD6E241A64498B5F3F9C3D680291AC4BB2585AD6A",
+      "Tags": [
+        "regression",
+        "opponent-popup-hand-cost"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 2157693,
+      "Sha256": "6BCA2F96BDE0484D89CCC191528DE3F5521F584B9C499C2E0965116534983381",
+      "Tags": [
+        "regression",
+        "opponent-popup-hand-cost"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 2177350,
+      "Sha256": "9CA7BAEEF2B2BAF15C02454049A09BB85640B17243DD0F0E46AFC83555AA1AC7",
+      "Tags": [
+        "regression",
+        "opponent-popup-hand-cost"
+      ]
+    }
+  ]
+}

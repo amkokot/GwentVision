@@ -12,11 +12,45 @@ The app locates `Gwent.exe` by walking up from the working directory and executa
 
 Clicking Play creates the capture and recognition pipeline; simply opening the app does not load it. The pipeline captures the GWENT window, classifies the current screen, and only invokes recognizers that are useful for that screen. Title regions, tooltips, board locations, choices, counters, and known artwork contribute evidence with a source and confidence rather than directly editing a deck.
 
-The match ledger groups repeated sightings into episodes. Resolution trackers account for created, spawned, stolen, and replayed cards before the live deck tracker updates copy bounds. The opponent-deck projector compares that evidence with the public deck library and exposes a cautious hypothesis. Candidate cards come from the same evidence and faction constraints. Ambiguous evidence remains visible as a candidate instead of becoming a confirmed play.
+Recognition is staged from cheapest to most expensive. Every retained frame can update screen, title and HUD state; hand, deck, score, motion and unresolved-title changes then protect a bounded set of artwork frames from queue eviction. A board pass uses one shared SIFT scene extraction, side-specific candidate indexes for localization, and an aligned colour/layout comparison for identity. Card-specific observed-art references are admitted only after manual verification and are evaluated on different frames. This keeps artwork adaptation separate from event inference and avoids teaching the matcher from its own guesses.
 
-Work is kept off the game loop where possible. OpenCV uses a small fixed worker count, expensive reference data is loaded lazily, and recognition is scoped to likely regions or candidates. The default Live layout renders the opponent deck, candidates, and snapshots. The experimental Overview layout is opt-in, and its presentation model is not rebuilt while hidden.
+The match ledger groups repeated sightings into episodes and is the only layer that assigns origin. Resolution trackers account for created, spawned, stolen, tutored and replayed cards before the live deck tracker updates copy bounds. Printed rules constrain legal targets, while hand/deck conservation supplies typed, bounded causal credits. Recurring broad summons such as Saskia: Commander remain active across the round: Deploy can credit one strong legal far-right arrival, and later timer targets must join an unconsumed same-hand deck departure. Artwork may slightly precede a lagging HUD digit, but a sparse multi-card delta confirms only the source-scoped target and cannot be reused for another identity. An old activation cannot lend its decrement to a later body.
+
+The opponent-deck projector and library associations remain internal recognition aids and supply explicit inferred evidence to completed match records. The public live display filters the opponent list to observed cards only. Its Candidates pane is an eligible-card catalogue in normal deck-builder order and does not expose the internal ranking or let saved unseen cards enter the live list.
+
+Work is kept off the game loop where possible. OpenCV uses a small fixed worker count, expensive reference data is loaded lazily, and recognition is scoped to likely regions or candidates. The default Live layout renders Opponent Cards, Candidates, and Snapshots.
+
+## Stream archive path
+
+Stream mode stores source identities, compact per-game JSON records, and public
+deck-page cache entries in separate folders from live match data. Source video
+and audio are never downloaded. A first sequential pass advances the decoder
+without copying skipped frames and evaluates one state sample per second. It
+finds game intervals, corroborates short result and first-round cues, and
+schedules the existing `DeckBuilderScanner` at most once every 20 seconds while
+a sustained non-match deck page is visible. Multiple successful pages merge into
+one deck observation. A canonical PlayGwent link in public video metadata is a
+higher-confidence fallback for custom deck graphics that are not GWENT UI.
+
+The second pass runs the shared card pipeline only inside discovered games. Like
+live detection, it starts from the candidate-scoped artwork index, seeds known
+player cards from deck evidence, learns opponent candidates from resolved actions,
+and releases transient opponent references between games. It
+temporarily increases cadence around motion, titles, HUD changes, and unresolved
+artwork; score changes can therefore trigger a timely board scan for automatic
+arrivals. Stable corner overlays mask only their unsafe lane. Unfamiliar central
+overlays are skipped instead of generating weak evidence. Automatically retained
+hard frames use anonymous source hashes, irreversible identity/display masks,
+metadata-free JPEG re-encoding, per-game/per-source limits, and a 64 MiB global
+cap. The private manually reviewed stream suite is documented in
+`tests/stream-validation`; tournament layouts are currently allowed to skip.
 
 ## UI and saved state
+
+Local analytics acquisition consumes accepted game-state deltas and writes atomic
+Brotli-compressed match checkpoints, independently of screenshot recording. Visual
+observations, selected references and inferred deck hypotheses remain separate.
+See [Local match data](LOCAL-MATCH-DATA.md) for the format, identity, lifecycle and decoder.
 
 `MainWindow` is divided into partial classes by responsibility: navigation, analysis, deck projection, candidates, snapshots, settings, and vision lifecycle. Compact mode shows one Live pane at a time; wide mode places the three default panes left to right. Snapshot capture always requests a fresh game frame and writes a PNG before selecting it in the review pane.
 

@@ -17,8 +17,8 @@ internal static class OpponentKnowledgeTests
     private static ObservedCard Seen(CardDefinition card, int count = 1) => new(card, CardProvenance.ProbableStartingDeck, .99, At, "test", count);
     private static VisionEvidenceEvent Event(CardDefinition card, PlayerSide side = PlayerSide.Opponent, CardSightSource source = CardSightSource.PlayPreview, int seconds = 1) =>
         new(At.AddSeconds(seconds), new(card, side, source, new(.3, .2, .4, .4), .05, 1, "test"), "test");
-    private static GwentVisualObservation Screen(string? header = null, int? hand = null, int? deck = null) => new(GwentViewKind.Board, false, 0, 0, null,
-        ScreenHeader: header, OpponentHandCount: hand, OpponentDeckCount: deck, MatchHudVisible: true);
+    private static GwentVisualObservation Screen(string? header = null, int? hand = null, int? deck = null, int? score = null) => new(GwentViewKind.Board, false, 0, 0, null,
+        ScreenHeader: header, OpponentHandCount: hand, OpponentDeckCount: deck, OpponentScore: score, MatchHudVisible: true);
     private static DeckDefinition Deck(string id, params CardDefinition[] cards) => new(id, id, "Northern Realms", "Shieldwall", 15, cards.GroupBy(card => card.Id).Select(group => new DeckCard(group.First(), group.Count())).ToArray());
     private static LearnedOpponentEncounter Encounter(string id, params CardDefinition[] cards) => new(id, At, "Northern Realms", "Shieldwall", 15, null, null, 25,
         cards.Select(card => Seen(card)).ToArray(), [], OpponentProvisionCalculator.Calculate(cards.Select(card => Seen(card)), 165));
@@ -39,6 +39,7 @@ internal static class OpponentKnowledgeTests
         File.WriteAllText(Path.Combine(root, "GwentCompanion", "diagnostics", "v0.1.9-interaction-index.json"), JsonSerializer.Serialize(index, new JsonSerializerOptions { WriteIndented = true }));
         Console.WriteLine($"  Catalog scan: {catalog.Count} identities, {index.Count} interaction entries, {index.Count(item => item.ManuallyReviewed)} reviewed rules.");
         var knowledge = new OpponentKnowledge();
+        knowledge.ConfigureOpeningSetupCards(catalog);
         var radeyah = catalog.Single(card => card.Id == "202478");
         var before = knowledge.Assess([Seen(radeyah)]);
         Check(before.Shupe.State == ConstraintState.Likely && before.Radeyah.State == ConstraintState.Likely, "Radeyah and Shupe share a condition, not proof of activation.");
@@ -58,11 +59,75 @@ internal static class OpponentKnowledgeTests
         knowledge.Reset(); knowledge.Resolve(DeckCondition.Musicians, At, "User verified setup");
         var musicians = catalog.Single(card => card.Id == "202200");
         Check(knowledge.Assess([Seen(musicians)]).Musicians!.State == ConstraintState.Confirmed, "Musicians itself is exempt from no-other-4p.");
-        Check(knowledge.Assess([Seen(Card("four"))]).Musicians!.State == ConstraintState.Unknown, "Other 4p originals conflict.");
+        Check(knowledge.Assess([Seen(Card("four"))]).Musicians!.State == ConstraintState.RuledOut,
+            "A verified Musicians hint overrode a later original 4p contradiction.");
+        var vial = catalog.Single(card => card.Id == "203105");
+        knowledge.Reset();
+        var vialRules = knowledge.Assess([Seen(vial)]);
+        Check(vialRules.Musicians!.State == ConstraintState.RuledOut &&
+              vialRules.Musicians.Reason.Contains("Vial of Forbidden Knowledge",StringComparison.Ordinal),
+            "An ordinary opponent Vial play did not explicitly rule out Musicians.");
+        Check(knowledge.Assess([Seen(vial) with { Provenance=CardProvenance.Created }]).Musicians!.State != ConstraintState.RuledOut,
+            "A created Vial incorrectly ruled out a legal Musicians starting deck.");
+        var filler=Enumerable.Range(0,24).Select(index=>Card("musicians-filler-"+index,5)).ToArray();
+        var musiciansDeck=Deck("musicians-reference",[musicians,..filler]);
+        var vialProjection=new OpponentDeckProjector().Build([musiciansDeck],[Seen(vial)],"Northern Realms",
+            pinned:musiciansDeck,constraints:vialRules,catalog:catalog);
+        Check(vialProjection.Slots.All(slot=>slot.Card?.Id!=musicians.Id),
+            "A ruled-out Musicians survived through the statistical or pinned projection path.");
+        knowledge.Reset();
+        knowledge.ObserveScreen(Screen("ROUND 1",10,15,0),At);
+        Check(knowledge.Assess([]).Musicians!.State != ConstraintState.RuledOut,
+            "An unconfirmed round-one loading frame prematurely ruled out Musicians.");
+        knowledge.ObserveScreen(Screen("ROUND 1",10,15,0),At.AddSeconds(1));
+        var openingRules=knowledge.Assess([]);
+        Check(openingRules.Musicians!.State == ConstraintState.RuledOut,
+            "The first authenticated fully dealt zero-point opening left Musicians available in the initial projection.");
+        var openingProjection=new OpponentDeckProjector().Build([musiciansDeck],[],"Northern Realms",
+            pinned:musiciansDeck,constraints:openingRules,catalog:catalog);
+        Check(openingProjection.Slots.All(slot=>slot.Card?.Id!=musicians.Id),
+            "The first opening projection retained Musicians after its mandatory setup body was absent.");
+        knowledge.Reset();
+        knowledge.ObserveScreen(Screen("ROUND 1",0,25,0),At);
+        knowledge.ObserveScreen(Screen("ROUND 1",0,25,0),At.AddSeconds(1));
+        Check(knowledge.Assess([]).Musicians!.State != ConstraintState.RuledOut,
+            "A pre-deal zero-score frame ruled out Musicians before its mandatory setup trigger could resolve.");
         knowledge.Reset(); knowledge.ObserveScreen(Screen("ROUND 1"), At); knowledge.ObserveScreen(Screen("ROUND 1", 10, 17), At.AddSeconds(1));
         knowledge.ObserveOpeningCounts("Nilfgaard");
         Check(knowledge.StartingSizeMinimum == 25, "Daerlan additions must not make 27 visible cards a 27-card starting list.");
         knowledge.ObserveOpeningCounts("Scoia'tael"); Check(knowledge.StartingSizeMinimum == 27, "A non-NG verified opening count supports a larger list.");
+        knowledge.Reset(); knowledge.ObserveScreen(Screen("ROUND 1", 10, 14, 0), At);
+        knowledge.ObserveScreen(Screen("ROUND 1", 10, 14, 0), At.AddSeconds(1));
+        knowledge.ObserveOpeningCounts("Scoia'tael");
+        Check(knowledge.OpeningStartingCards.Single().Card.Id == "203280",
+            "A verified 10+14 Scoia'tael opening did not recover Eudora's printed self-banish setup original.");
+        knowledge.Reset(); knowledge.ObserveScreen(Screen("ROUND 1", 10, 14, 0), At);
+        knowledge.ObserveScreen(Screen("ROUND 1", 10, 14, 0), At.AddSeconds(1));
+        knowledge.ObserveOpeningCounts("Northern Realms");
+        Check(knowledge.OpeningStartingCards.Count == 0,
+            "A short opening inferred an off-faction self-banishing setup card.");
+        knowledge.Reset(); knowledge.ObserveScreen(Screen("ROUND 1", 10, 14, 0), At);
+        knowledge.ObserveScreen(Screen("ROUND 1", 10, 14, 0), At.AddSeconds(1));
+        knowledge.ObserveOpeningCounts("Skellige");
+        Check(knowledge.OpeningStartingCards.Single().Card.Id == "203042",
+            "A verified 10+14 Skellige opening did not recover Rioghan's printed starting-graveyard original.");
+        knowledge.Reset(); knowledge.ObserveScreen(Screen("ROUND 1", 10, 14, 0), At);
+        knowledge.ObserveScreen(Screen("ROUND 1", 10, 14, 0), At.AddSeconds(1));
+        knowledge.ObserveOpeningCounts(null); knowledge.Observe(Event(Card("first-play"), seconds: 2));
+        knowledge.ObserveOpeningCounts("Scoia'tael");
+        Check(knowledge.OpeningStartingCards.Single().Card.Id == "203280",
+            "A verified short opening was lost when the faction stabilized just after the first play.");
+        knowledge.Reset(); knowledge.ObserveScreen(Screen("ROUND 1", 10, 14), At);
+        knowledge.ObserveScreen(Screen("ROUND 1", 10, 14), At.AddSeconds(1));
+        knowledge.ObserveOpeningCounts("Scoia'tael");
+        Check(knowledge.OpeningStartingCards.Count == 0,
+            "A short opening with no score invented Eudora despite the unresolved Musicians route.");
+        knowledge.Reset(); knowledge.ObserveScreen(Screen("ROUND 1", 10, 14, 1), At);
+        knowledge.ObserveScreen(Screen("ROUND 1", 10, 14, 1), At.AddSeconds(1));
+        knowledge.ObserveOpeningCounts("Scoia'tael");
+        Check(knowledge.OpeningStartingCards.Single().Card.Id == "202200" &&
+            knowledge.Assess(knowledge.OpeningStartingCards.Select(item => Seen(item.Card))).Musicians!.State == ConstraintState.Likely,
+            "The one-point short opening did not select Musicians instead of Eudora.");
         knowledge.ObserveScreen(Screen("FINAL ROUND"), At.AddSeconds(2)); knowledge.ObserveScreen(Screen("FINAL ROUND"), At.AddSeconds(3));
         Check(knowledge.Round == 3, "The actual game heading is FINAL ROUND, not ROUND 3.");
         knowledge.ObserveScreen(Screen("ROUND 1"), At.AddSeconds(4)); knowledge.ObserveScreen(Screen("ROUND 1"), At.AddSeconds(5));
@@ -191,6 +256,24 @@ internal static class OpponentKnowledgeTests
             "Torres incorrectly made a later native Nilfgaard unit look acquired from a Monsters deck.");
         Check(ledger.OriginRisk(Event(griffinFromOpponentDeck, seconds: 2).Sighting, At.AddSeconds(2), [])?.Provenance == CardProvenance.Unknown,
             "Torres-compatible Monsters unit was incorrectly trusted as an original Nilfgaard card.");
+        ledger.Reset();
+        var sandor = catalog.Single(item => item.Id == "203211");
+        var saskiaCommander = catalog.Single(item => item.Id == "203090");
+        ledger.Observe(Event(sandor), "Scoia'tael", "Nilfgaard");
+        Check(ledger.Changes.Single().CandidateFaction == "Nilfgaard" &&
+              ledger.OriginRisk(Event(saskiaCommander, PlayerSide.User, seconds: 3).Sighting, At.AddSeconds(3), []) is null,
+            "Sandor's one source-deck transfer contaminated native cards in the recipient's different faction.");
+        Check(ledger.OriginRisk(Event(braathens, PlayerSide.User, seconds: 3).Sighting, At.AddSeconds(3), [])?.Provenance == CardProvenance.Unknown,
+            "Sandor's unresolved transfer no longer protects a compatible card from the source deck.");
+        var secondNilfgaard = catalog.Single(item => item.Id == "162314");
+        Check(ledger.OriginRisk(Event(secondNilfgaard, PlayerSide.User, seconds: 4).Sighting, At.AddSeconds(4), []) is null,
+            "Sandor's single transfer safeguard remained broad after binding one compatible recipient identity.");
+        ledger.Reset();
+        var coatedWeapons = catalog.Single(item => item.Id == "202800");
+        ledger.Observe(Event(coatedWeapons), "Scoia'tael", "Nilfgaard");
+        Check(ledger.OriginRisk(Event(saskiaCommander, PlayerSide.User, seconds: 3).Sighting, At.AddSeconds(3), []) is null &&
+              ledger.OriginRisk(Event(saskiaCommander, PlayerSide.User, seconds: 3).Sighting, At.AddSeconds(3), [], additionalCopy:true) is not null,
+            "An opponent-deck base-copy effect suppressed first identity evidence instead of only additional copies.");
         var parsed = CreatedCardDescriptionReader.Parse("Temple of Melitele: Congregation\nCreated cards:\nPrince Anséis\nKing Foltest", catalog);
         Console.WriteLine("  Description parser: " + (parsed is null ? "no source/result" : parsed.SourceName + " => " + string.Join(", ", parsed.Candidates.Select(item => item.Name))));
         Check(parsed is not null && parsed.Candidates.Select(item => item.Name).ToHashSet().SetEquals(["Prince Anséis", "King Foltest"]), "Description names are suggestions, not play events.");
@@ -289,6 +372,17 @@ internal static class OpponentKnowledgeTests
         provenance.Observe(Event(nauzicaa));
         Check(provenance.Observe(Event(preparation, seconds: 2)).Provenance == CardProvenance.Spawned,
             "A named Spawn-and-play result immediately following its played Deploy source must not spend provisions.");
+        provenance.Reset();
+        var falseCiri = catalog.Single(item => item.Id == "162212");
+        var buhurt = catalog.Single(item => item.Id == "203143");
+        provenance.Observe(Event(falseCiri));
+        var replayedBuhurt=provenance.Observe(Event(buhurt,seconds:5));
+        Check(replayedBuhurt.Provenance==CardProvenance.Replayed && replayedBuhurt.Reason.Contains(falseCiri.Name,StringComparison.Ordinal),
+            "False Ciri's compatible bronze Tactic was not identified as a graveyard replay.");
+        provenance.Reset(); provenance.Observe(Event(falseCiri));
+        var wrongTactic=catalog.First(item=>item.Kind==CardKind.Special && !item.IsGold && item.CanBeInStartingDeck && !item.HasCategory("Tactic"));
+        Check(provenance.Observe(Event(wrongTactic,seconds:5)).Provenance!=CardProvenance.Replayed,
+            "False Ciri replayed a bronze special outside the Tactic category.");
         provenance.Reset();
         var baccala = catalog.Single(item => item.Id == "203239");
         var marine = catalog.Single(item => item.Id == "203244");

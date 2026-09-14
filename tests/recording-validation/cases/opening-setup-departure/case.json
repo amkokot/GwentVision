@@ -1,0 +1,34 @@
+{
+  "SchemaVersion": 1,
+  "Id": "opening-setup-departure",
+  "Summary": "A clear round-one 10-card opponent hand and 14-card far draw pile must be read conservatively: zero opening points immediately rule out Musicians and support faction-specific off-board departures such as Eudora or Rioghan, one point supports Musicians starting on the Ranged row, and an unread score abstains.",
+  "AddedIn": "0.2.72",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 1809284,
+      "Sha256": "8FF5F94D0C14D4E2207ECD1E67701B73EE30ED3C1CDC25FE23F8317DD98B0D62",
+      "Tags": [
+        "regression",
+        "opening-setup-departure"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 1840661,
+      "Sha256": "6000E41354836E05FD49E20003395E1A2AD987E1D4A9BEEDD05EBDEA9D385EC0",
+      "Tags": [
+        "regression",
+        "opening-setup-departure"
+      ]
+    }
+  ]
+}

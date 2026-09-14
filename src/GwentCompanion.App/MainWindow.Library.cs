@@ -24,10 +24,10 @@ public partial class MainWindow
     private void RefreshLibraryReferences()
     {
         _cachedDecks = _library.Decks.Select(CurrentDeck).ToArray();
+        _deckSearchOptionsDirty = true;
         if (_selectedUserDeck is { } own) _selectedUserDeck = CurrentDeck(_library.Find(own.Id)?.Deck ?? own);
-        if (_confirmedOpponentDeck is { } opponent) _confirmedOpponentDeck = CurrentDeck(_library.Find(opponent.Id)?.Deck ?? opponent);
-        RefreshDeckList(); RebuildPointCatalog(); RenderLiveInference();
-        if (_selectedUserDeck is { } selected) UserDeckStatusText.Text = $"My deck: {selected.Name} · {selected.Faction} · {selected.Leader}";
+        RefreshDeckList(); RenderLiveInference();
+        UpdateSelectedUserDeckDisplay();
     }
     private void OpenLibrary_OnClick(object sender, RoutedEventArgs e) => OpenLibrary(null);
     private async void EditLibraryDeck_OnClick(object sender, RoutedEventArgs e)
@@ -102,8 +102,9 @@ public partial class MainWindow
         if (_libraryWindow is not null) { _libraryWindow.Activate(); LibraryActionStatus("Close the import window before editing a deck."); return; }
         try
         {
-            var catalog = GwentOneCardCatalog.Load(Path.Combine(FindDataRoot(), "cache/gwent-one-cards.json"));
-            _builderWindow = new DeckBuilderWindow(_library, LibraryPath, catalog, template, RefreshLibraryReferences, c => CardArt(c), observedSourceKey, SaveObservedDraft) { Owner = this };
+            var catalog = _candidateCatalog ??= GwentOneCardCatalog.Load(CardDataPath);
+            _builderWindow = new DeckBuilderWindow(_library, LibraryPath, catalog, template, RefreshLibraryReferences, c => CardArt(c),
+                observedSourceKey, SaveObservedDraft, balanceChanges: _cardBalanceChanges) { Owner = this };
             DiagnosticButton.IsEnabled = false; SyncDecksButton.IsEnabled = false;
             _builderWindow.Closed += (_, _) => { _builderWindow = null; RefreshAnalysisButton(); SyncDecksButton.IsEnabled = true; TryOpenPendingEncounterReview(); };
             _builderWindow.Show();
@@ -120,7 +121,7 @@ public partial class MainWindow
         {
             var deck = await LoadSelectedIndexDeckAsync();
             if (deck is null) return;
-            var catalog = GwentOneCardCatalog.Load(Path.Combine(FindDataRoot(), "cache/gwent-one-cards.json"));
+            var catalog = _candidateCatalog ??= GwentOneCardCatalog.Load(CardDataPath);
             new DeckExportWindow(_library, LibraryPath, deck, catalog, RefreshLibraryReferences) { Owner = this }.ShowDialog();
         }
         catch (Exception exception) { DeckDataStatusText.Text = "Could not export: " + exception.Message; }
@@ -135,7 +136,7 @@ public partial class MainWindow
         if (_builderWindow is not null) { _builderWindow.Activate(); return; }
         try
         {
-            var catalog = GwentOneCardCatalog.Load(Path.Combine(FindDataRoot(), "cache", "gwent-one-cards.json"));
+            var catalog = _candidateCatalog ??= GwentOneCardCatalog.Load(CardDataPath);
             _libraryWindow = new DeckLibraryWindow(_library, LibraryPath, ResolveDeckCacheDirectory(), catalog, deck,
                 () => { _deckIndexEntries = _deckIndexEntries.Concat(_library.ImportedLinks).DistinctBy(entry => entry.SourceId + "|" + entry.DeckUri).ToArray(); RefreshLibraryReferences(); },
                 Path.Combine(FindDataRoot(), "deck-scans"));

@@ -16,6 +16,7 @@ using GwentCompanion.Platform.Windows.Vision;
 internal static class AllRecordingPixelAudit
 {
     private sealed record RetentionCandidate(string File, string[] Reasons);
+    private sealed record PixelFile(string Path, TimeSpan Time);
 
     public static async Task Run(string root, string[] args)
     {
@@ -37,7 +38,9 @@ internal static class AllRecordingPixelAudit
                 .Select(line => JsonSerializer.Deserialize<CardVisionResult>(line, GameStateJournal.Json)!)
                 .ToArray();
             var files = Directory.GetFiles(folder, "frame-*.jpg")
-                .ToDictionary(path => Path.GetFileNameWithoutExtension(path).Split('-')[2], StringComparer.Ordinal);
+                .Select(path => new PixelFile(path, DateTime.ParseExact(
+                    Path.GetFileNameWithoutExtension(path).Split('-')[2], "HHmmssfff",
+                    System.Globalization.CultureInfo.InvariantCulture).TimeOfDay)).ToArray();
             var selected = Select(rows);
             using var ocr = new ScreenStateRecognizer();
             var hover = new HoverCardRecognizer(catalog);
@@ -54,11 +57,32 @@ internal static class AllRecordingPixelAudit
             var confirmedResults = 0;
             var confirmedLeaders = 0;
 
+            // Live analysis and archival recording intentionally run at different
+            // rates. Join each selected result to the nearest retained pixel within
+            // one bounded 5-FPS half-interval, then read each physical frame once.
+            var selectedPixels = new Dictionary<string, (int Index, double DeltaMs, HashSet<string> Reasons)>(StringComparer.OrdinalIgnoreCase);
             foreach (var index in selected.Keys.Order())
             {
                 var old = rows[index];
-                var stamp = old.SampledAt.ToString("HHmmssfff");
-                if (!files.TryGetValue(stamp, out var path)) { missingPixels++; continue; }
+                if(files.Length==0) { missingPixels++; continue; }
+                var nearest = files.Select(file => (File: file, DeltaMs: CircularDeltaMilliseconds(
+                        file.Time, old.SampledAt.ToLocalTime().TimeOfDay)))
+                    .MinBy(item => item.DeltaMs);
+                if (nearest.File is null || nearest.DeltaMs > 125) { missingPixels++; continue; }
+                if (selectedPixels.TryGetValue(nearest.File.Path, out var existing))
+                {
+                    existing.Reasons.UnionWith(selected[index]);
+                    if (nearest.DeltaMs < existing.DeltaMs)
+                        selectedPixels[nearest.File.Path] = (index, nearest.DeltaMs, existing.Reasons);
+                }
+                else selectedPixels[nearest.File.Path] = (index, nearest.DeltaMs, new(selected[index], StringComparer.Ordinal));
+            }
+
+            foreach (var selectedPixel in selectedPixels.OrderBy(item => rows[item.Value.Index].SampledAt))
+            {
+                var index=selectedPixel.Value.Index;
+                var old = rows[index];
+                var path=selectedPixel.Key;
                 if (priorAt is null || old.SampledAt - priorAt > TimeSpan.FromSeconds(3)) hover.Reset();
                 priorAt = old.SampledAt;
                 var pixels = Load(path);
@@ -78,7 +102,7 @@ internal static class AllRecordingPixelAudit
                 if (result.PostMatchMmr is not null || result.PostMatchRank is not null) confirmedResults++;
                 if (leaderReading is not null) confirmedLeaders++;
                 var relative = Path.GetRelativePath(project, path).Replace('\\', '/');
-                var reasons = selected[index].Order(StringComparer.Ordinal).ToArray();
+                var reasons = selectedPixel.Value.Reasons.Order(StringComparer.Ordinal).ToArray();
                 reread.Add(new
                 {
                     File = relative,
@@ -125,6 +149,12 @@ internal static class AllRecordingPixelAudit
         };
         File.WriteAllText(output, JsonSerializer.Serialize(report, new JsonSerializerOptions(GameStateJournal.Json) { WriteIndented = true }));
         Console.WriteLine($"Saved {output}; {totalFrames} selected frames across {sessionReports.Count} sessions.");
+    }
+
+    private static double CircularDeltaMilliseconds(TimeSpan left, TimeSpan right)
+    {
+        var delta=Math.Abs((left-right).TotalMilliseconds);
+        return Math.Min(delta,TimeSpan.FromDays(1).TotalMilliseconds-delta);
     }
 
     private static SortedDictionary<int, HashSet<string>> Select(IReadOnlyList<CardVisionResult> rows)

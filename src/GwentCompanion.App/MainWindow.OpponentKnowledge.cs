@@ -17,10 +17,8 @@ public partial class MainWindow
     private string? _memoryLoadError;
     private bool _updatingKnowledge;
     private bool _knowledgeChoicesLoaded;
-    private DateTimeOffset _opponentTime = DateTimeOffset.Now;
+    private DateTimeOffset _opponentTime = DateTimeOffset.UtcNow;
     private CreatedCardDescription? _descriptionHint;
-    private DeckDefinition? _variantAnchor;
-    private IReadOnlyList<DeckDefinition> _compatibleVariants = [];
     private bool _restoringMemorySelection;
     private string? _memoryRenderKey;
     private string _manualEncounterId = Guid.NewGuid().ToString("N");
@@ -31,7 +29,8 @@ public partial class MainWindow
         int.TryParse(MatchMmrInput.Text, out var rating) && rating is >= 0 and <= 10000 ? rating : null;
     private bool ObservePostMatchMmr(PostMatchMmr? reading)
     {
-        if (reading is null || reading == _observedPostMatchMmr) return false;
+        if (reading is null || reading == _observedPostMatchMmr ||
+            _observedPostMatchMmr is { Confirmed: true } && !reading.Confirmed) return false;
         _observedPostMatchMmr = reading;
         MatchMmrStatus.Text = reading.Summary;
         MatchMmrStatus.Visibility = Visibility.Visible;
@@ -48,6 +47,8 @@ public partial class MainWindow
         return true;
     }
     private static string OpponentMemoryPath => Path.Combine(FindDataRoot(), "cache", "opponent-memory.json");
+    private ObservedCard[] EffectiveOpponentDeckEvidence() =>
+        _opponentEdits.ApplyEvidenceCorrections(_opponentTracker.DeckBuildingObservations);
 
     private void InitializeKnowledgeChoices()
     {
@@ -57,6 +58,7 @@ public partial class MainWindow
         {
             _candidateCatalog ??= GwentOneCardCatalog.Load(Path.Combine(FindDataRoot(), "cache", "gwent-one-cards.json"));
             if(_candidateCatalog.FirstOrDefault(card=>card.Id=="201627") is {} shupe) _opponentKnowledge.ConfigureShupe(shupe);
+            _opponentKnowledge.ConfigureOpeningSetupCards(_candidateCatalog);
             var renfri = _candidateCatalog.FirstOrDefault(card => card.Name == "Renfri" && card.CanBeInStartingDeck);
             var units = _candidateCatalog.Where(card => card.CanBeInStartingDeck && card.Kind == CardKind.Unit && card.Provision > 0).ToArray();
             var leaders = GwentOneCardCatalog.StartingLeaders(_candidateCatalog).ToArray();
@@ -99,12 +101,10 @@ public partial class MainWindow
 
     private OpponentProvisionBudget CurrentOpponentBudget()
     {
-        var evidence = _opponentTracker.DeckBuildingObservations;
+        var evidence = EffectiveOpponentDeckEvidence();
         var rules = _opponentKnowledge.Assess(evidence);
         int? capacity = _opponentKnowledge.LeaderBonus is { } bonus ? 150 + bonus : null;
         var source = "confirmed original leader";
-        if (capacity is null && _confirmedOpponentDeck is { } pin)
-        { capacity = 150 + pin.LeaderProvisionBonus; source = "pinned leader ASSUMPTION"; }
         if (capacity is null && _candidateCatalog is not null)
         {
             var leaders = GwentOneCardCatalog.StartingLeaders(_candidateCatalog)
@@ -129,49 +129,24 @@ public partial class MainWindow
         OpponentProvisionText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(
             budget.Conflict ? "#F2AF60" : _opponentKnowledge.Round == 3 ? "#E5C77E" : "#AEB7C0"));
         OpponentProvisionText.FontWeight = _opponentKnowledge.Round == 3 ? FontWeights.SemiBold : FontWeights.Normal;
-        var clues = _opponentKnowledge.Clues(_opponentTracker.Observations, _confirmedOpponentDeck, _lastProjection?.Meta, _opponentTime);
+        var clues = _opponentKnowledge.Clues(_opponentTracker.Observations, null, _lastProjection?.Meta, _opponentTime);
         OpponentClues.ItemsSource = clues;
         OpponentClueText.Text = string.Join(" · ", clues.Take(2).Select(item => item.Text));
-        OpponentClueText.ToolTip = clues.Count == 0 ? null : "Open Advanced information for clue details.";
+        OpponentClueText.ToolTip = clues.Count == 0 ? null : "Recognition evidence summary.";
         System.Windows.Automation.AutomationProperties.SetHelpText(OpponentClueText, string.Join("\n\n", clues.Select(item => item.Text + "\n" + item.Detail)));
         OpponentClueText.Visibility = clues.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         DeckChangesPanel.Visibility = Visibility.Visible; // Manual visible reveals must remain accessible before a source is recognized.
         DeckChangesText.Text = string.Join("\n\n", _deckMutations.Changes.Select(item =>
             $"{item.AffectedSide} · {item.SourceName}: " + (item.AddedCardName is { } card ? card + (item.IsDeckReveal ? " (seen in deck; not a play)" : item.Confirmed ? " (addition confirmed)" : " (possible addition)") : item.Description)));
-        SaveLearnedButton.Content = _opponentKnowledge.Ended ? "Match ended · Save…" : "Save learned…";
-        RenderVariants(); RenderOpponentMemories(); RenderTacticalWatch(); RenderDeckRuleBadges();
+        SaveLearnedButton.Content = _opponentKnowledge.Ended ? "Review match…" : "Save observed…";
+        RenderOpponentMemories(); RenderTacticalWatch(); RenderDeckRuleBadges();
     }
-
-    private void RenderVariants()
-    {
-        if (_confirmedOpponentDeck is null) { _variantAnchor = null; VariantPanel.Visibility = Visibility.Collapsed; return; }
-        if (_variantAnchor is null || DeckVariants.Replacements(_variantAnchor, _confirmedOpponentDeck) > 2 ||
-            _variantAnchor.Leader != _confirmedOpponentDeck.Leader || _variantAnchor.Faction != _confirmedOpponentDeck.Faction) _variantAnchor = _confirmedOpponentDeck;
-        _compatibleVariants = DeckVariants.CompatibleFamily(_variantAnchor, _cachedDecks, _opponentTracker.DeckBuildingObservations,
-            _opponentKnowledge.Assess(_opponentTracker.DeckBuildingObservations));
-        var index = _compatibleVariants.ToList().FindIndex(deck => deck.Id == _confirmedOpponentDeck.Id);
-        VariantPanel.Visibility = Visibility.Visible;
-        VariantSummary.Text = _compatibleVariants.Count == 0 ? "No exact variant remains; pin is a loose reference" :
-            index < 0 ? $"Pinned variant conflicts · {_compatibleVariants.Count} alternatives" :
-                $"Variant {index + 1}/{_compatibleVariants.Count} · up to 2 card substitutions";
-        VariantSummary.ToolTip = "Compatible same-leader lists. Arrows change the reference, not observed evidence.";
-        PreviousVariant.IsEnabled = NextVariant.IsEnabled = _compatibleVariants.Count > 1 || index < 0 && _compatibleVariants.Count > 0;
-    }
-    private void StepVariant(int direction)
-    {
-        if (_compatibleVariants.Count == 0) return;
-        var index = _compatibleVariants.ToList().FindIndex(deck => deck.Id == _confirmedOpponentDeck?.Id);
-        _confirmedOpponentDeck = _compatibleVariants[index < 0 ? 0 : (index + direction + _compatibleVariants.Count) % _compatibleVariants.Count];
-        RenderLiveInference(); PersistCurrentMatch();
-    }
-    private void PreviousVariant_OnClick(object sender, RoutedEventArgs e) => StepVariant(-1);
-    private void NextVariant_OnClick(object sender, RoutedEventArgs e) => StepVariant(1);
 
     private LearnedOpponentEncounter CurrentEncounter() => new(
         CurrentEncounterId, _opponentTime,
         _opponentTracker.HasStableFaction ? _opponentTracker.Faction : null, _opponentKnowledge.StartingLeader,
         _opponentKnowledge.LeaderBonus, _opponentKnowledge.StartingStratagemId, _opponentKnowledge.StartingSize,
-        _opponentKnowledge.MinimumSize(_opponentTracker.DeckBuildingObservations), _opponentTracker.DeckBuildingObservations.ToArray(),
+        _opponentKnowledge.MinimumSize(EffectiveOpponentDeckEvidence()), EffectiveOpponentDeckEvidence(),
         _opponentKnowledge.Resolved.Where(item => !item.Evidence.StartsWith("Musicians recognized", StringComparison.Ordinal)).ToArray(),
         CurrentOpponentBudget(), _deckMutations.Changes.ToArray(), _zones.Entries.ToArray(), _hiddenTraps.Entries.ToArray(), MatchMmr(), _observedPostMatchMmr,
         CompositionClues: _deckCompositionClues.Where(item => item.Key.Side == PlayerSide.Opponent).Select(item => item.Value).ToArray(),
@@ -258,13 +233,6 @@ public partial class MainWindow
         DockPanel.SetDock(label, Dock.Top); panel.Children.Add(label);
         panel.Children.Add(new Controls.DeckCardList { Rows = projection.Slots.Select(Strip).ToArray() }); window.Content = panel; window.Show();
     }
-    private void UseMemoryGuesses_OnClick(object sender, RoutedEventArgs e)
-    {
-        if (OpponentMemoryList.SelectedItem is not LearnedDeckMatch { Possible: true } match) return;
-        if (_confirmedOpponentDeck is not null) { MemoryStatusText.Text = "Clear the full-deck pin before using partial-memory guesses."; return; }
-        foreach (var item in match.Deck.Cards) _opponentEdits.Include(CurrentCard(item.Card), item.ObservedCopies);
-        RenderLiveInference(); PersistCurrentMatch(); ShowPage(UiPage.Deck);
-    }
     private IEnumerable<DeckListItem> LearnedDeckItems() => (_opponentMemory?.Records ?? []).Select(record => new DeckListItem(
         record.Name, $"Learned opponent · {(record.Complete ? "reviewed complete" : "INCOMPLETE")}{(record.NeedsReview ? " · NEEDS REVIEW" : "")}{(record.LibraryFingerprint is not null ? " · library association" : "")} · faced {record.EncounterCount}× · " + record.Budget.Summary,
         null, null, DeckSearchCatalog.Normalize(record.Name + " " + record.Faction + " " + record.Leader + " " + string.Join(' ', record.DraftCards.Select(item => item.Card.Name))),
@@ -292,6 +260,8 @@ public partial class MainWindow
     {
         if (_updatingKnowledge || OpeningStratagemChoice.SelectedItem is not CardDefinition card) return;
         _opponentKnowledge.StartingStratagemId = card.Id.Length == 0 ? null : card.Id;
+        if (card.Id.Length == 0) _playOrigins.ClearOpeningStratagem(PlayerSide.Opponent);
+        else _playOrigins.ObserveOpeningStratagem(PlayerSide.Opponent, card);
         RenderLiveInference(); PersistCurrentMatch();
     }
     private void RoundChoice_OnChanged(object sender, SelectionChangedEventArgs e)
@@ -361,8 +331,7 @@ public partial class MainWindow
         _selectedSummon = null; _summonButtonKey = null;
         SummonWatchList.ResetDismissed();
         _synergyButtonKey = null;
-        _referenceFiltersManual = false;
-        _opponentKnowledge.Reset(); _deckMutations.Reset(); _tacticalWatch?.Reset(); _thinningCopies.Reset(); _handCommits.Reset(); _variantAnchor = null; _descriptionHint = null;
+        _opponentKnowledge.Reset(); _deckMutations.Reset(); _tacticalWatch?.Reset(); _thinningCopies.Reset(); _handCommits.Reset(); _descriptionHint = null;
         _zones.Reset(); _hiddenTraps.Reset(); RenderZoneAudit(); RenderHiddenTraps();
         _updatingKnowledge = true;
         OriginalLeaderChoice.SelectedIndex = 0; OpeningStratagemChoice.SelectedIndex = 0; RoundChoice.SelectedIndex = 0;

@@ -56,6 +56,11 @@ public sealed class PlayEventStore
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(eventDirectory);
         ArgumentNullException.ThrowIfNull(record);
+        record = record with
+        {
+            DetectedAt = record.DetectedAt.ToUniversalTime(),
+            BoardSnapshotAt = record.BoardSnapshotAt?.ToUniversalTime(),
+        };
         File.WriteAllText(
             Path.Combine(eventDirectory, "event.json"),
             JsonSerializer.Serialize(record, JsonOptions));

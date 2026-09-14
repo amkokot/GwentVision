@@ -1,0 +1,52 @@
+{
+  "SchemaVersion": 1,
+  "Id": "saskia-recurring-departure",
+  "Summary": "Retains two Saskia Commander timer activations: Dryad Matron accompanies hand 6/deck 14→13, then Forest Whisperer accompanies hand 3/deck 11→10. The distinct windows prevent one activation from borrowing another's identity.",
+  "AddedIn": "0.2.78",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 2009674,
+      "Sha256": "29623F37C83D059BA0E45E3A747FEAB9F98B3205FABE596CB3B260A166DBA1AB",
+      "Tags": [
+        "regression",
+        "saskia-recurring-departure"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 1910154,
+      "Sha256": "4A3A06FEAF026B7A55D8356131AF881E69965A487986C20F86B551F8F081373D",
+      "Tags": [
+        "regression",
+        "saskia-recurring-departure"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 1885352,
+      "Sha256": "807548164CEA4A0427897EF8A0FC978D75FF1644069457E3025F0557B607D162",
+      "Tags": [
+        "regression",
+        "saskia-recurring-departure"
+      ]
+    },
+    {
+      "File": "evidence-04.png",
+      "Bytes": 2040357,
+      "Sha256": "84A703059E4F5A802209BCC4FF42B6B79E36BF7BE1A6ECFF1B244A5D54E2C7FE",
+      "Tags": [
+        "regression",
+        "saskia-recurring-departure"
+      ]
+    }
+  ]
+}

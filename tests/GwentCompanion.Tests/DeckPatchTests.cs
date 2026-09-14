@@ -10,6 +10,13 @@ internal static class DeckPatchTests
         var at = DateTimeOffset.Parse("2026-08-27T12:00:00Z");
         Check(DeckPatchMetadata.Current(at).Label == "14.8" && DeckPatchMetadata.Current(at.AddMonths(1)).Label == "14.9", "Monthly patch rollover.");
         Check(DeckPatchMetadata.Current(DateTimeOffset.Parse("2027-01-01T00:00:00Z")).Label == "15.1", "Annual patch rollover.");
+        Check(DeckPatchMetadata.Current(DateTimeOffset.Parse("2026-08-31T21:59:59Z")).Label == "14.8" &&
+            DeckPatchMetadata.Current(DateTimeOffset.Parse("2026-08-31T22:00:00Z")).Label == "14.9",
+            "Summer patch rollover must occur at midnight in Warsaw, not midnight UTC.");
+        Check(DeckPatchMetadata.TrySeasonWindow("14.12", out var winterStart, out var winterEnd) &&
+            winterStart == DateTimeOffset.Parse("2026-11-30T23:00:00Z") &&
+            winterEnd == DateTimeOffset.Parse("2026-12-31T23:00:00Z"),
+            "Winter patch bounds must follow Warsaw's CET offset.");
         Check(DeckPatchMetadata.FromSheet("11.10.2").Single() is { Label: "11.10.2", Inferred: false }, "Keep explicit historical subpatches.");
         Check(DeckPatchMetadata.FromSheet("JANFEB 2026").Select(p => p.Label).SequenceEqual(new[] { "14.1", "14.2" }), "Multi-month sheet remains ambiguous.");
         Check(DeckPatchMetadata.FromSheet("JANFEB 2026", at.AddMonths(-7)).Single().Label == "14.1", "Row date can resolve multi-month tab.");

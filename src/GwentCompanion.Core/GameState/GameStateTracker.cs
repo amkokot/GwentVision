@@ -119,7 +119,10 @@ public sealed class GameStateTracker
             var sightings = new List<CardSighting>();
             foreach (var sight in frame.Sightings.Where(item => item.Source == CardSightSource.Board &&
                          item.Card.Kind is CardKind.Unit or CardKind.Artifact or CardKind.Stratagem &&
-                         double.IsFinite(item.Distance) && item.Distance is >= 0 and <= .4 && Valid(item.Region) && !Covered(item.Region))
+                         double.IsFinite(item.Distance) && item.Distance is >= 0 and <= .4 && Valid(item.Region) && !Covered(item.Region) &&
+                         (!IsGuardedAutomaticArrival(item) || frame.Events.Any(evidence =>
+                             evidence.Sighting.Source == CardSightSource.Board && evidence.Sighting.Side == item.Side &&
+                             evidence.Sighting.Card.Id == item.Card.Id)))
                          .OrderBy(item => item.Distance))
                 if (!sightings.Any(other => other.Side == sight.Side && Overlap(other.Region, sight.Region) > .4)) sightings.Add(sight);
 
@@ -274,6 +277,8 @@ public sealed class GameStateTracker
     private static double Overlap(NormalizedRegion a, NormalizedRegion b) =>
         Math.Max(0, Math.Min(a.Right, b.Right) - Math.Max(a.Left, b.Left)) * Math.Max(0, Math.Min(a.Bottom, b.Bottom) - Math.Max(a.Top, b.Top)) /
         Math.Max(.000001, Math.Min((a.Right - a.Left) * (a.Bottom - a.Top), (b.Right - b.Left) * (b.Bottom - b.Top)));
+    private static bool IsGuardedAutomaticArrival(CardSighting sighting) =>
+        sighting.Evidence?.Contains("bounded automatic-arrival board fallback", StringComparison.Ordinal) == true;
 
     // Standard captured battlefield geometry. Boundary contacts stay unassigned; no invented exact slot index.
     public static BoardRow? LocateRow(PlayerSide side, NormalizedRegion region)

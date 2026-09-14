@@ -10,5 +10,47 @@
     "Aspect": 0.375,
     "Mask": "AAAAAAAAAAAAAFX//////wAAAAAAAAAAAABV//////8AAAAAAAAAAAAAVf//////AAAAAAAAAAAAAFX//////wAAAAAAAAAAAABV//////8AAAAAAAAAAAAAVf//////AAAAAACq/////////////wAAAAAAqv////////////8AAAAAAKr/////////////AAAAAACq/////6oAAAAAAAAAAAAAqv////\u002BqAAAAAAAAAAAAAKr/////qgAAAAAAAAAAAACq/////6oAAAAAAAAAAAAAqv////\u002BqAAAAAAAAAAAAAKr/////qgAAAAAA/////////////6oAAAAAAP////////////\u002BqAAAAAAD/////////////qgAAAAAA//////9VAAAAAAAAAAAAAP//////VQAAAAAAAAAAAAD//////1UAAAAAAAAAAAAA//////9VAAAAAAAAAAAAAP//////VQAAAAAAAAAAAAD//////1UAAAAAAAAAAAAA",
     "Emit": true
+  },
+  {
+    "Digit": "1",
+    "Aspect": 0.14285714285714285,
+    "Mask": "AAAAAAAAAAD//////////0lJSUlJSUlJ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////",
+    "Emit": true
+  },
+  {
+    "Digit": "2",
+    "Aspect": 0.5333333333333333,
+    "Mask": "AAAAAAAAAAD/////AAAAAAAAAABmZmZm/////2ZmAAAAAAAA/////////////wAAzMzMzP/////////////MzMzM/////8zMzMz///////8AAP////8AAAAA////////AABmZmZmAAAAAP///////wAAAAAAAAAAAAD///////8AAAAAAAAAAAAA////////AAAAAAAAAABmZv////+ZmQAAAAAAAAAA////////AAAAAAAAzMzMzP///////wAAAAAzM////////8zMzMwAAAAA//////////8AAAAAAAAAAP///////2ZmAAAAAAAAAAD///////8AAAAAAAAAAAAA/////wAAAAAAAAAAAABmZv////8AAAAAAAAAAAAA////////AAAAAAAAAAAAADMz/////wAAAADMzMzMAAAAAP////8zMzMz/////zMzAAD//////////////////wAAZmZmZv//Zmb//2ZmZmYAAAAAAAD//wAA//8AAAAA",
+    "Emit": true
+  },
+  {
+    "Digit": "3",
+    "Aspect": 0.5,
+    "Mask": "AAAAAAAAJP////9tAAAAAAAANElJSWP/////l0k0AAAAALb/////////////tgAAkpLg/////////////+CSkv//////////////////////////oSQkJCTg////////29vb230AAAAA2////////wAAAAAAAAAAANv///////8AAAAAAAAAAADa////4JKSAAAAAAAAAAAA2////7YAAAAAAAAAABq2tvT///+2AAAAAAAAAAAk////////tgAAAAAAAAAAJP///////7YAAAAAAAAAABq2tvT///+2AAAAAAAAAAAAAADb////tgAAAAAAAAAAAAAA2v///+CSkgAAAAAAAAAAANv////////b29vbfQAAAADb/////////////6EkHwAA2////////////////9sAANv////////////////qbW3q////4JKS/////////////////7YAAElJSUmX////////l0k0AAAAAAAAbf///////20AAAAA",
+    "Emit": true
+  },
+  {
+    "Digit": "4",
+    "Aspect": 0.4375,
+    "Mask": "AAAAAAAAJP////9tAAAAAAAAAAAAACT/////bQAAAAAAAAAAAAAk/////20AAAAAAAAAAG3/////JAAAAAAAAAAAAABt/////yQAAAAAAAAAAAAAbf////8kAAAAAAAAAAAAAG3/////JAAAAAAAAAAAW4C2/+2AgBIASYCAgIAAALb////bAAAAAJL/////AAC2////2wAAAACS/////wAAtv///9sAAAAAkv////8AALb////bAAAAAJL//////////5IAAAAAAACS///////////IgICAgICAyP//////////////////////////////////////////////////////////////////////////////////////////AAAAAAAAAAAAAACS/////wAAAAAAAAAAAAAAkv////8AAAAAAAAAAAAAAJL/////AAAAAAAAAAAAAACS/////wAAAAAAAAAAAAAASYCk//8AAAAAAAAAAAAAAAAASf//",
+    "Emit": true
+  },
+  {
+    "Digit": "5",
+    "Aspect": 0.5,
+    "Mask": "/////////////////7YAAP////////////////+2AAD/////////////////tgAA/////8BtbW1tbW1tbU4AAP////+SAAAAAAAAAAAAAAD/////kgAAAAAAAAAAAAAA/////6EkHwAAAAAAAAAAAP///////9sAAAAAAAAAAAD////////qbW0QAAAAAAAA////////////JAAAAAAAAElJSUmX/////8C2traCAAAAAAAAbf//////////tgAAAAAAAAAAAAAA2////////wAAAAAAAAAAANr///////8AAAAAAAAAAADb////////kpKSklMAAAAAXm3A//////////+SAAAAAAAAkv//////////kgAAAAC72+///////////6EkHwAA2////////////////9sAANv///////+SkuD////qbW3q////////AAC2/////////////////wAANEmX////////l0lJSUkAAAAAbf///////20AAAAA",
+    "Emit": true
+  },
+  {
+    "Digit": "6",
+    "Aspect": 0.5,
+    "Mask": "AAAAAG3/////JAAAAAAAAAAANEmX//S2thoAAAAAAAAAALb////bAAAAAAAAAAAAAAC2////2gAAAAAAAAAAAAAAtv///9sAAAAAAAAAAAAAALb////bAAAAAAAAAAAAJCTA////2wAAAAAAAAAAAP///////9sAAAAAAAAAAAD////////qbW0QAAAAAAAA////////////JAAAAAAAAP///////////8C2traCAAD/////////////////tgAA///////////////////////////gtra2tvT/////////////kgAAAADb/////////////5EAAAAA2v////////////+SAAAAANv/////////////kgAAAADb/////////////5IAAAAA2/////////////+SAAAAANv/////////////wG1tbW3q////4JKS/////////////////7YAAElJy////////2NJSUk0AAAAALb///////8kAAAAAAAA",
+    "Emit": true
+  },
+  {
+    "Digit": "9",
+    "Aspect": 0.5714285714285714,
+    "Mask": "AAAAAAAA/////wAAAAAAAAAASUlJSf////9JSUlJAAAAAP///////////////wAAkpL/////bW1tbf////+Skv///////wAAAAD///////8kJP////8AAAAA////////JCT/////AAAAAP///////////////wAAAAD///////+Skv////8AAAAA////////AAD/////AAAAAP///////wAA/////7a2trb///////8AAP//////////////////AAD///////////////8AAAAAtra2tv//////////AAAAAAAAAAD//////////wAAAAAAAAAAbW1tbf////8AAAAAAAAAAAAAAAD/////AAAAAAAAAAAAANvb/////wAAAAAAAAAAAAD/////29sAAAAAAAAAAAAA/////wAAAAAAAAAAAAAAAP////8AAAAAAAAAAAAAAAD/////AAAAAAAAAAAAALa2//9JSQAAAAAAAAAAAAD/////AAAAAAAA",
+    "Emit": true
   }
 ]

@@ -12,10 +12,17 @@ public sealed class CurrentCardValues(IEnumerable<CardDefinition> catalog)
 
     private static string LeaderKey(string faction, string name) => DeckSearchCatalog.Normalize(faction) + "|" + DeckSearchCatalog.Normalize(name);
     public CardDefinition Card(CardDefinition card) => _cards.GetValueOrDefault(card.Id) ?? card;
-    public DeckDefinition Deck(DeckDefinition deck) => deck with
+    public DeckDefinition Deck(DeckDefinition deck)
     {
-        Cards = deck.Cards.Select(c => c with { Card = Card(c.Card) }).ToArray(),
-        Stratagem = deck.Stratagem is { } stratagem ? Card(stratagem) : null,
-        LeaderProvisionBonus = _leaders.GetValueOrDefault(LeaderKey(deck.Faction, deck.Leader))?.Provision ?? deck.LeaderProvisionBonus,
-    };
+        var leaderProvision = _leaders.GetValueOrDefault(LeaderKey(deck.Faction, deck.Leader))?.Provision ?? deck.LeaderProvisionBonus;
+        var stratagem = deck.Stratagem is { } originalStratagem ? Card(originalStratagem) : null;
+        if (leaderProvision == deck.LeaderProvisionBonus && ReferenceEquals(stratagem, deck.Stratagem) &&
+            deck.Cards.All(item => ReferenceEquals(Card(item.Card), item.Card))) return deck;
+        return deck with
+        {
+            Cards = deck.Cards.Select(c => c with { Card = Card(c.Card) }).ToArray(),
+            Stratagem = stratagem,
+            LeaderProvisionBonus = leaderProvision,
+        };
+    }
 }

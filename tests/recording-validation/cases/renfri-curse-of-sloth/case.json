@@ -1,0 +1,52 @@
+{
+  "SchemaVersion": 1,
+  "Id": "renfri-curse-of-sloth",
+  "Summary": "Renfri replaces the persistent opponent leader with Curse of Sloth without implying that its bronze-hand Order was activated.",
+  "AddedIn": "0.2.84",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 1931533,
+      "Sha256": "811DCF75340BCE8691F601286E7B5E90E77EBD70742DF3C0468525770A1E4FBF",
+      "Tags": [
+        "regression",
+        "renfri-curse-of-sloth"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 1935077,
+      "Sha256": "739D39D98F9A5420DDD2840B9F03C764D111FDDE53EB70A0F2B3A653ED03C6B2",
+      "Tags": [
+        "regression",
+        "renfri-curse-of-sloth"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 1926704,
+      "Sha256": "1FAB9AC834181A0ED5085A93B16E6F5D41A63D28F9D48DFE94DDA64C455D5D14",
+      "Tags": [
+        "regression",
+        "renfri-curse-of-sloth"
+      ]
+    },
+    {
+      "File": "evidence-04.png",
+      "Bytes": 1934279,
+      "Sha256": "EEF8AE55E293291AF0706A1051FF4833C8AF82475275B229EB0818C2E0A884C3",
+      "Tags": [
+        "regression",
+        "renfri-curse-of-sloth"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "SchemaVersion": 1,
+  "Id": "continuous-play-all-copies",
+  "Summary": "A later exact framed card in one uninterrupted Tempest selection episode represents the second copy named by Play all copies, rather than a duplicate preview or a new hand play.",
+  "AddedIn": "0.2.79",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 1971158,
+      "Sha256": "065CD2F72C93A9D38078007D5A1281D64F83558D8544B963E14A24E4D32A0D42",
+      "Tags": [
+        "regression",
+        "continuous-play-all-copies"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 1972464,
+      "Sha256": "85EAD24DF105A296DF6486B5BF77DEF89D7FF8F933D970ED925F2BDDB464C0CB",
+      "Tags": [
+        "regression",
+        "continuous-play-all-copies"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 1947272,
+      "Sha256": "8239CEB16CA6849D8E50BFB96AC3AE310977B7580EE0FFE200BEC84B0DAE3A3D",
+      "Tags": [
+        "regression",
+        "continuous-play-all-copies"
+      ]
+    },
+    {
+      "File": "evidence-04.png",
+      "Bytes": 1948381,
+      "Sha256": "B7AF716D8DB73E2C40AA9935646C70743BB25DECE77CB94E6D3771CACE18DEB0",
+      "Tags": [
+        "regression",
+        "continuous-play-all-copies"
+      ]
+    }
+  ]
+}

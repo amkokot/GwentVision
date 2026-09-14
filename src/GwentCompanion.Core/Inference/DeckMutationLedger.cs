@@ -103,9 +103,21 @@ public sealed class DeckMutationLedger
             case "162301": Add(side, "Daerlan generates a copy per starting copy at setup; repeated copies are not singleton violations.", "daerlan"); break;
             case "162203": Add(other, "Cynthia may put The Guardian on top of deck.", "guardian"); break;
             case "202796": case "202800": case "203212": case "203213":
-                Add(other, "Can add a copy of the targeted non-Token unit to deck when its condition resolves.", "unit"); break;
+                // These effects copy an enemy unit that already had to exist on
+                // that enemy's board. They can make a later *additional* physical
+                // copy ambiguous, but cannot make the first observed identity
+                // absent from the recipient's starting composition.
+                Record(new(evidence.ObservedAt, sight.Card.Id, sight.Card.Name, other,
+                    "Can add a base copy of a targeted non-Token enemy unit to that enemy's deck. Resolution/identity unverified.",
+                    CandidateKind: "unit", CopyCountOnly: true)); break;
             case "200118": Add(other, "Infiltrator can enter this deck at round end.", "infiltrator"); break;
-            case "203211": Add(other, "Sandor can transfer a card from the other deck; Order adds a Drone."); break;
+            case "203211":
+                // Deploy moves a card out of Sandor's controller's deck. The
+                // unresolved recipient risk is therefore limited to identities
+                // compatible with that source deck's faction (plus Neutrals), not
+                // every later card played by the recipient. The Order's Drone is
+                // already non-ownable and is handled by normal token provenance.
+                Add(other, "Sandor can transfer a card from the other deck; Order adds a Drone.", "any", faction); break;
             case "162202":
                 // Assire cannot introduce a previously unseen identity: its target has
                 // already existed in a graveyard. Keep the visible mutation in the log,
@@ -146,11 +158,23 @@ public sealed class DeckMutationLedger
             // body. It does not do so when the generator copied a template that
             // stayed in hand (Ramon-style): the eventual paid play can be that
             // same one original template, not a second starting copy.
-            !(independentHandPlay && item.CreatesOutsideDeck && !item.HandTemplateCopy) &&
+            !(independentHandPlay && item.CreatesOutsideDeck &&
+              (!item.HandTemplateCopy || item.CandidateKind=="scenario-spawn" && at-item.At>TimeSpan.FromSeconds(30) &&
+               IsBoardOnlyNamedSpawn(item,card))) &&
             item.SourceCardId != card.Id && (item.AddedCardId == card.Id || item.AddedCardId is null && Matches(item, card)) &&
             (item.CandidateKind != "heulyn" || sight.Source != CardSightSource.PlayPreview ||
              _graveReplay.TryGetValue(sight.Side, out var replay) && at >= replay && at - replay <= TimeSpan.FromSeconds(20)));
         if (change is null) return null;
+        if(change.SourceCardId=="203211" && change.AddedCardId is null)
+        {
+            // Sandor transfers exactly one source-deck card. Once the first
+            // compatible recipient identity is encountered, bind the unresolved
+            // safeguard to it so one unknown transfer cannot poison every later
+            // Neutral/source-faction play for the rest of the match.
+            var bound=change with {AddedCardId=card.Id,AddedCardName=card.Name};
+            _changes[_changes.LastIndexOf(change)]=bound;
+            change=bound;
+        }
         if(additionalCopy && sight.Source==CardSightSource.PlayPreview && change.CopyCountOnly && change.AddedCardId is null &&
             (change.CandidateKind=="spawned-deploy-copies" && at-change.At<=TimeSpan.FromSeconds(30) ||
              change.SourceCardId=="162202" && card.IsGold))
@@ -191,6 +215,13 @@ public sealed class DeckMutationLedger
             "heulyn" => card.Kind == CardKind.Unit && !card.IsGold && card.Faction == "Skellige" && card.HasCategory("Human"),
             _ => card.CanBeInStartingDeck,
         };
+    }
+    private static bool IsBoardOnlyNamedSpawn(DeckMutation change,CardDefinition card)
+    {
+        var clause=Regex.Match(change.GeneratedText??"",@"\bSpawn(?: and play)?\b[^.\n]*\b"+
+            Regex.Escape(card.Name)+@"\b[^.\n]*",RegexOptions.IgnoreCase);
+        return clause.Success && !Regex.IsMatch(clause.Value,@"\b(?:hand|deck)\b",RegexOptions.IgnoreCase) &&
+            Regex.IsMatch(clause.Value,@"\bon (?:this|that|your|an? enemy) row\b",RegexOptions.IgnoreCase);
     }
     private static bool TextMentionsCard(string text, string name)
     {

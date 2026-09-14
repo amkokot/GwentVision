@@ -24,10 +24,12 @@ body:
       options:
         - Detection accuracy
         - Language or localization
-        - Opponent deck hypothesis
+        - Opponent Cards tracking
         - Candidate cards
         - Snapshots or diagnostic recording
         - Deck library
+        - Match Data or public MMR charts
+        - Data contribution and privacy
         - Performance
         - Installation or updates
         - Interface or accessibility

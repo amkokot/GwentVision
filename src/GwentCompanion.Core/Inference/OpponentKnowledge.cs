@@ -8,6 +8,7 @@ public sealed record ResolvedDeckCondition(DeckCondition Condition, DateTimeOffs
 public sealed record OpponentClue(string Key, string Text, string Detail, int Priority);
 public sealed record TriggerOpportunity(string CardId, DateTimeOffset At, string Trigger,
     bool ConditionsVerified = false, bool AbsenceVerified = false, int ExpectedCopies = 1);
+public sealed record StartingSetupInference(CardDefinition Card, DateTimeOffset At, string Evidence);
 
 /// <summary>Evidence about the starting list, never a claim to see the opponent's hand.</summary>
 public sealed class OpponentKnowledge
@@ -26,9 +27,10 @@ public sealed class OpponentKnowledge
     private DateTimeOffset _lastDrawPileAt;
     private bool _anyLivePlay;
     private DateTimeOffset _lastOpponentPlayAt;
-    private bool _saskiaCommanderActive;
-    private int _saskiaTurns, _saskiaSummonCredits;
     private (int Size, DateTimeOffset At)? _predeal;
+    private DateTimeOffset? _openingShortCountAt;
+    private (int Score, DateTimeOffset At)? _openingOpponentScore;
+    private bool _openingMusiciansAbsent;
     private (int Size, DateTimeOffset At, int Votes)? _conservedSize;
     public string? StartingSizeEvidence { get; private set; }
     private readonly DevotionEvidenceTracker _devotion = new();
@@ -36,14 +38,27 @@ public sealed class OpponentKnowledge
     private CardDefinition? _renfriDefinition;
     private int _unitProvisionFloor, _maximumStartingAllowance;
     private int _shupeProvisions=13;
+    private CardDefinition[] _openingSetupDepartureCards = [];
+    private readonly Dictionary<string, StartingSetupInference> _openingStartingCards = new(StringComparer.Ordinal);
     public void ConfigureShupe(CardDefinition shupe) { if(shupe.Id=="201627") _shupeProvisions=shupe.Provision; }
     public void ConfigureRenfriBudget(CardDefinition renfri, int unitProvisionFloor, int maximumStartingAllowance)
     {
         if (renfri.Name != "Renfri" || unitProvisionFloor < 1 || maximumStartingAllowance < 1) throw new ArgumentException("Invalid Renfri budget context");
         _renfriDefinition = renfri; _unitProvisionFloor = unitProvisionFloor; _maximumStartingAllowance = maximumStartingAllowance;
     }
+    public void ConfigureOpeningSetupCards(IEnumerable<CardDefinition> catalog) =>
+        _openingSetupDepartureCards = catalog.Where(card =>
+        {
+            if (!StartingDeckRules.IsStartingCard(card)) return false;
+            var text = card.AbilityText ?? "";
+            return text.Contains("This card starts in your graveyard", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("At the start of the game", StringComparison.OrdinalIgnoreCase) &&
+                text.Contains("Banish self", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("start on your Ranged row", StringComparison.OrdinalIgnoreCase);
+        }).ToArray();
     public IReadOnlyCollection<ResolvedDeckCondition> Resolved => _resolved.Values;
     public IReadOnlyCollection<TriggerOpportunity> Opportunities => _opportunities.Values;
+    public IReadOnlyCollection<StartingSetupInference> OpeningStartingCards => _openingStartingCards.Values;
     public int? Round { get; private set; }
     public bool Ended { get; private set; }
     public int? OpponentHand { get; private set; }
@@ -63,14 +78,14 @@ public sealed class OpponentKnowledge
     public void Reset()
     {
         Sequences.Reset();
-        _resolved.Clear(); _opportunities.Clear(); _seen.Clear(); _livePlayed.Clear(); _devotion.Reset(); _conditions.Reset(); SummonAbsence.Reset();
+        _resolved.Clear(); _opportunities.Clear(); _openingStartingCards.Clear(); _seen.Clear(); _livePlayed.Clear(); _devotion.Reset(); _conditions.Reset(); SummonAbsence.Reset();
         Round = null; Ended = false; OpponentHand = null; OpponentDrawPile = null;
         StartingSize = null; StartingSizeMinimum = 25; StartingLeader = null; StartingLeaderId = null;
         CurrentLeader = null; CurrentLeaderId = null; VisibleLeaderConfidence = 0; LeaderBonus = null;
-        _predeal = null; _conservedSize = null; StartingSizeEvidence = null;
+        _predeal = null; _openingShortCountAt = null; _openingOpponentScore = null;
+        _openingMusiciansAbsent = false; _conservedSize = null; StartingSizeEvidence = null;
         StartingStratagemId = null; HasOpeningWindow = false; _pendingRound = null; _roundVotes = 0;
         _lastScreenAt = default; _lastZoltanAt = null; _lastHandAt = default; _lastDrawPileAt = default; _anyLivePlay = false; _lastOpponentPlayAt = default;
-        _saskiaCommanderActive=false; _saskiaTurns=0; _saskiaSummonCredits=0;
     }
 
     public void SetRound(int? round) { Round = round is >= 1 and <= 3 ? round : null; }
@@ -107,7 +122,7 @@ public sealed class OpponentKnowledge
     {
         if (at <= _lastScreenAt) return false;
         _lastScreenAt = at;
-        var before = (Round, Ended, OpponentHand, OpponentDrawPile, StartingSize);
+        var before = (Round, Ended, OpponentHand, OpponentDrawPile, StartingSize, _openingMusiciansAbsent);
         var header = (screen.ScreenHeader ?? "").Trim().ToUpperInvariant();
         if (header == "FINAL ROUND") header = "ROUND 3";
         var match = System.Text.RegularExpressions.Regex.Match(header, @"^ROUND\s+([123])$");
@@ -128,6 +143,19 @@ public sealed class OpponentKnowledge
         else if (at - _lastHandAt > TimeSpan.FromSeconds(6)) OpponentHand = null;
         if (screen.OpponentDeckCount is >= 0 and <= 100) { OpponentDrawPile = screen.OpponentDeckCount; _lastDrawPileAt = at; }
         else if (at - _lastDrawPileAt > TimeSpan.FromSeconds(6)) OpponentDrawPile = null;
+        if (!_anyLivePlay && HasOpeningWindow && Round == 1 && screen.OpponentScore is >= 0 and <= 100)
+        {
+            _openingOpponentScore = (screen.OpponentScore.Value, at);
+            // Musicians necessarily contributes one opening point before either
+            // player can act. Once round one and the fully dealt ten-card hand are
+            // authenticated, a confirmed zero score establishes its absence at the
+            // opening rather than leaving it in the first candidate projection.
+            // Requiring the dealt hand rejects transient/loading zero-score frames;
+            // deck-size OCR remains optional because other setup departures such as
+            // Eudora and Rioghan can legitimately change it.
+            if (screen.OpponentHandCount == 10 && screen.OpponentScore == 0)
+                _openingMusiciansAbsent = true;
+        }
         // Capture the pre-deal pile, then require conservation through the round-one
         // deal. A 10+15 snapshot alone cannot exclude setup thinning in a larger deck.
         // HUD values have already passed the recognizer's two-sample confirmation.
@@ -144,7 +172,7 @@ public sealed class OpponentKnowledge
             StartingSizeEvidence = $"Pre-deal pile {deal.Size}; round-one hand 10 + pile {pile}, before any detected play.";
         }
         if (Ended || before.Round != Round) _conditions.Reset();
-        return before != (Round, Ended, OpponentHand, OpponentDrawPile, StartingSize);
+        return before != (Round, Ended, OpponentHand, OpponentDrawPile, StartingSize, _openingMusiciansAbsent);
     }
 
     public void Observe(VisionEvidenceEvent evidence, string? faction = null, CardProvenance origin = CardProvenance.Unknown)
@@ -157,20 +185,6 @@ public sealed class OpponentKnowledge
         if (sighting.Source == CardSightSource.PlayPreview) { _anyLivePlay = true; _lastOpponentPlayAt = evidence.ObservedAt; }
         _seen.Add(sighting.Card.Id);
         if (sighting.Source != CardSightSource.PlayPreview) return; // History has no reliable trigger time.
-        if (sighting.Card.Id=="203090")
-        {
-            _saskiaCommanderActive=true; _saskiaTurns=0;
-            _saskiaSummonCredits=Math.Min(4,_saskiaSummonCredits+1); // Deploy resolution.
-        }
-        else if (_saskiaCommanderActive)
-        {
-            _saskiaTurns++;
-            if (_saskiaTurns>=3)
-            {
-                _saskiaTurns=0;
-                _saskiaSummonCredits=Math.Min(4,_saskiaSummonCredits+1); // Timer 3 resolution.
-            }
-        }
         _livePlayed.Add(sighting.Card.Id);
         if (sighting.Card.Name.StartsWith("Zoltan", StringComparison.OrdinalIgnoreCase)) _lastZoltanAt = evidence.ObservedAt;
         if (sighting.Card.IsGold && sighting.Card.Id != "112210")
@@ -200,34 +214,35 @@ public sealed class OpponentKnowledge
         if (sighting.Side != PlayerSide.Opponent || sighting.Source != CardSightSource.Board) return null;
         if (sighting.Card.Id == "202200" && HasOpeningWindow && !_anyLivePlay)
         {
-            Resolve(DeckCondition.Musicians, evidence.ObservedAt,
-                "Musicians recognized on the opening board after the round-one heading, before an opponent preview. Setup origin is probable; missing previews remain possible.");
+            var reason = "Musicians recognized on the opening board after the round-one heading, before an opponent preview. Setup origin is probable; missing previews remain possible.";
+            Resolve(DeckCondition.Musicians, evidence.ObservedAt, reason);
+            _openingStartingCards.TryAdd(sighting.Card.Id, new(sighting.Card, evidence.ObservedAt, reason));
             return new(CardProvenance.ProbableStartingDeck, "Opening Musicians appearance; original membership probable, not an extra play.");
         }
         if (sighting.Card.Id == "203280" && _lastZoltanAt is { } zoltan &&
             evidence.ObservedAt - zoltan >= TimeSpan.Zero && evidence.ObservedAt - zoltan < TimeSpan.FromSeconds(15))
             return new(CardProvenance.ProbableStartingDeck,
                 "Eudora arrival after Zoltan suggests the setup infusion: account once for the banished starting original, not each spawned copy. Infusion transfer remains possible.");
-        if (_saskiaCommanderActive && _saskiaSummonCredits>0 && !_livePlayed.Contains(sighting.Card.Id) && !_seen.Contains(sighting.Card.Id) &&
-            sighting.Card.Kind==CardKind.Unit && !sighting.Card.IsGold && sighting.Card.Faction!="Neutral" &&
+        if (evidence.ResolvedDeckCopies is > 0 and <= 25 &&
+            sighting.Card.CanBeInStartingDeck && sighting.Card.Kind == CardKind.Unit &&
             (string.IsNullOrWhiteSpace(opponentFaction) || FactionCompatibility.IsPlayableBy(sighting.Card,opponentFaction)))
-        {
-            _saskiaSummonCredits--;
             return new(CardProvenance.ProbableStartingDeck,
-                "Previously observed Saskia: Commander has a bounded Deploy/Timer summon credit; this fresh bronze board-only identity is a probable deck target. Generated-name risks take precedence upstream.");
-        }
+                "A typed resolved-deck-copy event established this board arrival as an original deck card; generated-name risks still take precedence upstream.");
         if (!_livePlayed.Contains(sighting.Card.Id) && sighting.Card.Id is "202397" or "152313")
             return new(CardProvenance.ProbableStartingDeck, sighting.Card.Id == "202397"
                 ? "Knickers appeared on the board without a matching play preview; count the automatic arrival as one probable starting original. A verified generated/deck-added origin takes precedence upstream."
                 : "Tuirseach Skirmisher appeared on the board without a matching play preview; count the discard summon as one probable starting original. A verified generated/deck-added origin takes precedence upstream.");
-        var ability = sighting.Card.AbilityText ?? "";
-        if (!_livePlayed.Contains(sighting.Card.Id) &&
-            !ability.Contains("deck or graveyard", StringComparison.OrdinalIgnoreCase) &&
-            System.Text.RegularExpressions.Regex.IsMatch(ability,
-                @"\bSummon (?:self|this card) from (?:your |the )?deck\b",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+        if (!_livePlayed.Contains(sighting.Card.Id) && CompanionCardRules.IsInherentDeckArrival(sighting.Card))
             return new(CardProvenance.ProbableStartingDeck,
                 "Recognized board arrival has an inherent self-summon-from-deck ability and no matching play preview; count one probable original. A verified generated/deck-added origin takes precedence upstream.");
+        if (!_livePlayed.Contains(sighting.Card.Id) &&
+            evidence.Description.Contains("deck-to-graveyard-to-board summon", StringComparison.Ordinal) &&
+            sighting.Card.Kind == CardKind.Unit &&
+            (sighting.Card.CanBeInStartingDeck || EvolvingCardCatalog.IsEvolved(sighting.Card.Id)) &&
+            !string.Equals(sighting.Card.Faction, "Neutral", StringComparison.OrdinalIgnoreCase) &&
+            (string.IsNullOrWhiteSpace(opponentFaction) || FactionCompatibility.IsPlayableBy(sighting.Card, opponentFaction)))
+            return new(CardProvenance.ProbableStartingDeck,
+                "Eist plus a conserved post-Eist deck departure and repeated exact board title establish this non-Neutral unit as the summoned starting-deck target.");
         if (_opportunities.TryGetValue(sighting.Card.Id, out var trigger) &&
             evidence.ObservedAt >= trigger.At && evidence.ObservedAt - trigger.At < TimeSpan.FromSeconds(12) &&
             !_livePlayed.Contains(sighting.Card.Id))
@@ -276,8 +291,19 @@ public sealed class OpponentKnowledge
         }
         var four = cards.FirstOrDefault(item => StartingDeckRules.CountsAgainstStartingDeck(item.Provenance) &&
             item.Card.Provision == 4 && item.Card.Id != "202200");
-        var musicians = Apply(DeckCondition.Musicians, new("Musicians", four is null ? ConstraintState.Possible : ConstraintState.RuledOut,
-            four is null ? "Opening effect not established; Musicians itself is exempt from the 4p restriction." : $"{four.Card.Name} is another likely starting 4p card."));
+        var musiciansContradiction = four is not null
+            ? $"{four.Card.Name} is another likely starting 4p card; Musicians requires no other 4-provision starting cards."
+            : _openingMusiciansAbsent
+                ? "Two confirmed zero-point observations in the pre-play round-one window establish that Musicians did not start on the Ranged row."
+                : null;
+        var musicians = Apply(DeckCondition.Musicians, new("Musicians",
+            musiciansContradiction is null ? ConstraintState.Possible : ConstraintState.RuledOut,
+            musiciansContradiction ?? "Opening effect not established; Musicians itself is exempt from the 4p restriction."));
+        // A resolved/suggested setup hint is defeasible. A later original 4p card,
+        // or direct authenticated opening absence, is the printed-rule contradiction
+        // and must win rather than leave the payoff available as a candidate.
+        if (musiciansContradiction is not null)
+            musicians = new("Musicians", ConstraintState.RuledOut, musiciansContradiction);
         // Visual opening timing is not proof of full capture coverage. Keep it a hypothesis.
         if (musicians.State == ConstraintState.Confirmed && musicians.Reason.StartsWith("Musicians recognized", StringComparison.Ordinal))
             musicians = musicians with { State = ConstraintState.Likely };
@@ -320,10 +346,47 @@ public sealed class OpponentKnowledge
     // Daerlan copies can add up to four; unknown faction must allow that exception too.
     public void ObserveOpeningCounts(string? faction)
     {
-        if (!HasOpeningWindow || Round != 1 || _anyLivePlay || OpponentHand != 10 || OpponentDrawPile is null ||
-            (_lastHandAt - _lastDrawPileAt).Duration() > TimeSpan.FromSeconds(2)) return;
-        var possibleAdded = faction is null || faction.Equals("Nilfgaard", StringComparison.OrdinalIgnoreCase) ? 4 : 0;
-        StartingSizeMinimum = Math.Max(StartingSizeMinimum, OpponentHand.Value + OpponentDrawPile.Value - possibleAdded);
+        if (HasOpeningWindow && Round == 1 && !_anyLivePlay && OpponentHand == 10 && OpponentDrawPile is not null &&
+            (_lastHandAt - _lastDrawPileAt).Duration() <= TimeSpan.FromSeconds(2))
+        {
+            var possibleAdded = faction is null || faction.Equals("Nilfgaard", StringComparison.OrdinalIgnoreCase) ? 4 : 0;
+            StartingSizeMinimum = Math.Max(StartingSizeMinimum, OpponentHand.Value + OpponentDrawPile.Value - possibleAdded);
+            if (OpponentHand.Value + OpponentDrawPile.Value == 24)
+                _openingShortCountAt ??= _lastHandAt > _lastDrawPileAt ? _lastHandAt : _lastDrawPileAt;
+        }
+        // A verified 10+14 opening is one card short of the legal minimum. Musicians
+        // creates the same pile deficit as Eudora or Rioghan, but starts on the board
+        // for one point. Require a contemporaneous confirmed score to distinguish the
+        // on-board and off-board setup routes; unknown score deliberately abstains.
+        // The faction badge can stabilize just after the opening counters disappear;
+        // retain the already verified pre-play conservation clue across that delay.
+        if (_openingShortCountAt is { } shortAt && !string.IsNullOrWhiteSpace(faction))
+        {
+            var score = _openingOpponentScore is { } openingScore &&
+                (openingScore.At - shortAt).Duration() <= TimeSpan.FromSeconds(2) ? openingScore.Score : (int?)null;
+            var candidates = _openingSetupDepartureCards.Where(card =>
+                    StartingDeckRules.IsLegalStartingCard(card, faction))
+                .Where(card => score switch
+                {
+                    0 => !(card.AbilityText ?? "").Contains("start on your Ranged row", StringComparison.OrdinalIgnoreCase),
+                    { } points => (card.AbilityText ?? "").Contains("start on your Ranged row", StringComparison.OrdinalIgnoreCase) &&
+                        card.Power == points,
+                    _ => false
+                }).ToArray();
+            if (candidates.Length == 1 && !_openingStartingCards.ContainsKey(candidates[0].Id))
+            {
+                var text = candidates[0].AbilityText ?? "";
+                var destination = text.Contains("starts in your graveyard", StringComparison.OrdinalIgnoreCase)
+                    ? "starts in the graveyard" : text.Contains("start on your Ranged row", StringComparison.OrdinalIgnoreCase)
+                        ? "starts on the Ranged row" : "banishes itself";
+                _openingStartingCards[candidates[0].Id] = new(candidates[0],
+                    shortAt,
+                    $"Verified round-one opening showed 10 cards in hand, 14 in the draw pile and {score} opponent points before an opponent play. {candidates[0].Name}'s printed setup effect {destination}; count one probable original.");
+                if (candidates[0].Id == "202200")
+                    Suggest(DeckCondition.Musicians, shortAt,
+                        "Opening hand, draw-pile and one-point board conservation match Musicians starting on the Ranged row. Treat the setup condition as likely; later 4-provision evidence can expose a conflict.");
+            }
+        }
     }
 
     /// <summary>

@@ -1,0 +1,43 @@
+{
+  "SchemaVersion": 1,
+  "Id": "saskia-recurring-deck-summon",
+  "Summary": "Saskia Commander loads only her legal bronze faction summon pool, reserves late settled-board scans, and recovers the summoned Dwarf Berserker from strong source-scoped geometry plus a conserved deck departure.",
+  "AddedIn": "v0.3.0",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 2029947,
+      "Sha256": "4C694A9E84E302A9601A2A6533698C916778189DEE679A996457DC710D522AD5",
+      "Tags": [
+        "regression",
+        "saskia-recurring-deck-summon"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 1995996,
+      "Sha256": "CCFB22BF950E333CF7F9E929FCEE0CCDA6D19E0DF782C4381FED1D9AFDF2DF60",
+      "Tags": [
+        "regression",
+        "saskia-recurring-deck-summon"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 1999584,
+      "Sha256": "04042D68F5E1446241B50DA25AADF8EBD056621C4B670EE341DD1386952C2CEC",
+      "Tags": [
+        "regression",
+        "saskia-recurring-deck-summon"
+      ]
+    }
+  ]
+}

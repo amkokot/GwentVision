@@ -10,6 +10,7 @@ using GwentCompanion.Core.Data;
 using GwentCompanion.Core.Domain;
 using GwentCompanion.Core.Inference;
 using GwentCompanion.Core.Vision;
+using GwentCompanion.Platform.Windows.Capture;
 using GwentCompanion.Platform.Windows.Vision;
 
 namespace GwentCompanion.App;
@@ -102,8 +103,17 @@ public partial class MainWindow
             window=new MainWindow(); window.Loaded-=window.OnLoaded;
             window._candidateCatalog=catalog; window._library=library; window._cachedDecks=library.Decks;
             Check(window.AutoStopOnMmrChoice.IsChecked==false,"Auto-stop default changed existing behavior.");
-            var setting=JsonSerializer.Deserialize<UserSettings>(JsonSerializer.Serialize(new UserSettings(null,AutoStopOnMmr:true)));
-            Check(setting?.AutoStopOnMmr==true&&!JsonSerializer.Deserialize<UserSettings>("{}")!.AutoStopOnMmr,"New/legacy preference serialization failed.");
+            Check(window.SelectedRecordingFrameRate==TrainingRecordingFrameRate.Recommended,
+                "Balanced 2 FPS was not the default training-recording rate.");
+            var setting=JsonSerializer.Deserialize<UserSettings>(JsonSerializer.Serialize(new UserSettings(null,AutoStopOnMmr:true,
+                TrainingRecordingFps:TrainingRecordingFrameRate.Contributor)));
+            var legacySetting=JsonSerializer.Deserialize<UserSettings>("{}")!;
+            Check(setting?.AutoStopOnMmr==true&&setting.TrainingRecordingFps==TrainingRecordingFrameRate.Contributor&&
+                !legacySetting.AutoStopOnMmr&&legacySetting.TrainingRecordingFps==TrainingRecordingFrameRate.Recommended,
+                "New/legacy preference serialization failed.");
+            window.SelectRecordingFrameRate(setting!.TrainingRecordingFps);
+            Check(window.SelectedRecordingFrameRate==TrainingRecordingFrameRate.Contributor,
+                "The saved contributor recording rate did not restore into Settings.");
             window._libraryReady=false; // Changing UI preferences in this smoke must never persist live settings.
             window.AutoStopOnMmrChoice.IsChecked=true;
             window.HideLoadingShell(); window.ShowPage(UiPage.Settings);

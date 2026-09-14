@@ -61,15 +61,16 @@ public sealed class DeckMetaAnalyzer
             }).ToArray();
         var selected = all.Where(s => string.IsNullOrWhiteSpace(faction) || s.Deck.Faction.Equals(faction, StringComparison.OrdinalIgnoreCase)).ToArray();
         var corpus = selected.Where(s => IsComplete(s.Deck)).OrderBy(s => s.Deck.Id, StringComparer.Ordinal).ToArray();
-        var observed = evidence.Where(i => StartingDeckRules.CountsAgainstStartingDeck(i.Provenance) && i.Card.CanBeInStartingDeck)
+        var observed = evidence.Where(i => StartingDeckRules.CountsAgainstStartingDeck(i.Provenance) &&
+                StartingDeckRules.IsLegalStartingCard(i.Card, faction))
             .GroupBy(i => i.Card.Id).Select(g => g.MaxBy(i => i.ObservedCopies)!).ToArray();
         var sequences = OpponentSequenceRules.Applicable(sequenceEvidence, observed, faction, startingLeader);
         var sequenceReason = sequences.Count == 0 ? null : "Sequence heuristic (uncalibrated): " +
             string.Join(" ", sequences.Select(c => c.Reason));
         // Explicit clicks only: never pass auto-filled slots here. One identity is one soft
         // prior, and a real sighting supersedes the same assumed copy instead of double counting.
-        var picked = (assumptions ?? []).Where(c => c.Count > 0 && c.Card.CanBeInStartingDeck &&
-                (string.IsNullOrWhiteSpace(faction) || FactionCompatibility.IsPlayableBy(c.Card, faction)))
+        var picked = (assumptions ?? []).Where(c => c.Count > 0 &&
+                StartingDeckRules.IsLegalStartingCard(c.Card, faction))
             .GroupBy(c => c.Card.Id).Select(g => new DeckCard(g.First().Card, Math.Clamp(g.Max(c => c.Count), 1, g.First().Card.IsGold ? 1 : 2)))
             .Where(c => CardAllowed(c.Card, c.Count, constraints) &&
                 (observed.FirstOrDefault(o => o.Card.Id == c.Card.Id)?.ObservedCopies ?? 0) < c.Count).ToArray();
@@ -307,6 +308,7 @@ public sealed class DeckMetaAnalyzer
          (!Required(c.Renfri) || card.Kind == CardKind.Unit) &&
          (!(Required(c.Shupe) || Required(c.Radeyah)) || copy == 1) &&
          (c.Devotion.State != ConstraintState.Confirmed || card.Faction != "Neutral") &&
+         (c.Musicians?.State != ConstraintState.RuledOut || card.Id != "202200") &&
          (c.Musicians is null || !Required(c.Musicians) || card.Provision != 4 || card.Id == "202200"));
     internal static bool Allowed(DeckDefinition deck, ObservedStartingDeckAssessment? constraints)
     {

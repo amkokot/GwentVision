@@ -186,7 +186,7 @@ public sealed class OpponentDeckMemoryStore
     {
         var old = Records.Single(r => r.Id == id);
         if (old.ReviewedCards is not null) return old; // Never overwrite the user's later edit.
-        var suggested = cards.Where(c => c.Card.CanBeInStartingDeck && c.Card.Kind is CardKind.Unit or CardKind.Special or CardKind.Artifact &&
+        var suggested = cards.Where(c => StartingDeckRules.IsLegalStartingCard(c.Card, old.Faction) &&
                 c.Count > 0 && c.Count <= (c.Card.IsGold ? 1 : 2)).GroupBy(c => c.Card.Id).Select(g => g.MaxBy(c => c.Count)!).Take(100).ToArray();
         var record = old with { SuggestedCards = suggested };
         Records = Records.Select(r => r.Id == id ? record : r).ToArray(); return record;
@@ -249,8 +249,9 @@ public sealed class OpponentDeckMemoryStore
             mmr.RatingBefore is < 0 or > 10000)) throw new InvalidOperationException("Invalid observed post-match MMR.");
         if (encounter.PostMatchRank?.Rank is < 0 or > 30) throw new InvalidOperationException("Invalid observed post-match rank.");
         if (encounter.Cards.Count == 0) throw new InvalidOperationException("No starting-deck evidence to save yet.");
-        if (encounter.Cards.Any(item => !StartingDeckRules.CountsAgainstStartingDeck(item.Provenance) || !item.Card.CanBeInStartingDeck ||
-            item.Card.Kind is not (CardKind.Unit or CardKind.Special or CardKind.Artifact) || item.ObservedCopies < 1 || item.ObservedCopies > (item.Card.IsGold ? 1 : 2)))
+        if (encounter.Cards.Any(item => !StartingDeckRules.CountsAgainstStartingDeck(item.Provenance) ||
+            !StartingDeckRules.IsLegalStartingCard(item.Card, encounter.Faction) ||
+            item.ObservedCopies < 1 || item.ObservedCopies > (item.Card.IsGold ? 1 : 2)))
             throw new InvalidOperationException("Only valid starting-deck copy evidence may enter learned memory; generated cards and guesses stay in the audit.");
     }
     private static bool SameCards(IEnumerable<ObservedCard> left, IEnumerable<ObservedCard> right)

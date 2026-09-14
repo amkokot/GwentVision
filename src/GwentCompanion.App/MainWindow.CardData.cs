@@ -11,6 +11,7 @@ public partial class MainWindow
     private bool _cardDataBusy, _cardReloadRequired;
     private int _deckLoads;
     private CurrentCardValues? _currentCardValues;
+    private CardBalanceChanges _cardBalanceChanges = CardBalanceChanges.Empty;
     private static string CardDataPath => Path.Combine(FindDataRoot(), "cache", "gwent-one-cards.json");
     private CurrentCardValues CurrentValues => _currentCardValues ??= new(GwentOneCardCatalog.Load(CardDataPath));
     private DeckDefinition CurrentDeck(DeckDefinition deck) => _reviewEvidencePath is null ? CurrentValues.Deck(deck) : deck;
@@ -21,17 +22,22 @@ public partial class MainWindow
         try
         {
             var updater = new CardDataUpdater(CardDataPath); var current = updater.Current();
-            CardDataStatus.Text = current is null ? "No public catalogue installed." : $"{current.Source} · {current.Version} · {current.Cards.Count:N0} cards & abilities";
-            RestoreCardDataButton.IsEnabled = File.Exists(updater.BackupPath);
-            var changes = CardBalanceChanges.Load(CardDataPath);
-            if (changes.Available)
-            {
-                CardDataChanges.Text = string.Join(Environment.NewLine, changes.Cards.Select(c => c.Summary));
-                CardDataChangesPanel.Visibility = Visibility.Visible;
-                CardDataChangesPanel.Header = $"{changes.Cards.Count} changes · {changes.FromVersion} → {changes.ToVersion}";
-            }
+            var changes = current is null ? CardBalanceChanges.Empty : CardBalanceChanges.Load(CardDataPath, current);
+            ApplyCardDataStatus(current, changes, File.Exists(updater.BackupPath));
         }
         catch (Exception error) { CardDataStatus.Text = "Catalogue unavailable: " + error.Message; }
+    }
+
+    private void ApplyCardDataStatus(CardDataSnapshot? current, CardBalanceChanges changes, bool canRestore)
+    {
+        _cardBalanceChanges = changes;
+        CardDataStatus.Text = current is null ? "No public catalogue installed." : $"{current.Source} · {current.Version} · {current.Cards.Count:N0} cards & abilities";
+        RestoreCardDataButton.IsEnabled = canRestore;
+        CardDataChangesPanel.Visibility = changes.Available ? Visibility.Visible : Visibility.Collapsed;
+        CardDataChanges.Text = changes.Available ? string.Join(Environment.NewLine, changes.Cards.Select(c => c.Summary)) : string.Empty;
+        CardDataChangesPanel.Header = changes.Available
+            ? $"{changes.Cards.Count} changes · {changes.FromVersion} → {changes.ToVersion}"
+            : "No comparison history";
     }
 
     private string? CardUpdateBlockReason() => _reviewEvidencePath is not null ? "Card updates are disabled in offline review." :
@@ -40,7 +46,7 @@ public partial class MainWindow
         _analysisTransition || _diagnosticSession?.IsRunning == true || _visionWorker is not null || _flushInProgress ? "Stop live analysis (■) before updating card data." :
         _libraryWindow is not null || _builderWindow is not null ? "Save your work and close the editor before updating card data." :
         _libraryTransferBusy || _autoEncounterBusy || _autoEncounterSave is { IsCompleted: false } || _editingLibraryDeck ||
-        _deckLoads > 0 || !SyncDecksButton.IsEnabled || !UseUserDeckButton.IsEnabled ? "Wait for the deck operation to finish." : null;
+        _deckLoads > 0 || !SyncDecksButton.IsEnabled ? "Wait for the deck operation to finish." : null;
 
     private async void CardData_OnClick(object sender, RoutedEventArgs e)
     {
@@ -97,14 +103,12 @@ public partial class MainWindow
         var next = new MainWindow
         {
             Left = Left, Top = Top, Width = Width, Height = Height, WindowState = WindowState,
-            WindowStyle = WindowStyle, ResizeMode = ResizeMode, Topmost = Topmost,
+            WindowStyle = WindowStyle, ResizeMode = ResizeMode,
             _expandedWorkspace = _expandedWorkspace, _fullScreen = _fullScreen, _workspaceZoom = _workspaceZoom,
             _compactBounds = _compactBounds, _compactWindowState = _compactWindowState,
             _windowedBounds = _windowedBounds, _windowedState = _windowedState,
         };
-        next.TopmostCheckBox.IsChecked = Topmost;
         next.ShowHoverThreats.IsChecked = ShowHoverThreats.IsChecked;
-        if (_confirmedOpponentDeck is { } pinned) next._confirmedOpponentDeck = next.CurrentDeck(pinned);
         next.UpdateWorkspaceLayout(); next.ShowPage(UiPage.Settings);
         next.CardDataChanges.Text = string.Join(Environment.NewLine, result.Changes);
         next.CardDataChangesPanel.Visibility = result.Changes.Count > 0 ? Visibility.Visible : Visibility.Collapsed;

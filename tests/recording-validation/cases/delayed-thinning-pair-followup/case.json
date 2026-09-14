@@ -1,0 +1,43 @@
+{
+  "SchemaVersion": 1,
+  "Id": "delayed-thinning-pair-followup",
+  "Summary": "A bounded late follow-up must retain and corroborate a settled self-thinning pair under live scan latency.",
+  "AddedIn": "0.2.65",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.jpg",
+      "Bytes": 339962,
+      "Sha256": "6F8642284921B904F2B5B7B489327831F27DA65B7E36A3B2565F42BDAE7FEA3E",
+      "Tags": [
+        "regression",
+        "delayed-thinning-pair-followup"
+      ]
+    },
+    {
+      "File": "evidence-02.jpg",
+      "Bytes": 342426,
+      "Sha256": "0310030369597AF7CC357517FC13266930E195A7BCA2DA29D9030C3B274A5D00",
+      "Tags": [
+        "regression",
+        "delayed-thinning-pair-followup"
+      ]
+    },
+    {
+      "File": "evidence-03.jpg",
+      "Bytes": 345306,
+      "Sha256": "2F3FF514675AF6237EC7651F33115FBCDACB484AE0081405AF1CB21E3350E283",
+      "Tags": [
+        "regression",
+        "delayed-thinning-pair-followup"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,88 @@
+<Window x:Class="GwentCompanion.App.StreamModeWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Gwent Vision · Stream mode" Width="760" Height="650" MinWidth="620" MinHeight="500"
+        Background="{StaticResource PanelBrush}" Foreground="{StaticResource TextBrush}"
+        WindowStartupLocation="CenterOwner">
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <DockPanel>
+            <Border DockPanel.Dock="Left" Width="42" Height="42" CornerRadius="21" Background="#263830" BorderBrush="#C9A75B" BorderThickness="1" Margin="0,0,12,0">
+                <Grid>
+                    <Ellipse Width="6" Height="6" Fill="#8BDCAB"/>
+                    <Path Data="M 13,12 A 14,14 0 0 1 13,30 M 29,12 A 14,14 0 0 0 29,30 M 9,7 A 20,20 0 0 1 9,35 M 33,7 A 20,20 0 0 0 33,35"
+                          Stroke="#DCC58D" StrokeThickness="1.7" StrokeStartLineCap="Round" Stretch="None"/>
+                </Grid>
+            </Border>
+            <StackPanel>
+                <TextBlock Text="STREAM MODE" FontFamily="Georgia" FontWeight="Bold" FontSize="18" Foreground="#E5C77E"/>
+                <TextBlock Text="Watch beside GV or scan a compact queue of recorded streams" Foreground="{StaticResource MutedTextBrush}" FontSize="11"/>
+            </StackPanel>
+        </DockPanel>
+
+        <Border Grid.Row="1" Background="#11151A" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="12" Margin="0,15,0,10">
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBox x:Name="SourceText" MinHeight="31" VerticalContentAlignment="Center" Margin="0,0,8,0"
+                         ToolTip="YouTube, Twitch VOD, or another URL supported by the installed media resolver"
+                         AutomationProperties.Name="Stream URL"/>
+                <Button Grid.Column="1" Content="Add link" Click="AddLink_OnClick" Padding="10,5"/>
+                <Button Grid.Column="2" Content="Import sheet…" Click="Import_OnClick" Padding="10,5" Margin="8,0,0,0"
+                        ToolTip="Import .xlsx, .csv, .tsv, or .txt"/>
+            </Grid>
+        </Border>
+
+        <DockPanel Grid.Row="2" Margin="0,0,0,7">
+            <TextBlock x:Name="QueueSummary" Text="No streams queued" Foreground="#DCC58D" FontSize="11" VerticalAlignment="Center"/>
+            <TextBlock DockPanel.Dock="Right" Text="No videos are retained" Foreground="#85D7B1" FontSize="10" VerticalAlignment="Center"/>
+        </DockPanel>
+
+        <ListView x:Name="JobList" Grid.Row="3" ItemsSource="{Binding Jobs}" BorderBrush="{StaticResource BorderBrush}" Background="#11151A"
+                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <Border BorderBrush="#39453D" BorderThickness="0,0,0,1" Padding="9,8">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <Border Width="54" Height="22" CornerRadius="3" Background="#26312D" Margin="0,0,9,0">
+                                <TextBlock Text="{Binding Provider}" Foreground="#DCC58D" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="{Binding DisplayName}" Foreground="#E8E0CC" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding Status}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="8,0,0,0">
+                                <Button Content="Open" Tag="{Binding}" Click="OpenLink_OnClick" Padding="7,3" ToolTip="Open beside Gwent Vision"/>
+                                <Button Content="×" Tag="{Binding}" Click="Remove_OnClick" Padding="7,3" Margin="5,0,0,0" ToolTip="Remove from queue"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <Border Grid.Row="4" Background="#151B1E" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="10" Margin="0,10,0,10">
+            <StackPanel>
+                <ProgressBar x:Name="ScanProgress" Height="6" Minimum="0" Maximum="1" Value="0" Foreground="#8BDCAB"/>
+                <TextBlock x:Name="ScanStatus" Text="Ready. Games are separated automatically; obscured intervals fail closed."
+                           Foreground="{StaticResource MutedTextBrush}" FontSize="10" TextWrapping="Wrap" Margin="0,7,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <DockPanel Grid.Row="5">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button x:Name="CancelButton" Content="Cancel" Click="Cancel_OnClick" IsEnabled="False" Padding="10,5"/>
+                <Button x:Name="ScanButton" Content="Scan queue" Click="Scan_OnClick" Padding="13,5" Margin="8,0,0,0"
+                        BorderBrush="#C9A75B" Foreground="#E5C77E"/>
+            </StackPanel>
+            <StackPanel>
+                <TextBlock Text="Storage policy" Foreground="#DCC58D" FontSize="10"/>
+                <TextBlock Text="Compact game JSON is separate from live match data. Difficult frames are capped at 12/game, 48/source and 256 MiB total."
+                           Foreground="{StaticResource MutedTextBrush}" FontSize="9" TextWrapping="Wrap" MaxWidth="470"/>
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>

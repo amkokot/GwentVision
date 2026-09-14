@@ -87,17 +87,28 @@ internal static class DeckProjectionTests
             "Manual priors may change recommendations, but not observed evidence or empirical sample counts.");
         edits.Exclude(replacement, 1);
         Check(projector.Build(alternatives, [Seen(replacement)], "Nilfgaard", edits: edits).Slots.Any(row => row.Card?.Id == replacement.Id && row.State == DeckSlotState.Observed), "Dismissal cannot override a later observed play.");
+        Check(edits.RejectEvidence(replacement, 1), "Observed evidence correction was not accepted.");
+        var corrected = projector.Build(alternatives, [Seen(replacement)], "Nilfgaard", edits: edits);
+        Check(corrected.Slots.All(row => row.Card?.Id != replacement.Id || row.State != DeckSlotState.Observed) && corrected.ObservedCopies == 0,
+            "A user-corrected false detection remained in the working hypothesis.");
+        Check(edits.RestoreEvidence(replacement, 1) && projector.Build(alternatives, [Seen(replacement)], "Nilfgaard", edits: edits).ObservedCopies == 1,
+            "A dismissed observed copy could not be restored.");
         edits.Include(neutralSpecial, 1);
         var manualNeutral = projector.Build([], [], "Nilfgaard", edits: edits);
         Check(manualNeutral.Devotion.State == ConstraintState.Possible && manualNeutral.ObservedCopies == 0, "Manually assumed neutrals cannot rule out observed Devotion.");
         Check(projector.Build([], [], "Nilfgaard", pin, edits).Slots.All(row => row.State != DeckSlotState.Selected), "Full-deck pin temporarily supersedes individual assumptions.");
         edits.Clear();
-        Check(edits.Included.Count == 0 && edits.Excluded.Count == 0, "New match clears both manual choices and dismissal memory.");
+        Check(edits.Included.Count == 0 && edits.Excluded.Count == 0 && edits.CorrectedEvidence.Count == 0, "New match clears choices, suggestion dismissals and evidence corrections.");
         edits.Include(bronze, 2);
         var twoManual = projector.Build([], [], "Nilfgaard", edits: edits);
         Check(twoManual.Slots.Count(row => row.State == DeckSlotState.Selected) == 2, "Selecting a second copy must retain the prerequisite first copy even without auto-fill support.");
         edits.Exclude(bronze, 2);
         Check(projector.Build([], [], "Nilfgaard", edits: edits).Slots.Count(row => row.State == DeckSlotState.Selected) == 1, "Returning one duplicate must preserve the other copy.");
+        var token = Card("token") with { CanBeInStartingDeck = false };
+        var offFaction = Card("off-faction", faction: "Monsters");
+        var illegal = projector.Build([], [Seen(token), Seen(offFaction)], "Nilfgaard", edits: new DeckProjectionEdits());
+        Check(illegal.ObservedCopies == 0 && illegal.Slots.All(row => row.Card is null),
+            "Token or off-faction evidence entered the hypothesized starting deck.");
     }
 
     public static void Meta()

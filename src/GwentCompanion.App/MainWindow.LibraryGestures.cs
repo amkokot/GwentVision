@@ -47,6 +47,8 @@ public partial class MainWindow
         LibraryDetailSurface.Background = Controls.FactionPalette.Brush(palette.Surface);
         LibraryDetailSurface.BorderBrush = Controls.FactionPalette.Brush(palette.Accent);
         var selectedItem = DeckList.SelectedItem as DeckListItem;
+        UseUserDeckButton.IsEnabled = !_editingLibraryDeck && selectedItem is not null &&
+            (selectedItem.Deck is not null || selectedItem.IndexEntry is not null);
         EditSelectedDeckButton.IsEnabled = !_editingLibraryDeck && selectedItem is not null;
         DeleteSelectedDeckButton.IsEnabled = !_editingLibraryDeck && _libraryReady && _reviewEvidencePath is null &&
             DeckList.SelectedItem is DeckListItem { Deck: { } selectedDeck } && _library.Find(selectedDeck.Id) is not null;

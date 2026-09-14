@@ -1,0 +1,34 @@
+{
+  "SchemaVersion": 1,
+  "Id": "nauzicaa-independent-pair",
+  "Summary": "Two independently repeated physical Nauzicaa Brigade bodies must establish two original deck copies without a play preview.",
+  "AddedIn": "v0.2.103",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 2107068,
+      "Sha256": "FB62117E8928B83CC23A0FDCB07BC9CC187371F6DC689EAD5C89E6D0EE6DCDDD",
+      "Tags": [
+        "regression",
+        "nauzicaa-independent-pair"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 2117540,
+      "Sha256": "28E27C64A0CDD728373172EC1A2C5BD8950D93A4573DABB0ABEF033224D515F5",
+      "Tags": [
+        "regression",
+        "nauzicaa-independent-pair"
+      ]
+    }
+  ]
+}

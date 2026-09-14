@@ -22,10 +22,15 @@ public partial class MainWindow
     private readonly ThinningCopyTracker _thinningCopies = new();
     private readonly HandCommitTracker _handCommits = new();
     private DateTimeOffset _lastQueuedAt;
+    private long _resultCaptureUntilTicks;
+    private long _latestCapturedMatchHudTicks;
+    private bool _captureMatchHudSeen;
+    private bool? _lastCaptureMatchHud;
     private PreviewPriorityWindow _previewPriority = new();
     private PreviewPriorityWindow _opponentPreviewPriority = new();
     private readonly GameplayWorkPriority _gameplayPriority = new();
     private Task? _visionWorker;
+    private Task<ScreenStateRecognizer>? _ocrWarmupTask;
     private string? _visionError;
     private int _analyzedFrames;
     private double _visionLagSeconds;
@@ -37,36 +42,91 @@ public partial class MainWindow
         Converters = { new JsonStringEnumConverter() },
     };
 
-    private Task ReloadVisionAsync()
+    private Task ReloadVisionAsync(bool announce = true)
     {
-        if (_visionLoadTask is { IsCompleted: false }) return _visionLoadTask;
-        return _visionLoadTask = LoadVisionCoreAsync();
+        if (_visionLoadTask is { IsCompleted: false })
+        {
+            if (announce) ShowAnalysisStatus("Preparing recognition references… Play will wait until ready.");
+            return _visionLoadTask;
+        }
+        return _visionLoadTask = LoadVisionCoreAsync(announce);
     }
 
-    private async Task LoadVisionCoreAsync()
+    private async Task LoadVisionCoreAsync(bool announce)
     {
         if (_visionWorker is not null) throw new InvalidOperationException("Stop diagnostics before rebuilding recognition references.");
-        ShowAnalysisStatus("Preparing recognition references… Play will wait until ready.");
+        if (_projectionQueue is { } projections) await projections.Idle;
+        if (announce) ShowAnalysisStatus("Preparing recognition references… Play will wait until ready.");
         var decks = _cachedDecks;
+        var catalog = _candidateCatalog?.ToArray();
+        var knownPlayerCards = _selectedUserDeck?.Cards.Select(card => card.Card.Id).ToArray() ?? [];
+        var backgroundWarmup = !announce;
+        ScreenStateRecognizer? warmedScreen = null;
         try
         {
+            if (_ocrWarmupTask is { } warmup)
+            {
+                warmedScreen = await warmup;
+                _ocrWarmupTask = null;
+            }
             var pipeline = await Task.Run(() =>
             {
-                if (_analysisControlTest && !_testFailureInjected && Environment.GetCommandLineArgs().Contains("--analysis-fail-once"))
-                { _testFailureInjected = true; throw new InvalidDataException("Simulated first-load failure (test only)."); }
-                var cache = Path.Combine(FindDataRoot(), "cache");
-                var cards = BuiltInCardCatalog.Merge(GwentOneCardCatalog.Load(Path.Combine(cache, "gwent-one-cards.json"))
-                    .Concat(decks.SelectMany(deck => deck.Cards).Select(item => item.Card)));
-                // Exact title OCR remains catalog-wide. Expensive SIFT/art references are
-                // loaded only for the known player list and current opponent candidates.
-                return new CardVisionPipeline(VisionReferenceLibrary.Load(cards, cache), cards,
-                    Path.Combine(cache, "recognition-features"), VisionReferenceScope.CandidateDecks);
+                var originalPriority = System.Threading.Thread.CurrentThread.Priority;
+                var loweredPriority = false;
+                try
+                {
+                    if (backgroundWarmup)
+                        try { System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.BelowNormal; loweredPriority = true; }
+                        catch (System.Security.SecurityException) { }
+                    if (_analysisControlTest && !_testFailureInjected && Environment.GetCommandLineArgs().Contains("--analysis-fail-once"))
+                    { _testFailureInjected = true; throw new InvalidDataException("Simulated first-load failure (test only)."); }
+                    var cache = Path.Combine(FindDataRoot(), "cache");
+                    var cards = BuiltInCardCatalog.Merge((catalog ?? GwentOneCardCatalog.Load(Path.Combine(cache, "gwent-one-cards.json")))
+                        .Concat(decks.SelectMany(deck => deck.Cards).Select(item => item.Card)));
+                    // Exact title OCR remains catalog-wide. Expensive SIFT/art references are
+                    // loaded only for the known player list and current opponent candidates.
+                    var result = new CardVisionPipeline(VisionReferenceLibrary.Load(cards, cache), cards,
+                        Path.Combine(cache, "recognition-features"), VisionReferenceScope.CandidateDecks, warmedScreen);
+                    // This disk/native feature-cache work used to run synchronously in
+                    // StartVision, freezing the Play button for several seconds.
+                    result.SetKnownPlayerDeck(knownPlayerCards);
+                    return result;
+                }
+                finally
+                {
+                    if (loweredPriority)
+                        try { System.Threading.Thread.CurrentThread.Priority = originalPriority; }
+                        catch (System.Security.SecurityException) { }
+                }
             });
+            warmedScreen = null; // Ownership transferred to the pipeline.
             if (_windowClosing) { pipeline.Dispose(); return; }
             _visionPipeline?.Dispose();
             _visionPipeline = pipeline;
         }
-        finally { RefreshAnalysisButton(); }
+        finally { warmedScreen?.Dispose(); RefreshAnalysisButton(); }
+    }
+
+    private void BeginOcrWarmup()
+    {
+        _ocrWarmupTask ??= Task.Run(() =>
+        {
+            var thread = System.Threading.Thread.CurrentThread;
+            var originalPriority = thread.Priority;
+            var loweredPriority = false;
+            try
+            {
+                try { thread.Priority = System.Threading.ThreadPriority.BelowNormal; loweredPriority = true; }
+                catch (System.Security.SecurityException) { }
+                return new ScreenStateRecognizer();
+            }
+            finally
+            {
+                if (loweredPriority)
+                    try { thread.Priority = originalPriority; }
+                    catch (System.Security.SecurityException) { }
+            }
+        });
     }
 
     protected override async void OnClosing(System.ComponentModel.CancelEventArgs e)
@@ -76,7 +136,7 @@ public partial class MainWindow
         _windowClosing = true;
         _threatCancellation?.Cancel();
         _projectionQueue?.Dispose();
-        if (!_closingAfterFlush && (_visionWorker is not null || _flushInProgress || _autoEncounterSave is { IsCompleted: false } || _autoStopTask is { IsCompleted: false }))
+        if (!_closingAfterFlush && (_visionWorker is not null || !_matchStorageWrite.IsCompleted || _flushInProgress || _autoEncounterSave is { IsCompleted: false } || _autoStopTask is { IsCompleted: false }))
         {
             e.Cancel = true;
             base.OnClosing(e);
@@ -88,6 +148,7 @@ public partial class MainWindow
             await StopVisionAsync();
             if (_autoEncounterSave is { } save) await save;
             PersistCurrentMatch();
+            await FlushMatchAcquisitionAsync();
             if (_valueWriter is not null) await _valueWriter.Idle;
             _closingAfterFlush = true;
             Close();
@@ -98,7 +159,9 @@ public partial class MainWindow
 
     private void StartVision()
     {
+        BeginMatchAcquisition();
         _mmrStopGate.Reset(); _autoStopTask = null;
+        _matchLifecycle.Reset(); _waitingOnMenu = false; _closedAtNextGame = false;
         _suspendReach = !ReachEnabledInMainApp;
         _visionPipeline!.Reset();
         _visionPipeline.SetKnownPlayerDeck(_selectedUserDeck?.Cards.Select(c => c.Card.Id) ?? []);
@@ -113,14 +176,30 @@ public partial class MainWindow
         _visionLagSeconds = 0;
         _droppedAnalysisFrames = 0;
         _lastQueuedAt = DateTimeOffset.MinValue;
+        Interlocked.Exchange(ref _resultCaptureUntilTicks, 0);
+        Interlocked.Exchange(ref _latestCapturedMatchHudTicks, 0);
+        _captureMatchHudSeen = false; _lastCaptureMatchHud = null;
         _previewPriority = new PreviewPriorityWindow();
         _opponentPreviewPriority = new PreviewPriorityWindow();
-        var queue = new RollingVisionBuffer<DiagnosticProgress>();
+        // Preserve the ordinary 24-frame budget while reserving a short-lived
+        // extension for high-priority result frames. At 1280x720 this bounds the
+        // raw queue near 170 MiB even if the consumer is temporarily stalled.
+        var queue = new RollingVisionBuffer<DiagnosticProgress>(capacity: 24,
+            maximumAge: TimeSpan.FromSeconds(6), protectedCapacity: 48,
+            protectedMinimumPriority: 4, protectedMaximumAge: TimeSpan.FromSeconds(15));
         _visionQueue = queue;
         _streamingVision = new StreamingVisionProcessor<DiagnosticProgress>(_visionPipeline!)
         { WorkPriority = _gameplayPriority, OnError = exception => _visionError = exception.Message,
-            OnPreparedText = (result, progress) => QueueFastHover(result with
-                { HoverInPlayerHand = result.HoverInPlayerHand || progress.PointerInPlayerHand }) };
+            OnPreparedText = (result, progress) =>
+            {
+                // Result panels can be skipped quickly. Switch capture admission
+                // before artwork/UI work, and keep a short tail through transitions.
+                if ((PostMatchMmr.IsResultHeader(result.Screen.ScreenHeader) || result.Screen.ScreenHeader == "GAME OVER" ||
+                     result.Screen.PostMatchExitCue || result.Screen.PostMatchMmrCandidate is not null) &&
+                    result.SampledAt.UtcTicks >= Interlocked.Read(ref _latestCapturedMatchHudTicks))
+                    ProtectResultCapture(DateTimeOffset.UtcNow.AddSeconds(20));
+                QueueFastHover(result with { HoverInPlayerHand = result.HoverInPlayerHand || progress.PointerInPlayerHand });
+            } };
         _visionWorker = Task.Run(() => RunVisionAsync(queue));
     }
 
@@ -140,16 +219,35 @@ public partial class MainWindow
         // Inspect motion at capture cadence, before throttling text input. Opponent action/settling
         // samples survive redundant player-hover frames when the bounded queue is under pressure.
         var sampledAt = progress.SampledAt ?? DateTimeOffset.Now;
+        if (progress.Observation?.MatchHudVisible == true)
+        {
+            _captureMatchHudSeen = true;
+            Interlocked.Exchange(ref _latestCapturedMatchHudTicks, sampledAt.UtcTicks);
+            // A real board returning after a round transition or completed match
+            // immediately restores full card detection.
+            Interlocked.Exchange(ref _resultCaptureUntilTicks, 0);
+        }
+        else if (_captureMatchHudSeen && _lastCaptureMatchHud == true &&
+            progress.Observation?.MatchHudVisible == false)
+        {
+            // Speculatively fast-path the first HUD-less frames. A normal round
+            // transition returns to the full path as soon as its HUD reappears;
+            // an actual result header extends this window below using wall time.
+            ProtectResultCapture(sampledAt.AddSeconds(3));
+        }
+        if (progress.Observation?.MatchHudVisible is { } matchHud) _lastCaptureMatchHud = matchHud;
         var opponentMotion = _opponentPreviewPriority.Score(sampledAt, progress.OpponentPreviewChange);
         var motion = _previewPriority.Score(sampledAt, progress.PreviewChange);
+        var resultCapture = sampledAt.UtcTicks <= Interlocked.Read(ref _resultCaptureUntilTicks);
         if (progress.PreviewChange >= .075) _gameplayPriority.SignalAction();
         if (progress.AnalysisFrame is not null && progress.SampledAt is { } at &&
-            at - _lastQueuedAt >= TimeSpan.FromMilliseconds(opponentMotion >= .06 ? 100 : motion >= .06 ? 190 : 240))
+            at > _lastQueuedAt && (resultCapture ||
+                at - _lastQueuedAt >= TimeSpan.FromMilliseconds(opponentMotion >= .06 ? 100 : motion >= .06 ? 190 : 240)))
         {
             _lastQueuedAt = at;
-            var priority = opponentMotion >= .06 ? 3 + opponentMotion : motion >= .06 ? 2 + motion : motion;
+            var priority = resultCapture ? 4 : opponentMotion >= .06 ? 3 + opponentMotion : motion >= .06 ? 2 + motion : motion;
             _visionQueue?.Offer(progress with { Preview = null, PointerInPlayerHand = GwentCompanion.Platform.Windows.Windows.PointerObservation.InPlayerHand(_gameWindow),
-                TrackingPriority = priority }, at, priority);
+                TrackingPriority = priority, ResultsOnly = resultCapture }, at, priority);
             _droppedAnalysisFrames = _visionQueue?.Dropped ?? 0;
             _gameplayPriority.ObservePressure(_visionQueue?.Count ?? 0, TimeSpan.FromSeconds(_visionLagSeconds));
         }
@@ -161,7 +259,6 @@ public partial class MainWindow
                 _lastPreview = progress.Preview;
                 PreviewImage.Source = progress.Preview;
                 PreviewPlaceholder.Visibility = System.Windows.Visibility.Collapsed;
-                PinCurrentButton.IsEnabled = true;
             }
             DiagnosticStatusText.Text = progress.Error is null && _visionError is null
                 ? $"Captured {progress.CapturedFrames:N0}; training frames {progress.SavedFrames:N0}; analyzed {_analyzedFrames:N0} · vision lag {_visionLagSeconds:F1}s" +
@@ -171,13 +268,24 @@ public partial class MainWindow
                 : $"Warning: {progress.Error ?? _visionError}";
             if (!_analysisTransition && _diagnosticSession?.IsRunning == true)
             {
-                AnalysisStatusText.Text = progress.Error is null && _visionError is null
-                    ? $"Analyzing · training recording {(_diagnosticSession.RetainTrainingFrames ? "on" : "off")} · {progress.SavedFrames:N0} frames retained · {_analyzedFrames:N0} analyzed"
+                AnalysisStatusText.Text = _waitingOnMenu ? "Waiting for a game · tracking will begin automatically." : progress.Error is null && _visionError is null
+                    ? $"Analyzing · training recording {(_diagnosticSession.RetainTrainingFrames ? $"on at {_diagnosticSession.RetainedFramesPerSecond} FPS" : "off")} · {progress.SavedFrames:N0} frames retained · {_analyzedFrames:N0} analyzed"
                     : $"Analysis warning: {progress.Error ?? _visionError}";
                 AnalysisStatusText.Visibility = System.Windows.Visibility.Visible;
             }
             FooterStatusText.Text = progress.SessionDirectory;
         }, DispatcherPriority.Background);
+    }
+
+    private void ProtectResultCapture(DateTimeOffset until)
+    {
+        var proposed = until.UtcTicks;
+        while (true)
+        {
+            var current = Interlocked.Read(ref _resultCaptureUntilTicks);
+            if (current >= proposed || Interlocked.CompareExchange(ref _resultCaptureUntilTicks, proposed, current) == current)
+                return;
+        }
     }
 
     private async Task RunVisionAsync(RollingVisionBuffer<DiagnosticProgress> reader)
@@ -322,12 +430,35 @@ public partial class MainWindow
         {
             if (progress.AnalysisFrame is not { } frame || progress.SampledAt is not { } at) continue;
             yield return new VisionInput<DiagnosticProgress>(BitmapFrameAdapter.ToPixelFrame(frame), at,
-                progress.TrackingPriority, progress, progress.PointerInPlayerHand);
+                progress.TrackingPriority, progress, progress.PointerInPlayerHand,
+                ResultsOnly: progress.ResultsOnly);
         }
     }
 
     private void ApplyVisionResult(CardVisionResult result)
     {
+        if (_reviewEvidencePath is null)
+        {
+            if (_closedAtNextGame) return; // Draining queued frames must not merge the next game.
+            _matchLifecycle.Observe(result.Screen, result.SampledAt);
+            if (_matchLifecycle.WaitingForGame && result.Screen.MatchHudVisible == false)
+            {
+                if (!_waitingOnMenu) ShowAnalysisStatus("Waiting for a game · tracking will begin automatically.");
+                _waitingOnMenu = true;
+                return;
+            }
+            if (_waitingOnMenu) { _waitingOnMenu = false; ShowAnalysisStatus("Game started · tracking."); }
+            if (_matchLifecycle.NewGameStarted)
+            {
+                _closedAtNextGame = true;
+                // Save the retained result against the old state, before any new
+                // board, leader, card, or round can enter the previous match.
+                result = new(result.SampledAt, new(GwentViewKind.Board, false, 0, 0, null,
+                    IsCardSelectionOverlay: true, ScreenHeader: "PROGRESSION", MatchHudVisible: false,
+                    PostMatchMmr: _matchLifecycle.BestRating, PostMatchCaptureEnded: true), [], [], false);
+            }
+        }
+        PrepareMatchAcquisition(result);
         UpdateVisualObservation(result.Screen);
         _opponentTime = result.SampledAt;
         var previousHand = _opponentKnowledge.OpponentHand;
@@ -341,9 +472,12 @@ public partial class MainWindow
                 leader.Card.Faction.Equals(_opponentTracker.Faction, StringComparison.OrdinalIgnoreCase);
             var establishStarting = !_opponentKnowledge.HasOpponentPlay || compatible;
             var leaderChanged = _opponentKnowledge.ObserveVisibleLeader(leader.Card, leader.Confidence, establishStarting);
+            _playOrigins.ObserveCurrentLeader(PlayerSide.Opponent, leader.Card);
             changed |= leaderChanged;
             if (_opponentKnowledge.StartingLeader == leader.Card.Name && compatible)
                 _opponentTracker.SetFactionPrior(leader.Card.Faction);
+            if (_opponentKnowledge.StartingLeader == leader.Card.Name && compatible)
+                changed |= ObserveLeaderStartingDeckAssumptions(leader.Card, result.SampledAt);
             if (leaderChanged && _opponentKnowledge.StartingLeader == leader.Card.Name && OriginalLeaderChoice is not null)
             {
                 InitializeKnowledgeChoices();
@@ -352,6 +486,14 @@ public partial class MainWindow
                 finally { _updatingKnowledge = false; }
             }
         }
+        if (_selectedUserDeck is { } userDeck && _candidateCatalog?.FirstOrDefault(card =>
+                card.Kind == CardKind.Leader && card.Name.Equals(userDeck.Leader, StringComparison.OrdinalIgnoreCase)) is { } userLeader)
+            _playOrigins.ObserveCurrentLeader(PlayerSide.User, userLeader);
+        if (_selectedUserDeck?.Stratagem is { } userStratagem)
+            _playOrigins.ObserveOpeningStratagem(PlayerSide.User, userStratagem);
+        if (_opponentKnowledge.StartingStratagemId is { } stratagemId &&
+            _candidateCatalog?.FirstOrDefault(card => card.Kind == CardKind.Stratagem && card.Id == stratagemId) is { } opponentStratagem)
+            _playOrigins.ObserveOpeningStratagem(PlayerSide.Opponent, opponentStratagem);
         changed |= ObservePostMatchMmr(result.Screen.PostMatchMmr);
         changed |= ObservePostMatchRank(result.Screen.PostMatchRank);
         if (result.DevotionCue is { } devotion)
@@ -360,6 +502,9 @@ public partial class MainWindow
             changed = true;
         }
         _opponentKnowledge.ObserveOpeningCounts(_opponentTracker.HasStableFaction ? _opponentTracker.Faction : null);
+        foreach (var setup in _opponentKnowledge.OpeningStartingCards)
+            changed |= _opponentTracker.ConsiderDirectPlay(setup.Card, .99, setup.At, setup.Evidence,
+                CardProvenance.ProbableStartingDeck);
         if (result.GraveyardInspection is { } inspection) { ObserveZoneInspection(inspection, result.SampledAt); changed = true; }
         if (result.Description is { SourceId: not "202192" } description)
         {
@@ -376,18 +521,23 @@ public partial class MainWindow
             result.BoardWasScanned, _opponentKnowledge.Round, _opponentKnowledge.HasOpeningWindow,
             _opponentTracker.HasStableFaction ? _opponentTracker.Faction : null,
             _opponentKnowledge.StartingLeader, _opponentKnowledge.CurrentLeader);
+        _playOrigins.PrimeCoTemporalBoardCreations(result.Events,_selectedUserDeck);
         foreach (var evidence in result.Events)
         {
             var sighting = evidence.Sighting;
             var tracker = sighting.Side == PlayerSide.User ? _userTracker : _opponentTracker;
             _deckMutations.Observe(evidence, _selectedUserDeck?.Faction ?? _userTracker.Faction, _opponentTracker.Faction);
-            var baseOrigin = _playOrigins.Observe(evidence, _selectedUserDeck);
+            var recentDeckCount=sighting.Side==PlayerSide.Opponent
+                ? RecentDeckCount(result.Screen.OpponentDeckCount,_gameState.Current.Opponent.DeckCount,evidence.ObservedAt)
+                : RecentDeckCount(result.Screen.UserDeckCount,_gameState.Current.User.DeckCount,evidence.ObservedAt);
+            var baseOrigin = _playOrigins.Observe(evidence, _selectedUserDeck, recentDeckCount);
             var origin = _zones.OriginRisk(sighting, tracker.Observations) ?? _deckMutations.OriginRisk(sighting, evidence.ObservedAt, tracker.Observations) ??
                 _opponentKnowledge.BoardOrigin(evidence, _opponentTracker.HasStableFaction ? _opponentTracker.Faction : null) ?? Watch?.ArrivalOrigin(evidence, _opponentKnowledge.Opportunities) ?? baseOrigin;
             if (tracker.Observations.Any(item => item.Card.Id == sighting.Card.Id))
             {
                 var repeatRisk = _deckMutations.OriginRisk(sighting, evidence.ObservedAt, tracker.Observations, additionalCopy: true);
                 if (repeatRisk is not null) origin = repeatRisk;
+                else if (baseOrigin.Provenance == CardProvenance.Replayed) origin = baseOrigin;
                 else if (_playOrigins.HasCopyRisk(sighting, evidence.ObservedAt) ||
                          _deckMutations.HasRecentReplay(sighting.Side, evidence.ObservedAt))
                     origin = new(CardProvenance.Unknown,
@@ -418,7 +568,7 @@ public partial class MainWindow
         Watch?.ObserveFrame(result.SampledAt, result.Screen, result.Sightings, result.BoardWasScanned, _opponentKnowledge.Round);
         changed |= _opponentKnowledge.ObserveStartingConservation(result.SampledAt,
             _opponentTracker.HasStableFaction ? _opponentTracker.Faction : null,
-            _opponentTracker.DeckBuildingObservations.Sum(item => item.ObservedCopies));
+            EffectiveOpponentDeckEvidence().Sum(item => item.ObservedCopies));
         changed |= _opponentKnowledge.SummonAbsence.ObserveFrame(result.SampledAt,result.Screen,result.Sightings,result.BoardWasScanned);
         changed |= _thinningCopies.ObserveFrame(result.SampledAt, result.Screen, result.Sightings, result.BoardWasScanned,
             [_userTracker, _opponentTracker], sight =>
@@ -431,12 +581,33 @@ public partial class MainWindow
                 ? _playOrigins.RecentSpawnedInitiators(sight,result.SampledAt) : null);
         changed |= _opponentKnowledge.ObserveDevotionFrame(result.SampledAt, result.Screen, result.Sightings, result.BoardWasScanned);
         UpdateStoredGameState(result);
+        ObserveMatchAcquisition(result);
         if (changed || result.Events.Count > 0 || previousHand != _opponentKnowledge.OpponentHand)
         { RenderLiveInference(); PersistCurrentMatch(); }
         else RenderTacticalWatch();
         UpdateThreats(result);
         TryAutoCacheOpponent();
         TryAutoStopOnMmr(result);
+    }
+
+    private static int? RecentDeckCount(int? current, GwentCompanion.Core.GameState.StateFact<int>? prior,
+        DateTimeOffset at) => current ?? (prior is { } fact && at>=fact.At && at-fact.At<=TimeSpan.FromSeconds(5)
+            ? fact.Value : null);
+
+    private bool ObserveLeaderStartingDeckAssumptions(CardDefinition leader, DateTimeOffset at)
+    {
+        var changed=false;
+        foreach(var assumption in LeaderSpawnCatalog.StartingDeckAssumptions(leader,_candidateCatalog ?? []))
+        {
+            changed |= _opponentTracker.ConsiderDirectPlay(assumption.Card,.84,at,assumption.Reason,
+                CardProvenance.ProbableStartingDeck);
+            var existing=_opponentTracker.Observations.FirstOrDefault(item=>item.Card.Id==assumption.Card.Id);
+            if(existing is not null && !StartingDeckRules.CountsAgainstStartingDeck(existing.Provenance))
+                changed |= _opponentTracker.SetProvenance(assumption.Card.Id,CardProvenance.ProbableStartingDeck,assumption.Reason);
+            changed |= _opponentTracker.SetObservedCopyLowerBound(assumption.Card.Id,assumption.Copies,
+                $"copies assumed from observed {leader.Name} leader package");
+        }
+        return changed;
     }
 
     private void UpdateVisualObservation(GwentVisualObservation observation)

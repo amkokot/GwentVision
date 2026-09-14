@@ -1,0 +1,52 @@
+{
+  "SchemaVersion": 1,
+  "Id": "sewer-raiders-thinning-followup",
+  "Summary": "An exact Sewer Raiders play must retain clean settling frames and corroborate both physical originals despite live artwork latency.",
+  "AddedIn": "0.2.67",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 1736814,
+      "Sha256": "4361874EC5A74ECF237049055E0FB06BAF1C6E9983D4E86099E33CE722C790D1",
+      "Tags": [
+        "regression",
+        "sewer-raiders-thinning-followup"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 1739805,
+      "Sha256": "523A6E958D5C3C2CB3FD6F20F32F77E34CCA2DF2F41A7A86A0F4A0AA4D34D7F2",
+      "Tags": [
+        "regression",
+        "sewer-raiders-thinning-followup"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 1745059,
+      "Sha256": "A55221BFC795B6FAB09806E48DD6DD1EF668499F08E3533B42E6FC933382336B",
+      "Tags": [
+        "regression",
+        "sewer-raiders-thinning-followup"
+      ]
+    },
+    {
+      "File": "evidence-04.png",
+      "Bytes": 1746059,
+      "Sha256": "96CCA851F94707F2ABFC4A185595CFBAFA50B235DF125918D492E352C7A2B1A5",
+      "Tags": [
+        "regression",
+        "sewer-raiders-thinning-followup"
+      ]
+    }
+  ]
+}

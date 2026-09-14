@@ -1,0 +1,44 @@
+{
+  "SchemaVersion": 1,
+  "Id": "standard-mode-mmr-lightweight",
+  "Summary": "The lightweight post-game path must recover Standard Mode MMR from three brief independent menu frames and expose the exit cue.",
+  "AddedIn": "v0.2.103",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity",
+      "menu notification identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 1775715,
+      "Sha256": "E5F3EA0B71BAA2DD25881DA63A2D6407F1304B2140CA5DF8C34C7FAB350A3A6A",
+      "Tags": [
+        "regression",
+        "standard-mode-mmr-lightweight"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 1775903,
+      "Sha256": "4F478E7C0135A2E3C017A38DBD0DF2779576B596BF1AD243583806737280E4C6",
+      "Tags": [
+        "regression",
+        "standard-mode-mmr-lightweight"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 1773760,
+      "Sha256": "E60787B40CE3A50F4192974B2256C1F1DB259AFA0019806982D7D8BF95F15ED1",
+      "Tags": [
+        "regression",
+        "standard-mode-mmr-lightweight"
+      ]
+    }
+  ]
+}

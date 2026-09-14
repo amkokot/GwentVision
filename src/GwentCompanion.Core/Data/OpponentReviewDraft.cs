@@ -12,7 +12,7 @@ public static class OpponentReviewDraft
         var leader = GwentOneCardCatalog.StartingLeaders(catalog).FirstOrDefault(c => c.Name == record.Leader && c.Faction == record.Faction);
         var stratagem = catalog.FirstOrDefault(c => c.Kind == CardKind.Stratagem && c.Id == record.StratagemId);
         return new("draft:" + SourceKey(record), record.Name, record.Faction ?? "", leader?.Name ?? "", leader?.Provision ?? 0,
-            DeckBuilderOrder.Sort(record.DraftCards.Where(c => StartingDeckRules.IsStartingCard(c.Card))
+            DeckBuilderOrder.Sort(record.DraftCards.Where(c => StartingDeckRules.IsLegalStartingCard(c.Card, record.Faction))
                 .Select(c => new DeckCard(current.Card(c.Card), c.ObservedCopies))).ToArray(), Stratagem: stratagem);
     }
     public static int ObservedCopies(LearnedOpponentDeck record, string cardId) => record.Encounters.SelectMany(e => e.Cards)

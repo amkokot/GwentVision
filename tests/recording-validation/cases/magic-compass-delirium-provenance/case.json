@@ -1,0 +1,52 @@
+{
+  "SchemaVersion": 1,
+  "Id": "magic-compass-delirium-provenance",
+  "Summary": "Magic Compass and Delirium outputs detected in round three must remain visible while generated or generation-ambiguous cards stay outside opponent starting-deck copy and provision accounting.",
+  "AddedIn": "v0.3.0",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 2233902,
+      "Sha256": "9DD2136D8B99534DF60EDDDFCE6F7F1F38E92FFC0DE3E3F887E8CACEECA36A3E",
+      "Tags": [
+        "regression",
+        "magic-compass-delirium-provenance"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 2177372,
+      "Sha256": "435D9717580DD10D72CEB68C5D3818F77795FF71A3F15016328851B989D78119",
+      "Tags": [
+        "regression",
+        "magic-compass-delirium-provenance"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 2266473,
+      "Sha256": "E16802711DA6D24A6E254F48A29227D3A4A242913F6E940594EBB58C82E74A17",
+      "Tags": [
+        "regression",
+        "magic-compass-delirium-provenance"
+      ]
+    },
+    {
+      "File": "evidence-04.png",
+      "Bytes": 2267904,
+      "Sha256": "22F06A438B3191C69E572EA60535E8938677E9477AD0F8558B16186465EB92E0",
+      "Tags": [
+        "regression",
+        "magic-compass-delirium-provenance"
+      ]
+    }
+  ]
+}

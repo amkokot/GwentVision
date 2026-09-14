@@ -1,0 +1,37 @@
+name: Deploy MMR site
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['site/**', '.github/workflows/pages.yml']
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/configure-pages@v5
+      - name: Write public API configuration
+        env:
+          PUBLIC_DATA_API: ${{ vars.PUBLIC_DATA_API }}
+        run: |
+          node -e "const fs=require('fs');const value=process.env.PUBLIC_DATA_API||'';const url=new URL(value);if(url.protocol!=='https:'||!url.pathname.endsWith('/functions/v1/gw-api'))throw Error('PUBLIC_DATA_API is invalid');fs.writeFileSync('site/runtime-config.js','window.GWENT_VISION_CONFIG = '+JSON.stringify({apiBase:value.replace(/\/$/,'')})+';\n')"
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

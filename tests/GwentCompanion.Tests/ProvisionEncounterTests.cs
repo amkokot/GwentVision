@@ -78,6 +78,14 @@ internal static class ProvisionEncounterTests
             new HashSet<string> { reference.Cards[0].Card.Id }, new Dictionary<string, int> { [reference.Cards[0].Card.Id] = 1 });
         Check(committedWithoutTracker.SpentFloor == reference.Cards[0].Card.Provision && committedWithoutTracker.CommittedCards == 1,
             "Known player reference failed to bridge a commitment that arrived ahead of provenance tracking");
+        var staleReferenceCard = Card("Griffin");
+        var staleReferenceUsage = LiveValueLedger.Provisions(
+            [new(staleReferenceCard, CardProvenance.ProbableStartingDeck, .99, at, ObservedCopies: 1)],
+            reference, 165, new HashSet<string> { staleReferenceCard.Id },
+            new Dictionary<string, int> { [staleReferenceCard.Id] = 1 });
+        Check(staleReferenceUsage.SpentFloor == staleReferenceCard.Provision && staleReferenceUsage.CommittedCards == 1 &&
+              staleReferenceUsage.Total == 165 && staleReferenceUsage.AssumedSize,
+            "An independently paid off-reference original was omitted from the player provision floor");
         var tyr = Card("Tyr: Slayer of Yngvar"); var evolvedTyr = Card("Tyr: Master of An Skellig");
         Check(EvolvingCardCatalog.StartingId(evolvedTyr.Id) == tyr.Id, "Tyr's transformed artwork lost its starting identity");
         var evolutionLedger = new LiveValueLedger(); var beforeEvolution = new GameStateTracker().Current;
@@ -198,7 +206,8 @@ internal static class ProvisionEncounterTests
         loaded.Save(path); loaded = OpponentDeckMemoryStore.Load(path);
         Check(loaded.Records.Single().SuggestedCards?.Single().Count == 2, "Quiet-cache suggestions not persisted");
         var ui = File.ReadAllText(Path.Combine(root,"GwentCompanion/src/GwentCompanion.App/MainWindow.xaml"));
-        Check(ui.Contains("ReviewNewDecksChoice") && ui.Contains("Review new opponent decks after matches"), "Review preference missing");
+        Check(ui.Contains("ReviewNewDecksChoice") && ui.Contains("Review opponent cards after matches"), "Review preference control or wording missing");
+        Check(ui.Contains("x:Name=\"ReviewNewDecksChoice\"") && ui.Contains("Review opponent cards after matches\" IsChecked=\"False\""), "Opponent-card review must be opt-in so matches save quietly by default");
         Console.WriteLine("PASS provision copies/averages, Sunset growth, MMR capture, inferred prior, idempotency, variants, partial merge, corrections and persistence.");
     }
 

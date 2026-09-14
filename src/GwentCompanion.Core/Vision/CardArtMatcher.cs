@@ -80,6 +80,7 @@ public sealed class CardArtMatcher
         var observed = VisualDescriptor.Create(frame, region);
         return references.Min(reference => observed.DistanceTo(reference.Descriptor));
     }
+
 }
 
 public sealed class VisualDescriptor

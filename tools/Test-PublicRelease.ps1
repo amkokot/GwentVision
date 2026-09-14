@@ -31,27 +31,51 @@ foreach ($caseManifestPath in @(Get-ChildItem -LiteralPath $caseRoot -Filter cas
 
 $libraryPath = Join-Path $root 'cache/deck-library.json'
 $library = Get-Content -LiteralPath $libraryPath -Raw | ConvertFrom-Json
+$invalidSourceShapes = @($library.Records | Where-Object { $_.Sources -isnot [System.Array] })
+if ($invalidSourceShapes.Count -gt 0) { throw "Deck library contains $($invalidSourceShapes.Count) record(s) whose Sources field is not a JSON array." }
 $privateDeck = @($library.Records | Where-Object {
+    $uri = [string]$_.Deck.SourceUri
     $occurrences = if ($null -eq $_.Deck.Occurrences) { @() } else { @($_.Deck.Occurrences) }
-    $_.CustomName -or ([string]$_.Deck.SourceUri) -notmatch '^https://www\.playgwent\.com/' -or
-    @($occurrences | Where-Object { $null -eq $_ -or $_.Kind -ne 'Import' -or $_.Source -match '(?i)[A-Z]:\\|/Users/|/home/' }).Count -gt 0
+    $patches = if ($null -eq $_.Deck.Patches) { @() } else { @($_.Deck.Patches) }
+    $isPlayGwent = $uri -match '^https://www\.playgwent\.com/' -and !$_.CustomName -and
+        @($occurrences | Where-Object { $null -eq $_ -or $_.Kind -ne 'Import' }).Count -eq 0
+    $isCreated = [string]::IsNullOrWhiteSpace($uri) -and $_.CustomName -and
+        ([string]$_.Deck.Id) -match '^(?:manual|builder)-[a-zA-Z0-9]+$' -and
+        @($occurrences | Where-Object { $null -eq $_ -or $_.Kind -ne 'LibrarySave' }).Count -eq 0
+    (!$isPlayGwent -and !$isCreated) -or
+        @($occurrences | Where-Object { $_.Source -match '(?i)[A-Z]:\\|/Users/|/home/' }).Count -gt 0 -or
+        @($patches | Where-Object { $_.Source -match '(?i)^Occurrence (?:Opponent|Observed|Encounter)|[A-Z]:\\|/Users/|/home/' }).Count -gt 0
 })
-if ($privateDeck.Count -gt 0) { throw "Deck library contains $($privateDeck.Count) local, custom, or encounter-derived records." }
+if ($privateDeck.Count -gt 0) { throw "Deck library contains $($privateDeck.Count) opponent-derived, unsupported, or path-bearing records." }
 
 $forbidden = @(
     'cache/settings.json', 'cache/opponent-memory.json', 'cache/opponent-memory.json.bak',
     'cache/deck-editor-drafts.json', 'cache/workbook-index.json', 'cache/recognition-features',
-    'deck-scans', 'diagnostics', 'snapshots', 'pinned-views'
+    'deck-scans', 'diagnostics', 'snapshots', 'pinned-views', 'match-data'
 )
 foreach ($relative in $forbidden) {
     if (Test-Path -LiteralPath (Join-Path $root $relative)) { throw "Private runtime path is present: $relative" }
 }
 $unexpectedSessionFiles = @(Get-ChildItem -LiteralPath (Join-Path $root 'sessions') -Recurse -File | Where-Object Extension -notin '.jpg', '.png')
 if ($unexpectedSessionFiles.Count -gt 0) { throw 'Session journals or non-media files are present in the public corpus.' }
+$savedMatches = @(Get-ChildItem -LiteralPath $root -Recurse -File | Where-Object Extension -eq '.gvm')
+if ($savedMatches.Count -gt 0) { throw "Public release contains $($savedMatches.Count) saved match file(s)." }
 
-$textExtensions = @('.cs', '.xaml', '.csproj', '.props', '.targets', '.ps1', '.md', '.json', '.yml', '.yaml', '.config', '.sln')
+$textExtensions = @('.cs', '.xaml', '.csproj', '.props', '.targets', '.ps1', '.md', '.json', '.yml', '.yaml',
+    '.config', '.sln', '.sql', '.ts', '.toml', '.env', '.html', '.css', '.js')
 $personalPaths = Get-ChildItem -LiteralPath $root -Recurse -File | Where-Object {
     $_.FullName -notmatch '[\\/](bin|obj|sessions)[\\/]' -and $textExtensions -contains $_.Extension.ToLowerInvariant()
 } | Select-String -Pattern '(?i)[A-Z]:\\(?:Users|Program Files|Windows)\\[A-Za-z0-9 ._()-]+|/Users/[A-Za-z0-9._-]+/|/home/[A-Za-z0-9._-]+/'
 if ($personalPaths) { throw "A local user path remains in public text: $($personalPaths[0].Path):$($personalPaths[0].LineNumber)" }
+$secretPatterns = @(
+    'sb_secret_(?!REPLACE(?:_|\b))[A-Za-z0-9_-]{20,}',
+    'sbp_[A-Za-z0-9_-]{20,}',
+    'postgres(?:ql)?://[^\s''"]+:[^\s''"]+@'
+)
+foreach ($pattern in $secretPatterns) {
+    $secret = Get-ChildItem -LiteralPath $root -Recurse -File | Where-Object {
+        $_.FullName -notmatch '[\\/](bin|obj|sessions)[\\/]' -and $textExtensions -contains $_.Extension.ToLowerInvariant()
+    } | Select-String -Pattern $pattern
+    if ($secret) { throw "A plausible secret remains in public text: $($secret[0].Path):$($secret[0].LineNumber)" }
+}
 Write-Host "PASS public release privacy: schema-2 corpus, $($library.Records.Count) public decks, no runtime-private paths."

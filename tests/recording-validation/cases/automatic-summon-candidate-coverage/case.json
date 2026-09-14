@@ -1,0 +1,43 @@
+{
+  "SchemaVersion": 1,
+  "Id": "automatic-summon-candidate-coverage",
+  "Summary": "A faction-compatible self-summoning card absent from statistical deck priors remains in the bounded opponent artwork index and is recovered on the settled board.",
+  "AddedIn": "0.2.66",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 2160021,
+      "Sha256": "3968BFB89CC288E4405849332583082FBD50C498215F9D440531B4469632044D",
+      "Tags": [
+        "regression",
+        "automatic-summon-candidate-coverage"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 2158092,
+      "Sha256": "D0D0998EA2543B0FA05DD37F55B3F7DD017B40704EB59CD565E85D66D1BFA939",
+      "Tags": [
+        "regression",
+        "automatic-summon-candidate-coverage"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 2156710,
+      "Sha256": "811CBE01EE34111646E85F8183E09812A50C56C99D4EC42C83813F53CDF4BE12",
+      "Tags": [
+        "regression",
+        "automatic-summon-candidate-coverage"
+      ]
+    }
+  ]
+}

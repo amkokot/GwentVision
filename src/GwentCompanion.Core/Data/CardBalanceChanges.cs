@@ -42,6 +42,12 @@ public sealed record CardBalanceChanges(string? FromVersion, string? ToVersion, 
     {
         if (!File.Exists(path)) return Empty;
         var current = new CardDataUpdater(path).Current(); if (current is null) return Empty;
+        return Load(path, current);
+    }
+
+    /// <summary>Load comparison history without reparsing a current snapshot the caller already validated.</summary>
+    public static CardBalanceChanges Load(string path, CardDataSnapshot current)
+    {
         var candidates = new List<CardDataSnapshot>();
         foreach (var candidatePath in new[] { path + ".previous", path + ".baseline" })
         {

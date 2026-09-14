@@ -9,13 +9,14 @@ public sealed class HandCommitTracker
 {
     private readonly Dictionary<PlayerSide,(int Count,DateTimeOffset At)> _hands=[];
     private readonly Dictionary<PlayerSide,Pending> _pending=[];
+    private readonly Dictionary<PlayerSide,RecentDrop> _recentDrops=[];
     private readonly Dictionary<PlayerSide,DateTimeOffset> _ambiguous=[];
     private readonly Dictionary<PlayerSide,(int Count,DateTimeOffset At)> _jumpCandidates=[];
     private readonly Dictionary<PlayerSide,RefillingHandPlays> _refilling=[];
     private static readonly Regex RefillingHandAbility = new(
         @"\bPlay up to (?<count>[1-9]\d*) (?<filter>bronze|gold|unit|special|artifact) cards? from your hand,\s*then draw as many cards\b",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
-    public void Reset() { _hands.Clear(); _pending.Clear(); _ambiguous.Clear(); _jumpCandidates.Clear(); _refilling.Clear(); }
+    public void Reset() { _hands.Clear(); _pending.Clear(); _recentDrops.Clear(); _ambiguous.Clear(); _jumpCandidates.Clear(); _refilling.Clear(); }
     public IReadOnlyList<VisionEvidenceEvent> Observe(DateTimeOffset at,GwentVisualObservation screen,IReadOnlyList<VisionEvidenceEvent> events)
     {
         var confirmed=new List<VisionEvidenceEvent>();
@@ -24,6 +25,7 @@ public sealed class HandCommitTracker
             int? count=side==PlayerSide.User ? screen.UserHandCount : screen.OpponentHandCount;
             var prior=_hands.TryGetValue(side,out var h) && at-h.At<=TimeSpan.FromSeconds(20) ? h : ((int Count,DateTimeOffset At)?)null;
             if (_pending.TryGetValue(side,out var expired) && at-expired.Event.ObservedAt>TimeSpan.FromSeconds(12)) _pending.Remove(side);
+            if (_recentDrops.TryGetValue(side,out var oldDrop) && at-oldDrop.At>TimeSpan.FromSeconds(5)) _recentDrops.Remove(side);
             if (_refilling.TryGetValue(side,out var expiredRefill) && at-expiredRefill.SourceAt>TimeSpan.FromSeconds(20)) _refilling.Remove(side);
             if (count is {} fresh)
             {
@@ -37,6 +39,7 @@ public sealed class HandCommitTracker
                         at>candidate.At && at-candidate.At<=TimeSpan.FromSeconds(6))
                     {
                         _pending.Remove(side); _ambiguous[side]=at.AddSeconds(12);
+                        _recentDrops.Remove(side);
                         _hands[side]=(fresh,at); _jumpCandidates.Remove(side);
                     }
                     else
@@ -48,6 +51,8 @@ public sealed class HandCommitTracker
                 else
                 {
                     _jumpCandidates.Remove(side);
+                    if (prior is { } previous && fresh == previous.Count-1)
+                        _recentDrops[side]=new(previous.Count,fresh,at);
                     _hands[side]=(fresh,at);
                 }
             }
@@ -91,18 +96,35 @@ public sealed class HandCommitTracker
                         continue;
                     }
                 }
-                if(!_pending.ContainsKey(side) && prior is {} before && (!_ambiguous.TryGetValue(side,out var until) || at>until))
-                    _pending[side]=new(action,before.Count);
+                if(!_pending.ContainsKey(side) && (!_ambiguous.TryGetValue(side,out var until) || at>until))
+                {
+                    // Recognition can finish a few seconds after the HUD already
+                    // captured the card payment. Retain that exact one-card edge
+                    // and wait through another stable sample before committing it.
+                    // A competing child/tutor preview during the wait still enters
+                    // the ordinary ambiguity branch above and cancels attribution.
+                    if (_recentDrops.TryGetValue(side,out var drop) && at>drop.At &&
+                        at-drop.At<=TimeSpan.FromSeconds(4) &&
+                        _hands.TryGetValue(side,out var currentHand) && currentHand.Count==drop.After)
+                        _pending[side]=new(action,drop.Before,at.AddMilliseconds(600),true);
+                    else if(prior is {} before)
+                        _pending[side]=new(action,before.Count);
+                }
             }
             if(_pending.TryGetValue(side,out var pending) && count==pending.HandBefore-1 && at>=pending.Event.ObservedAt &&
+                (pending.EarliestConfirmation is null || at>=pending.EarliestConfirmation) &&
                 !screen.IsCardSelectionOverlay && screen.MatchHudVisible==true)
             {
-                confirmed.Add(pending.Event); _pending.Remove(side);
+                confirmed.Add(pending.Retrospective ? pending.Event with { Description=pending.Event.Description+
+                    " The exact one-card HUD decrement preceded delayed visual confirmation and remained stable through a later sample." } : pending.Event);
+                _pending.Remove(side); _recentDrops.Remove(side);
             }
         }
         return confirmed;
     }
-    private sealed record Pending(VisionEvidenceEvent Event,int HandBefore);
+    private sealed record Pending(VisionEvidenceEvent Event,int HandBefore,DateTimeOffset? EarliestConfirmation=null,
+        bool Retrospective=false);
+    private sealed record RecentDrop(int Before,int After,DateTimeOffset At);
     private sealed record RefillingHandPlays(string SourceId,DateTimeOffset SourceAt,int Remaining,string Filter);
     private static bool MatchesRefillFilter(CardDefinition card,string filter) => filter.ToLowerInvariant() switch
     {
@@ -123,11 +145,18 @@ public sealed class HandCommitTracker
         {
             var s=e.Sighting; var tracker=s.Side==PlayerSide.User?user:opponent;
             if (!s.Card.CanBeInStartingDeck || s.Side==PlayerSide.User && reference is not null && reference.CountOf(s.Card.Id)==0 ||
-                zoneRisk?.Invoke(s)==true || origins.HasNonOrderCopyRisk(s,e.ObservedAt) || mutations.HasRecentReplay(s.Side,e.ObservedAt) ||
+                zoneRisk?.Invoke(s)==true || origins.HasHandAcquisitionRisk(s,e.ObservedAt) || mutations.HasRecentReplay(s.Side,e.ObservedAt) ||
                 mutations.OriginRisk(s,e.ObservedAt,tracker.Observations,additionalCopy:true,independentHandPlay:true) is not null) continue;
-            changed |= tracker.ConsiderDirectPlay(s.Card,1-s.Distance,e.ObservedAt,
-                "Recognized play independently corroborated by a one-card hand decrement or a bounded printed hand-play/refill sequence; outside-hand generation does not explain that cost.",
+            const string handEvidence = "Recognized play independently corroborated by a one-card hand decrement or a bounded printed hand-play/refill sequence; outside-hand generation does not explain that cost.";
+            changed |= tracker.ConsiderDirectPlay(s.Card,1-s.Distance,e.ObservedAt,handEvidence,
                 CardProvenance.ProbableStartingDeck);
+            // ConsiderDirectPlay preserves a stronger-confidence prior sighting.
+            // Provenance is different: an independently paid hand copy must be
+            // able to supersede an earlier conservative leader/stratagem Spawned
+            // or Unknown classification even when the earlier art match was clearer.
+            var existing=tracker.Observations.FirstOrDefault(item=>item.Card.Id==s.Card.Id);
+            if(existing?.Provenance is CardProvenance.Spawned or CardProvenance.Unknown)
+                changed |= tracker.SetProvenance(s.Card.Id,CardProvenance.ProbableStartingDeck,handEvidence);
             if (s.Side!=PlayerSide.User || reference is null || reference.CountOf(s.Card.Id)>1)
                 changed |= copies.ObserveEvent(e,CardProvenance.ProbableStartingDeck,tracker);
         }

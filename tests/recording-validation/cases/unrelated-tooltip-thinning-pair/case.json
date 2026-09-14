@@ -1,0 +1,43 @@
+{
+  "SchemaVersion": 1,
+  "Id": "unrelated-tooltip-thinning-pair",
+  "Summary": "An unrelated player-side tooltip must not suppress a recently played opponent self-thinning pair.",
+  "AddedIn": "0.2.65",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.jpg",
+      "Bytes": 341213,
+      "Sha256": "56CE83CF6F30A6C7A8AF2B74CACD61A91D71D59E98E53B8923B384E738D32371",
+      "Tags": [
+        "regression",
+        "unrelated-tooltip-thinning-pair"
+      ]
+    },
+    {
+      "File": "evidence-02.jpg",
+      "Bytes": 339962,
+      "Sha256": "6F8642284921B904F2B5B7B489327831F27DA65B7E36A3B2565F42BDAE7FEA3E",
+      "Tags": [
+        "regression",
+        "unrelated-tooltip-thinning-pair"
+      ]
+    },
+    {
+      "File": "evidence-03.jpg",
+      "Bytes": 342426,
+      "Sha256": "0310030369597AF7CC357517FC13266930E195A7BCA2DA29D9030C3B274A5D00",
+      "Tags": [
+        "regression",
+        "unrelated-tooltip-thinning-pair"
+      ]
+    }
+  ]
+}

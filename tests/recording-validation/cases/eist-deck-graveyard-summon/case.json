@@ -1,0 +1,52 @@
+{
+  "SchemaVersion": 1,
+  "Id": "eist-deck-graveyard-summon",
+  "Summary": "Recent Eist plus a same-hand deck departure and a repeated exact opponent-board title must recover the summoned non-Neutral unit; spatially inconsistent weak Anglerfish candidates must remain negative.",
+  "AddedIn": "0.2.70",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 1924852,
+      "Sha256": "356C11C475B74C745659A200A092238C3FB19CABCCA9D0E260BA3EA245D70846",
+      "Tags": [
+        "regression",
+        "eist-deck-graveyard-summon"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 1923913,
+      "Sha256": "E6C08946661B12F363760411390275C83CF6B8B2B10DC81BA3A88240FA6EF0CF",
+      "Tags": [
+        "regression",
+        "eist-deck-graveyard-summon"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 1948121,
+      "Sha256": "226464CCF6D04E220D835E9B2329B3F5C4DFE83005700563FE596B1DA586964C",
+      "Tags": [
+        "regression",
+        "eist-deck-graveyard-summon"
+      ]
+    },
+    {
+      "File": "evidence-04.png",
+      "Bytes": 1958523,
+      "Sha256": "64B22509E2A698D5024AC1F8B2B5DA7ABFF00C0332E7AD2A918EB5CE9B4FA62B",
+      "Tags": [
+        "regression",
+        "eist-deck-graveyard-summon"
+      ]
+    }
+  ]
+}

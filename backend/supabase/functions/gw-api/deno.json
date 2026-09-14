@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "lib": ["deno.window", "dom", "dom.iterable"]
+  },
+  "fmt": {
+    "lineWidth": 110,
+    "semiColons": true,
+    "singleQuote": false
+  }
+}

@@ -1,91 +1,89 @@
 # Gwent Vision
 
-Gwent Vision is a free, open-source Windows companion for *GWENT: The Witcher Card Game*. It runs alongside Gwent, uses computer vision to record cards played by an opponent, and turns those observations into a possible deck composition. It also includes snapshots, optional recording, and an extended deck library.
+Gwent Vision is a free, open-source Windows companion for *GWENT: The Witcher Card Game*. New features in version 0.3 include an in-game tracker that records opponent cards played, an extended deck library with new quality-of-life features, and a new statistical center to analyze match data.
 
-This is an unofficial, not-for-profit fan project made for the community. It is not a bot and provides no means to automate the game.
+It is an unofficial, not-for-profit fan project. Gwent Vision provides no predictive gameplay features.
 
-[Download the latest Windows release](../../releases/latest) · [Open the complete interface tour](docs/SCREENSHOTS.md) · [Report a bug](../../issues/new?template=bug_report.yml) · [Request a feature](../../issues/new?template=feature_request.yml)
+[Download the latest Windows release](../../releases/latest) · [View public season MMR curves](https://amkokot.github.io/GwentVision/) · [Open the interface tour](docs/SCREENSHOTS.md) · [Report a bug](../../issues/new?template=bug_report.yml) · [Request a feature](../../issues/new?template=feature_request.yml)
 
-## Interface
+## Live tracking
 
-In full-screen mode, the main in-game display contains the opponent's hypothesized deck, other highly correlated candidate cards, and a snapshot utility for keeping tabs on useful information.
+The **Opponent Cards** view records cards as they appear on the game screen. It marks cards created or spawned during the match so the saved opponent list distinguishes them from starting-deck cards. The Candidates view provides a searchable list of cards the player can use to fill gaps in the opponent list.
 
-![Gwent Vision showing the hypothesized opponent deck, candidate cards, and a selected snapshot](docs/images/live-analysis-with-snapshot.png)
+In the wide layout, Opponent Cards, Candidates, and Snapshots appear in three columns. Compact mode shows the same tools one at a time beside a windowed game. Players can also select the deck they are using, and Gwent Vision saves that complete deck with each match.
 
-*Full-screen Live view: hypothesized opponent deck on the left, candidate cards in the center, and pinned snapshots on the right.*
+![Wide Gwent Vision view with Opponent Cards, Candidates, and Snapshots](docs/images/live-opponent-cards.png)
 
-The same tools can be displayed as a single column alongside a windowed GWENT game for users without a second monitor.
+## Match Data
 
-## Features
+Every completed match is saved on your computer with its date, game patch, result, round scores, faction MMR when available, your selected deck, and the opponent cards that were detected. The Match Data button opens a window with charts and summaries. We welcome suggestions for other statistics the community would find useful.
 
-### Extended Library
+- **Expanding a match** shows your complete saved deck on the left and the opponent deck information on the right. Detected cards and estimated cards appear in one list, with labels and a slight fade to show which is which.
+- **Factions and leaders** shows how often you face each faction or leader and your win rate against each one. It can also show the same information for the factions and leaders you play.
+- **Your progress** plots each faction's MMR against the number of games played with that faction.
 
-Outside of games, the Library is one of the most useful parts of Gwent Vision. There is no limit on the number of decks you can store, and they can be easily searched and filtered.
+![Patch-filtered match history](docs/images/match-data-history.png)
 
-![The Gwent Vision deck library](docs/images/deck-library.png)
+![Faction matchup view](docs/images/match-data-matchups.png)
 
-Deck information can be pulled from individual PlayGWENT links or spreadsheets of links and cached directly in the Library. If you are working from the in-game deck builder, a screen scan can move that deck into Gwent Vision. A deck stored in Gwent Vision can also be prepared as a PlayGWENT link on the user's account and then imported into Gwent.
+![Faction MMR progress and gameplay statistics](docs/images/match-data-progress.png)
 
-### Snapshots and Recording
+## Deck library, snapshots, and recording
 
-The rightmost panel in the Live view can be used to store screen captures during a game. This is useful for keeping track of information involving cards such as Maxii or Vial of Forbidden Knowledge without leaving the main analysis display.
+The extended Library can store any number of decks. It adds search and filters, groups similar deck versions together, supports manual deck building, scans decks from the in-game builder, and imports decks from PlayGWENT links or spreadsheets. The deck selected as **Deck you are playing** is saved as your complete deck for each new match. Your deck library and settings are preserved when Gwent Vision is updated.
 
-![Gwent Vision snapshot review](docs/images/snapshot-review.png)
+![The Gwent Vision deck library and selected player deck](docs/images/deck-library.png)
 
-*Snapshot history and the selected image remain together for quick review.*
+Snapshots keep selected game screens available for quick review. Optional diagnostic recording helps reproduce missed or incorrectly recognized cards. These files stay on your computer unless you deliberately share a copy after removing personal information.
 
-Optional recording can capture games for personal review or help reproduce recognition bugs. Recordings remain local unless the user deliberately shares them.
+## Optional data contribution
 
-### Deck Recognition
+The first time Gwent Vision opens, it asks whether you would like to contribute match data for Balance Council recommendations. Throughout the month, you can press **Push to database** in Settings to upload your completed matches to a private, anonymized database. Approved contributors can use the combined results to prepare Balance Council recommendations. You can also turn on automatic sharing, which sends new data once on or after the 18th of each month.
 
-As cards are played, Gwent Vision builds a record of the cards observed in the opponent's deck and uses that information to estimate the remaining composition. The user can refine the result by selecting likely cards from the candidate pool or by pinning an exact opponent list from the Library.
+This research data is not published in full and can be accessed only by approved contributors. It does not include player names, Gwent account IDs, screenshots, or recordings. Read the [data contribution and privacy policy](docs/DATA-CONTRIBUTION-PRIVACY.md) for the complete details.
 
-![Gwent Vision opponent deck reference](docs/images/opponent-reference.png)
+As a community feature, you have the option to display your faction MMR progress through the month against other players. After a successful push, the app gives you a season code to identify your curve among the many presented on the [public season site](https://amkokot.github.io/GwentVision/).
 
-*Reference mode compares observed cards with a selected opponent deck.*
+The site provides:
 
-After a game, an opponent deck composition can be stored locally for later reference and used to improve future predictions.
+- a Total MMR line based on the highest rating reached with up to four factions;
+- separate MMR lines for each faction, with the option to display all factions together; and
+- daily faction popularity and win rate once enough users have contributed data to protect privacy.
 
 ## Install
 
 1. Open the [latest release](../../releases/latest) and download `GwentVision-Windows-x64.zip`.
-2. Extract the ZIP while keeping its `GwentVision` folder intact.
-3. Move that folder into the GWENT installation folder, beside `Gwent.exe`.
-4. Run `GwentVision.exe` from inside the extracted folder.
-5. Start GWENT, then click Play in Gwent Vision when you want live recognition to begin.
+2. Extract the ZIP contents into the GWENT installation folder, beside `Gwent.exe`.
+3. Double-click **Gwent Vision.cmd** in that folder. This shortcut opens the app stored inside the `GwentVision` folder. You can also run `GwentVision\GwentVision.exe` directly.
+4. Start GWENT, then press the play button in Gwent Vision when you want live recognition to begin.
 
-The resulting layout should resemble:
+The installed layout is:
 
 ```text
 GWENT The Witcher Card Game\
 ├── Gwent.exe
+├── Gwent Vision.cmd
 └── GwentVision\
     ├── GwentVision.exe
     ├── cache\
     └── vision-assets\
 ```
 
-Gwent Vision supports Windows 10 or later and is released as a self-contained x64 build.
+Gwent Vision supports 64-bit Windows 10 or later and does not require a separate .NET installation. For reliable card recognition, use a 16:9 GWENT resolution such as 1280×720, 1920×1080, or 3840×2160. Black bars around a 16:9 game image are handled automatically.
 
-## Compatibility and current testing
+## How recognition works
 
-For reliable recognition, use a 16:9 GWENT resolution, such as 1280×720, 1920×1080, or 3840×2160. Clearly letterboxed displays are normalized automatically.
+Gwent Vision reads ordinary Windows desktop pixels from the visible game window. All displayed information comes from that screen, and recognition begins only when the user presses the play button.
 
-## Project boundaries
+## Contributing
 
-Gwent Vision is intended to display information that comes from the visible game screen. It does not access private game state, automate input or gameplay, or recommend a best move or line of play. Recognition is inactive until the user starts it.
-
-## How to help
-
-You do not need to be a programmer to help. A short description of something that did not work—or an idea that would make the app more useful—is valuable:
+You do not need to be a programmer to help. A short description of a missed card or an awkward part of the app is useful. Please remove names, profile IDs, file locations, and private deck information from screenshots before attaching them to an issue.
 
 - [Report a bug](../../issues/new?template=bug_report.yml)
 - [Request a feature](../../issues/new?template=feature_request.yml)
 - [Browse the issue tracker](../../issues)
 
-For code, detector, test, or documentation contributions, start with [CONTRIBUTING.md](CONTRIBUTING.md). The [implementation notes](docs/ARCHITECTURE.md) describe the main components and data flow.
-
-Every proposed change must build successfully and pass the relevant public validation checks:
+Code and detector contributors should start with [CONTRIBUTING.md](CONTRIBUTING.md). The [architecture notes](docs/ARCHITECTURE.md), [local match format](docs/LOCAL-MATCH-DATA.md), and [database runbook](docs/DATABASE-SETUP-RUNBOOK.md) describe the main components and release process.
 
 ```powershell
 dotnet build GwentCompanion.sln -c Release
@@ -93,18 +91,7 @@ dotnet run --project tests/GwentCompanion.Tests/GwentCompanion.Tests.csproj -c R
 dotnet run --project tests/GwentCompanion.Tests/GwentCompanion.Tests.csproj -c Release -- --contributor-validation-regression
 ```
 
-Contributors add the expected behavior and test evidence for their own changes. After a case is committed, the validation runners discover it automatically. GitHub repeats these checks for pull requests and performs a ClamAV malware sweep before release.
-
-## Open directions
-
-There is plenty of room for further development, including:
-
-- localization for additional languages;
-- improved detection across cards, screens, resolutions, and display scaling;
-- more anonymized validation examples from varied hardware and battlefield cosmetics;
-- clearer opponent-deck hypotheses and explanations of uncertain candidates;
-- lower capture, recognition, and rendering overhead; and
-- smoother installation, updating, accessibility, and first-run guidance.
+GitHub repeats these checks for each proposed change, checks that private files and passwords were not included, and scans every release file for malware.
 
 ## License and attribution
 

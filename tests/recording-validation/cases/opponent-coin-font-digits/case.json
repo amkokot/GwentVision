@@ -1,0 +1,79 @@
+{
+  "SchemaVersion": 1,
+  "Id": "opponent-coin-font-digits",
+  "Summary": "The fixed Syndicate coin HUD font must read the clearly visible 1 through 6 and 9 glyphs without widening OCR beyond the purse.",
+  "AddedIn": "0.2.67",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 1858891,
+      "Sha256": "B78CFAFE4DB5D8FD3DD1C0F26ABC3C61C0BF9575EB35680E13A562C633C2A86B",
+      "Tags": [
+        "regression",
+        "opponent-coin-font-digits"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 1903660,
+      "Sha256": "32FA62A227EF1E7572FA47EE3F93D3DE9C70FA0508ECA9DC09D17FCD93CC94B6",
+      "Tags": [
+        "regression",
+        "opponent-coin-font-digits"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 1922918,
+      "Sha256": "F49E2DCCF6210A8C613AD86DA50A665B3E358FD00CABE34DBC227BB2763F2CCE",
+      "Tags": [
+        "regression",
+        "opponent-coin-font-digits"
+      ]
+    },
+    {
+      "File": "evidence-04.png",
+      "Bytes": 1957717,
+      "Sha256": "0AEA2FDDAF576B8B1B226E9BC033585BF18048D74A729815B70946C0D4907F48",
+      "Tags": [
+        "regression",
+        "opponent-coin-font-digits"
+      ]
+    },
+    {
+      "File": "evidence-05.png",
+      "Bytes": 1736814,
+      "Sha256": "4361874EC5A74ECF237049055E0FB06BAF1C6E9983D4E86099E33CE722C790D1",
+      "Tags": [
+        "regression",
+        "opponent-coin-font-digits"
+      ]
+    },
+    {
+      "File": "evidence-06.png",
+      "Bytes": 1828459,
+      "Sha256": "8F0BFADEA1D418D264D8B5CF854FFDFE6DA9ED36F725B185DFF9720132E2D720",
+      "Tags": [
+        "regression",
+        "opponent-coin-font-digits"
+      ]
+    },
+    {
+      "File": "evidence-07.png",
+      "Bytes": 1975821,
+      "Sha256": "DE1DFA17EA1D8A11239B69A73F7CD6DC74FB454C5801D002FB377FC356B0256E",
+      "Tags": [
+        "regression",
+        "opponent-coin-font-digits"
+      ]
+    }
+  ]
+}

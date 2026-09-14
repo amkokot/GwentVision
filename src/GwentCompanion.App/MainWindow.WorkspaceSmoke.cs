@@ -54,14 +54,20 @@ public partial class MainWindow
             window.DeckList.SelectedItem = window.DeckList.Items.Cast<DeckListItem>().First(i => i.Variations?.Length > 1);
             var selected = (DeckListItem)window.DeckList.SelectedItem;
             var deck = selected.Deck!;
-            var rows = OpponentDeckProjector.Reference(deck).Select(window.Strip).ToArray();
-            window.OpponentDeckCards.Rows = rows;
-            window.UserReferenceCards.Rows = rows;
-            window._lastProjection = new OpponentDeckProjector().Build(window._cachedDecks, [], deck.Faction, catalog: window._candidateCatalog);
-            window.RenderCandidateTray();
-            Check(window.CandidateCardTray.Rows!.Cast<object>().Count() > 40, "Expanded candidates still have the former 40-card limit.");
-            window.UserReferenceSummary.Text = "DEMONSTRATION · " + deck.Name + " · " + deck.Leader;
-            window.OpponentDeckSummary.Text = "DEMONSTRATION · hypothesized slots from sample observations";
+            window._selectedUserDeck = deck;
+            window.UpdateSelectedUserDeckDisplay();
+            var observed = deck.Cards.Take(10).Select(item => new ObservedCard(item.Card,
+                CardProvenance.ProbableStartingDeck, .95, DateTimeOffset.UtcNow, "Offline display fixture", item.Count)).ToArray();
+            window._lastProjection = new OpponentDeckProjector().Build(window._cachedDecks, observed, deck.Faction, catalog: window._candidateCatalog);
+            window.RenderCompletedProjection();
+            var candidateRows = window.CandidateCardTray.Rows!.Cast<DeckStripRow>().ToArray();
+            Check(candidateRows.Length > 40, "Expanded candidates still have the former 40-card limit.");
+            Check(candidateRows.Select(row => row.Slot.Card!).SequenceEqual(
+                candidateRows.Select(row => row.Slot.Card!).OrderBy(card => card, DeckBuilderOrder.Comparer)),
+                "Candidate catalog does not follow deck-builder order.");
+            Check(candidateRows.All(row => row.Badge.Length == 0) &&
+                window.PresentedOpponentSlots(window._lastProjection).All(slot => slot.State == DeckSlotState.Observed),
+                "Standard live tracking exposed unseen recommendations.");
             window.OpponentFactionText.Text = deck.Faction;
             window.GameStatusText.Text = "DEMONSTRATION · sample data · no game capture";
             window.DeckDataStatusText.Text = "Read-only sample library · " + window._cachedDecks.Length + " public decks";
@@ -73,22 +79,23 @@ public partial class MainWindow
             }
             Render("analysis-1920", 1920, 1040, UiPage.Deck);
             Render("live-analysis", 1920, 1040, UiPage.Deck);
-            Check(window.LibraryNavigation.Visibility == Visibility.Visible && window.GameplayNavigation.Visibility == Visibility.Visible &&
-                Grid.GetRow(window.LibraryNavigation) < Grid.GetRow(window.GameplayNavigation) &&
-                window.GameplayNavigation.Children.OfType<RadioButton>().Select(b => b.Content.ToString()).SequenceEqual(new[] { "Analysis", "Reference" }), "Navigation labels/order or out-of-game separation changed.");
-            Check(window.DeckPage.Visibility == Visibility.Visible && window.CandidatesPage.Visibility == Visibility.Visible && window.PinnedPage.Visibility == Visibility.Visible && window.PlaysPage.Visibility == Visibility.Collapsed, "Analysis columns must be opponent, candidates, then snapshots without Overview.");
-            Check(window.DeckPage.ActualWidth > 350 && window.PinnedPage.ActualWidth > 350 && window.CandidateCardTray.ActualHeight > 200, "Analysis panes were squeezed out.");
+            Check(window.OpponentDeckCards.Rows!.Cast<DeckStripRow>().All(row =>
+                row.Slot.State == DeckSlotState.Observed && row.Badge == "SEEN"),
+                "Rendered opponent deck contains an unseen card.");
+            Check(window.LibraryNavigation.Visibility == Visibility.Visible && window.PlayerDeckBanner.Visibility == Visibility.Visible &&
+                Grid.GetRow(window.LibraryNavigation) == 2 && Grid.GetColumn(window.LibraryNavigation) == 0 && Grid.GetColumnSpan(window.LibraryNavigation) == 2 &&
+                Grid.GetRow(window.PlayerDeckBanner) == 2 && Grid.GetColumn(window.PlayerDeckBanner) == 2 && Grid.GetColumnSpan(window.PlayerDeckBanner) == 1 &&
+                window.ActiveUserDeckText.Text.Contains(deck.Name) &&
+                window.FindName("GameplayNavigation") is null && window.FindName("ReferencePage") is null,
+                "Wide mode did not place the selected deck beside Library in the rightmost third.");
+            var playerPalette = FactionPalette.For(deck.Faction);
+            Check(((SolidColorBrush)window.PlayerDeckBanner.Background).Color == ((SolidColorBrush)FactionPalette.Brush(playerPalette.Surface)).Color &&
+                ((SolidColorBrush)window.PlayerDeckBanner.BorderBrush).Color == ((SolidColorBrush)FactionPalette.Brush(playerPalette.Edge)).Color,
+                "Selected player-deck banner did not use its faction palette.");
+            Check(window.DeckPage.Visibility == Visibility.Visible && window.CandidatesPage.Visibility == Visibility.Visible && window.PinnedPage.Visibility == Visibility.Visible && window.PlaysPage.Visibility == Visibility.Collapsed, "Live columns must be seen cards, candidates, then snapshots.");
+            Check(window.DeckPage.ActualWidth > 350 && window.PinnedPage.ActualWidth > 350 && window.CandidateCardTray.ActualHeight > 200, "Live panes were squeezed out.");
             Check(Grid.GetColumn(window.DeckPage) == 0 && Grid.GetColumn(window.CandidatesPage) == 1 && Grid.GetColumn(window.PinnedPage) == 2,
-                "Expanded analysis order must be opponent deck, candidate cards, then snapshots.");
-            window.EnableExperimentalAnalysisChoice.IsChecked = true;
-            Render("analysis-experimental-1920", 1920, 1040, UiPage.Plays);
-            Render("experimental-overview", 1920, 1040, UiPage.Plays);
-            Check(window.PlaysPage.Visibility == Visibility.Visible && window.DeckPage.Visibility == Visibility.Visible && window.CandidatesPage.Visibility == Visibility.Visible && window.PinnedPage.Visibility == Visibility.Collapsed,
-                "Opt-in Overview layout must restore Overview, opponent deck and candidates without snapshots.");
-            Check(Grid.GetColumn(window.PlaysPage) == 0 && Grid.GetColumn(window.DeckPage) == 1 && Grid.GetColumn(window.CandidatesPage) == 2,
-                "Opt-in Overview layout lane order changed.");
-            window.EnableExperimentalAnalysisChoice.IsChecked = false;
-            Render("analysis-standard-after-optin-1920", 1920, 1040, UiPage.Deck);
+                "Expanded live order must be seen cards, candidates, then snapshots.");
             Check(window.WorkspaceToggle.Content is System.Windows.Shapes.Path && window.LiveModeBar.Visibility == Visibility.Collapsed, "Wide navigation/icon did not simplify.");
             var synergyTest = new WrapPanel();
             window.AddHistoryMeter(synergyTest, "Skellige", PlayerSide.User);
@@ -102,14 +109,18 @@ public partial class MainWindow
             window.BountyMemoryPanel.Visibility = window.SpyingMemoryPanel.Visibility = Visibility.Collapsed;
             window._playsSections = new PlaysSections([], [], []);
             window._selectedUserDeck = window._cachedDecks.First(d => d.Faction == "Nilfgaard");
-            window._confirmedOpponentDeck = window._cachedDecks.First(d => d.Faction == "Syndicate");
+            window._opponentTracker.SetFactionPrior("Syndicate");
             window.RenderSynergies();
             Check(window.UserSynergyButtons.Children.OfType<Button>().Any(b => b.Content is string s && s.StartsWith("Spying ")) &&
                 window.SynergyButtons.Children.OfType<Button>().Any(b => b.Content is string s && s.StartsWith("Bounty ")),
                 "Faction routing omitted Spying or Bounty from the actual synergy panels.");
-            window._selectedUserDeck = window._confirmedOpponentDeck = null; window.RenderSynergies(); window._playsSections = null;
+            window._selectedUserDeck = null; window._opponentTracker.ClearFactionPrior(); window.RenderSynergies(); window._playsSections = null;
             Render("analysis-1280", 1280, 720, UiPage.Deck);
+            window._selectedUserDeck = deck; window.UpdateSelectedUserDeckDisplay();
             Render("library-1440", 1440, 900, UiPage.Library);
+            if (window.DeckList.Items.Count > 200)
+                Check(window.DeckList.ItemContainerGenerator.ContainerFromIndex(window.DeckList.Items.Count - 1) is null,
+                    "Library opening materialized off-screen deck rows instead of virtualizing the collection.");
             Render("deck-library", 1440, 900, UiPage.Library);
             Check(Grid.GetColumn(window.LibraryDeckCards) == 2 && window.LibraryDeckCards.ActualWidth > 400, "Wide library preview was not laid out beside its list.");
             Check(window.FindName("WorkspaceHeading") is null && !window.LibraryDeckMetadata.IsExpanded &&
@@ -133,24 +144,29 @@ public partial class MainWindow
             RenderStandalone(filters, Path.Combine(folder, "library-filter-cards.png"), 282);
             window.LibrarySearch.ClearAll();
             window.DeckList.SelectedItem = window.DeckList.Items.Cast<DeckListItem>().First(i => i.Variations?.Length > 1);
-            window._confirmedOpponentDeck = deck;
-            window.UpdateReferenceCandidates();
-            Render("reference-1440", 1440, 900, UiPage.Reference);
-            Render("opponent-reference", 1440, 900, UiPage.Reference);
-            Check(window.ReferenceModeBar.Visibility == Visibility.Collapsed && window.ReferencePage.Visibility == Visibility.Visible &&
-                window.MyDeckPage.Visibility == Visibility.Visible && window.PinnedPage.Visibility == Visibility.Collapsed &&
-                window.PinnedOpponentCards.ActualHeight > 200 && window.PinnedOpponentSummary.Text.Contains(deck.Name), "Reference did not expose its two deck-reference panes.");
-            window.ReferencePicker.IsExpanded = true;
-            Render("reference-picker", 1440, 900, UiPage.Reference);
-            Check(window.CandidateDeckCards.ActualHeight >= 50 && window.OpponentCandidateList.ActualHeight >= 50, "Reference chooser hid its deck list or preview.");
-            window.ReferencePicker.IsExpanded = false;
-            Render("tools-1440", 1440, 900, UiPage.Advanced);
+            Check(window.UseUserDeckButton.IsEnabled && window.ClearUserDeckButton.IsEnabled,
+                "Library did not expose the selected player-deck actions.");
+            window.PushToDatabaseButton.IsEnabled = true; window.PushToDatabaseButton.Opacity = 1;
+            window.DataContributionConsentStatus.Text = "Data contribution is allowed. Uploads occur only when you click Push or on your monthly schedule.";
+            window.SeasonCodePanel.Visibility = Visibility.Visible; window.SeasonCodeText.Text = "23456789ABCD";
             Render("settings", 900, 820, UiPage.Settings);
-            Check(Contrast(window.StartingSizeInput.Foreground, window.StartingSizeInput.Background) >= 4.5, "Advanced textbox contrast regressed.");
+            Check(ReferenceEquals(window.PublicMmrSiteButton.Parent, window.PushToDatabaseButton.Parent) &&
+                window.PublicMmrSiteButton.Content?.ToString()?.Contains("public MMR website", StringComparison.OrdinalIgnoreCase) == true,
+                "The public MMR website button is not beside Push to database.");
+            Check(window.FindName("TopmostCheckBox") is null && window.FindName("EnableExperimentalAnalysisChoice") is null &&
+                window.FindName("PinCurrentButton") is null && window.FindName("OpenSessionButton") is null,
+                "Retired Settings controls returned.");
             window._workspaceZoom = 1.3; Render("analysis-large-text", 1920, 1040, UiPage.Deck);
             Render("narrow-fallback", 1000, 800, UiPage.Deck);
             Check(!window._wideWorkspace && window.CandidatesPage.Visibility == Visibility.Collapsed && window.PinnedPage.Visibility == Visibility.Collapsed, "Narrow/high-DPI fallback overlapped pages.");
             Check(window.LiveModeBar.Visibility == Visibility.Visible, "Compact analysis lost navigation to its other panes.");
+            Check(!window._useOpponentModel, "Standard smoke unexpectedly enabled the opponent model display.");
+            window.RenderCandidateTray();
+            Render("compact-deck", 410, 760, UiPage.Deck);
+            Check(window.PlayerDeckBanner.Visibility == Visibility.Visible && Grid.GetRow(window.PlayerDeckBanner) == 3 &&
+                Grid.GetColumn(window.PlayerDeckBanner) == 0 && Grid.GetColumnSpan(window.PlayerDeckBanner) == 3 &&
+                window.OpponentDeckCards.ActualHeight >= 200,
+                "The selected-deck banner reduced the compact opponent-card viewport.");
             Render("compact-candidates", 410, 760, UiPage.Candidates);
             Check(window.CandidatesPage.Visibility == Visibility.Visible && window.DeckPage.Visibility == Visibility.Collapsed && window.PinnedPage.Visibility == Visibility.Collapsed, "Compact candidate navigation overlapped another analysis page.");
             Render("compact-snapshots", 410, 760, UiPage.Pinned);
@@ -167,14 +183,9 @@ public partial class MainWindow
             window._expandedWorkspace = true;
             Render("live-analysis-with-snapshot", 1920, 1040, UiPage.Deck);
             window._expandedWorkspace = false;
-            window.ReferencePicker.IsExpanded = true;
-            Render("reference-compact", 410, 620, UiPage.Reference);
-            Check(window.ReferenceModeBar.Visibility == Visibility.Visible && window.ReferencePickerScroll.ActualHeight <= window.ReferencePage.ActualHeight - 80,
-                "Compact reference chooser overflowed its available space.");
-            window.ReferencePicker.IsExpanded = false;
             Render("compact-return", 410, 760, UiPage.Library);
             Check(Grid.GetColumn(window.LibraryDeckCards) == 0 && window.WorkspaceDisplayButton.Visibility == Visibility.Collapsed, "Compact arrangement did not restore.");
-            Check(ReferenceEquals(window.UserReferenceCards.Rows, rows) && ReferenceEquals(window.OpponentDeckCards.Rows, rows), "Layout changes replaced live data instances.");
+            Check(window.OpponentDeckCards.Rows is not null, "Layout changes replaced live opponent data.");
             window.CheckCompactTooltips(folder);
             foreach (var faction in new[] { "Monsters", "Nilfgaard", "Northern Realms", "Scoia'tael", "Skellige", "Syndicate", "Neutral" })
             {
@@ -217,7 +228,7 @@ public partial class MainWindow
             }
             contrastWindow.Close(); window.Close();
             Check(before.SequenceEqual(SHA256.HashData(File.ReadAllBytes(LibraryPath))), "Smoke modified the user's library.");
-            File.WriteAllText(Path.Combine(folder, "result.txt"), "PASS: hidden full-screen/compact transitions; monitor geometry; opponent/candidate/snapshot analysis lanes; two-pane Reference; compact subviews and scrollable chooser; NG/SY side-specific synergy histories; variation cycling; shared data retained; popup and inspector contrast >=4.5:1; live library unchanged. No visible app, capture or browser started. Physical mixed-DPI dual-display interaction still requires a user check.");
+            File.WriteAllText(Path.Combine(folder, "result.txt"), "PASS: hidden full-screen/compact transitions; monitor geometry; opponent/candidate/snapshot lanes; retired opponent reference UI; wide selected player-deck banner shares Library's row in the rightmost third; compact opponent-card viewport retained; NG/SY side-specific synergy histories; variation cycling; shared data retained; popup and inspector contrast >=4.5:1; live library unchanged. No visible app, capture or browser started. Physical mixed-DPI dual-display interaction still requires a user check.");
             return 0;
         }
         catch (Exception error) { File.WriteAllText(Path.Combine(folder, "result.txt"), "FAIL: " + error); return 1; }

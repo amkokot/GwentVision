@@ -1,0 +1,39 @@
+{
+  "SchemaVersion": 1,
+  "Id": "post-match-round-score-lightweight",
+  "Summary": "The lightweight post-game path must retain and confirm all three round-score rows without card-analysis overhead.",
+  "AddedIn": "v0.2.103",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity",
+      "left result header identity",
+      "right result header identity",
+      "left result identity",
+      "right result identity",
+      "result notification identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 598315,
+      "Sha256": "F7D4784A17920F41B1221948AC9179422C27EA4D41AE3B9DC5D1078944263577",
+      "Tags": [
+        "regression",
+        "post-match-round-score-lightweight"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 534276,
+      "Sha256": "A3AE29D57EF85B236B2058AD981EDDFB56E0AC2BD4CAEF22691E7572FFCDC467",
+      "Tags": [
+        "regression",
+        "post-match-round-score-lightweight"
+      ]
+    }
+  ]
+}

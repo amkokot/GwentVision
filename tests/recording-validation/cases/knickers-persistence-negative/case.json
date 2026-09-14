@@ -1,0 +1,34 @@
+{
+  "SchemaVersion": 1,
+  "Id": "knickers-persistence-negative",
+  "Summary": "Two stable opponent-board frames where a Half-Elf Hunter body was incorrectly promoted to Knickers by vague-text persistence without pile or title evidence.",
+  "AddedIn": "0.2.78",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 1991216,
+      "Sha256": "49BA71F88D1771FE366EC231DFC494DB0148F34B66232952865070054E009BF2",
+      "Tags": [
+        "regression",
+        "knickers-persistence-negative"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 2007312,
+      "Sha256": "13D4C29B2457CD27A45B55793F5D4D09E15CFEBF4814811541153471E5574ADD",
+      "Tags": [
+        "regression",
+        "knickers-persistence-negative"
+      ]
+    }
+  ]
+}

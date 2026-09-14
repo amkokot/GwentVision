@@ -23,7 +23,6 @@ public partial class MainWindow
             // Always capture NOW. Do not pin a stale analysis preview.
             var source = _frameCapture.Capture(window);
             _lastPreview = source; PreviewImage.Source = source; PreviewPlaceholder.Visibility = Visibility.Collapsed;
-            PinCurrentButton.IsEnabled = true;
             var path = SavePinned(source); RefreshPinnedCaptures(path);
             FooterStatusText.Text = "View pinned · open the pin icon to inspect or remove it.";
         }

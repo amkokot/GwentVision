@@ -8,6 +8,7 @@ public sealed class DeckProjectionEdits
 {
     public Dictionary<DeckCopyKey, CardDefinition> Included { get; } = [];
     public HashSet<DeckCopyKey> Excluded { get; } = [];
+    public HashSet<DeckCopyKey> CorrectedEvidence { get; } = [];
     public void Include(CardDefinition card, int copy)
     {
         // Choosing a second physical copy necessarily assumes the first, too.
@@ -22,12 +23,33 @@ public sealed class DeckProjectionEdits
         var key = new DeckCopyKey(card.Id, copy);
         Included.Remove(key); Excluded.Add(key);
     }
-    public void Clear() { Included.Clear(); Excluded.Clear(); }
+    public bool RejectEvidence(CardDefinition card, int observedCopies)
+    {
+        for (var copy = Math.Clamp(observedCopies, 1, card.IsGold ? 1 : 2); copy >= 1; copy--)
+        {
+            var key = new DeckCopyKey(card.Id, copy);
+            if (!CorrectedEvidence.Add(key)) continue;
+            Included.Remove(key); Excluded.Add(key); return true;
+        }
+        return false;
+    }
+    public bool RestoreEvidence(CardDefinition card, int copy)
+    {
+        var key = new DeckCopyKey(card.Id, copy);
+        if (!CorrectedEvidence.Remove(key)) return false;
+        Excluded.Remove(key); return true;
+    }
+    public ObservedCard[] ApplyEvidenceCorrections(IEnumerable<ObservedCard> observations) => observations
+        .Select(item => item with { ObservedCopies = Math.Max(0, item.ObservedCopies -
+            CorrectedEvidence.Count(key => key.CardId == item.Card.Id && key.Copy <= item.ObservedCopies)) })
+        .Where(item => item.ObservedCopies > 0).ToArray();
+    public void Clear() { Included.Clear(); Excluded.Clear(); CorrectedEvidence.Clear(); }
     public DeckProjectionEdits Snapshot()
     {
         var copy = new DeckProjectionEdits();
         foreach (var item in Included) copy.Included.Add(item.Key, item.Value);
         copy.Excluded.UnionWith(Excluded);
+        copy.CorrectedEvidence.UnionWith(CorrectedEvidence);
         return copy;
     }
 }
@@ -35,7 +57,7 @@ public sealed record ProjectedDeckSlot(int Position, CardDefinition? Card, int C
     double? ModelShare, CardMetaSignal? Meta, bool DeviatesFromPin, string Reason, DeckPackageHint? PackageHint = null);
 public sealed record OpponentDeckProjection(IReadOnlyList<ProjectedDeckSlot> Slots, DeckMetaReport Meta,
     int ObservedCopies, int UnknownSlots, int PinDeviations, double PinInfluence,
-    ConstraintAssessment Devotion, string DevotionAssumption, string Summary, IReadOnlyList<DeckPackageHint>? PackageHints = null,
+    ConstraintAssessment Devotion, ConstraintAssessment Renfri, string DevotionAssumption, string Summary, IReadOnlyList<DeckPackageHint>? PackageHints = null,
     string? SingletonPairHypothesis = null);
 
 public sealed class OpponentDeckProjector
@@ -51,18 +73,30 @@ public sealed class OpponentDeckProjector
         IReadOnlyList<OpponentSequenceEvidence>? sequenceEvidence = null)
     {
         var library = decks.ToArray();
-        var evidence = observations.Where(item => StartingDeckRules.CountsAgainstStartingDeck(item.Provenance) &&
-                item.Card.CanBeInStartingDeck && item.Card.Kind is CardKind.Unit or CardKind.Special or CardKind.Artifact)
+        var effectiveFaction = string.IsNullOrWhiteSpace(faction) ? pinned?.Faction : faction;
+        var corrected = edits?.ApplyEvidenceCorrections(observations) ?? observations.ToArray();
+        var evidence = corrected.Where(item => StartingDeckRules.CountsAgainstStartingDeck(item.Provenance) &&
+                StartingDeckRules.IsLegalStartingCard(item.Card, effectiveFaction))
             .GroupBy(item => item.Card.Id).Select(group => group.MaxBy(item => item.ObservedCopies)!).ToArray();
         var rules = constraints ?? StartingDeckRules.EvaluateObservedDeck(evidence);
-        var effectiveFaction = string.IsNullOrWhiteSpace(faction) ? pinned?.Faction : faction;
         var deviations = pinned is null ? 0 : evidence.Sum(item => Math.Max(0, item.ObservedCopies - pinned.CountOf(item.Card.Id)));
         var matched = pinned is null ? 0 : evidence.Sum(item => Math.Min(item.ObservedCopies, pinned.CountOf(item.Card.Id)) * Math.Clamp(item.Confidence, 0, 1));
-        var pinAllowed = pinned is not null && (string.IsNullOrWhiteSpace(faction) || pinned.Faction.Equals(faction, StringComparison.OrdinalIgnoreCase)) &&
+        var basePinAllowed = pinned is not null && (string.IsNullOrWhiteSpace(faction) || pinned.Faction.Equals(faction, StringComparison.OrdinalIgnoreCase)) &&
+                         pinned.Cards.All(item => StartingDeckRules.IsLegalStartingCard(item.Card, pinned.Faction)) &&
                          DeckMetaAnalyzer.Allowed(pinned, rules) && pinned.CardCount >= minimumSize &&
                          (string.IsNullOrWhiteSpace(startingLeader) || string.IsNullOrWhiteSpace(pinned.Leader) || pinned.Leader.Equals(startingLeader, StringComparison.OrdinalIgnoreCase));
+        var count = Math.Max(Math.Max(25, minimumSize), Math.Max(basePinAllowed ? pinned!.CardCount : 0, evidence.Sum(item => item.ObservedCopies)));
+        var originalNonUnits = evidence.Where(item => item.Card.Kind != CardKind.Unit).Sum(item => item.ObservedCopies);
+        // Unknown starting size must remain globally possible: a 26+ card list can
+        // legally contain 25 units and a special. The on-screen working projection,
+        // however, has an explicit slot count. Do not place or offer Renfri when the
+        // currently displayed slots cannot hold the 25 required units.
+        var projectionRules = count - originalNonUnits < 25 && rules.Renfri.State is not (ConstraintState.Likely or ConstraintState.Confirmed)
+            ? rules with { Renfri = new("Renfri", ConstraintState.RuledOut,
+                $"The current {count}-slot working projection already contains {originalNonUnits} observed original non-unit(s), leaving at most {count - originalNonUnits} unit slots; Renfri requires at least 25. A {25 + originalNonUnits}+ card starting deck remains theoretically possible until exact size is read.") }
+            : rules;
+        var pinAllowed = basePinAllowed && DeckMetaAnalyzer.Allowed(pinned!, projectionRules);
         var influence = pinAllowed ? ReferenceInfluence(matched, deviations) : 0;
-        var count = Math.Max(Math.Max(25, minimumSize), Math.Max(pinAllowed ? pinned!.CardCount : 0, evidence.Sum(item => item.ObservedCopies)));
         var rows = new List<ProjectedDeckSlot>();
         foreach (var item in evidence)
         for (var copy = 1; copy <= item.ObservedCopies; copy++)
@@ -74,8 +108,8 @@ public sealed class OpponentDeckProjector
         if (pinned is null && edits is not null)
         foreach (var (key, card) in edits.Included.OrderBy(item => item.Key.Copy))
         {
-            if (rows.Count >= count || !card.CanBeInStartingDeck || card.Kind is not (CardKind.Unit or CardKind.Special or CardKind.Artifact)) continue;
-            if (rules.Renfri.State == ConstraintState.RuledOut && card.Name == "Renfri") continue;
+            if (rows.Count >= count || !StartingDeckRules.IsLegalStartingCard(card, effectiveFaction)) continue;
+            if (projectionRules.Renfri.State == ConstraintState.RuledOut && card.Name == "Renfri") continue;
             if (rows.Any(row => row.Card!.Id == key.CardId && row.Copy == key.Copy)) continue;
             if (key.Copy > 1 && !rows.Any(row => row.Card!.Id == key.CardId && row.Copy == key.Copy - 1)) continue;
             rows.Add(new(0, card, key.Copy, DeckSlotState.Selected, null, null, false,
@@ -83,7 +117,7 @@ public sealed class OpponentDeckProjector
         }
         var assumptions = rows.Where(r => r.State == DeckSlotState.Selected).GroupBy(r => r.Card!.Id)
             .Select(g => new DeckCard(g.First().Card!, g.Max(r => r.Copy))).ToArray();
-        var meta = new DeckMetaAnalyzer().Analyze(library, evidence, effectiveFaction, rules, startingLeader, startingStratagemId,
+        var meta = new DeckMetaAnalyzer().Analyze(library, evidence, effectiveFaction, projectionRules, startingLeader, startingStratagemId,
             pinAllowed ? new(pinned!, influence) : null, encounters, assumptions,summonEvidence:summonEvidence,
             compositionClues:compositionClues, sequenceEvidence:sequenceEvidence);
         var weakFit = meta.ObservedIdentities > 0 && meta.BestObservedCoverage < .5;
@@ -94,12 +128,12 @@ public sealed class OpponentDeckProjector
         var definitions = (catalog ?? []).Concat(evidence.Select(item => item.Card)).Concat(assumptions.Select(item => item.Card))
             .Concat(meta.Cards.Select(item => item.Card)).DistinctBy(card => card.Id).ToArray();
         var packages = pinned is null ? DeckPackageHints.Build(library.Concat(encounters?.CompleteDecks ?? []), definitions,
-            evidence, assumptions, effectiveFaction, rules) : [];
+            evidence, assumptions, effectiveFaction, projectionRules) : [];
         var packageById = packages.ToDictionary(h => h.Card.Id);
         var candidates = meta.Cards.Select(item => item.Card).Concat(pinAllowed ? pinned!.Cards.Select(item => item.Card) : [])
             .Concat(packages.Where(h => h.AutoFill).Select(h => h.Card))
             .DistinctBy(card => card.Id)
-            .Where(card => string.IsNullOrWhiteSpace(effectiveFaction) || FactionCompatibility.IsPlayableBy(card, effectiveFaction))
+            .Where(card => StartingDeckRules.IsLegalStartingCard(card, effectiveFaction))
             .SelectMany(card => Enumerable.Range(1, card.IsGold ? 1 : 2).Select(copy =>
             {
                 var signal = signals.GetValueOrDefault(card.Id);
@@ -128,7 +162,7 @@ public sealed class OpponentDeckProjector
         var leader = definitions.FirstOrDefault(card => card.Kind == CardKind.Leader && card.Faction == effectiveFaction &&
             !string.IsNullOrWhiteSpace(startingLeader) && card.Name.Equals(startingLeader, StringComparison.OrdinalIgnoreCase));
         var capacity = pinAllowed ? 150 + pinned!.LeaderProvisionBonus : leader is { Provision: > 0 } ? 150 + leader.Provision : (int?)null;
-        var minimumProvision = rules.Musicians?.State is ConstraintState.Confirmed or ConstraintState.Likely ? 5 : 4;
+        var minimumProvision = projectionRules.Musicians?.State is ConstraintState.Confirmed or ConstraintState.Likely ? 5 : 4;
         var used = rows.Sum(row => row.Card!.Provision);
         var added = 0;
         var limit = weakFit && influence < .5 ? 8 : count;
@@ -142,10 +176,10 @@ public sealed class OpponentDeckProjector
             if (capacity is not null && used + row.Card!.Provision + minimumProvision * (count - rows.Count - 1) > capacity) continue;
             // Reapply hard constraints to every automatic row, independently of the cached
             // model and pin. Renfri may have non-units only in the slots above 25 units.
-            var withoutRenfri = rules.Renfri.State == ConstraintState.RuledOut ? rules :
-                rules with { Renfri = new("Renfri", ConstraintState.Unknown, "Handled by slot capacity") };
+            var withoutRenfri = projectionRules.Renfri.State == ConstraintState.RuledOut ? projectionRules :
+                projectionRules with { Renfri = new("Renfri", ConstraintState.Unknown, "Handled by slot capacity") };
             if (!DeckMetaAnalyzer.CardAllowed(row.Card!, row.Copy, withoutRenfri)) continue;
-            if (rules.Renfri.State is ConstraintState.Likely or ConstraintState.Confirmed &&
+            if (projectionRules.Renfri.State is ConstraintState.Likely or ConstraintState.Confirmed &&
                 rows.Count(r => r.Card!.Kind != CardKind.Unit) + (row.Card!.Kind == CardKind.Unit ? 0 : 1) > count - 25) continue;
             rows.Add(row); used += row.Card!.Provision; added++;
         }
@@ -156,13 +190,16 @@ public sealed class OpponentDeckProjector
             $"Pinned list: {(StartingDeckRules.EvaluateExactDeck(pinned).Devotion.State == ConstraintState.Confirmed ? "Devotion" : "non-Devotion")}; assumption only" +
             (deviations > 0 || !pinAllowed ? " — reference conflicts with evidence." : ".");
         return new(rows.Select((row, index) => row with { Position = index + 1 }).ToArray(), meta, evidence.Sum(item => item.ObservedCopies),
-            unknown, deviations, influence, rules.Devotion, assumption,
+            unknown, deviations, influence, projectionRules.Devotion, projectionRules.Renfri, assumption,
             $"{count} slots · {evidence.Sum(item => item.ObservedCopies)} observed · {rows.Count - unknown - evidence.Sum(item => item.ObservedCopies)} assumed · {unknown} unknown. " +
             "Provision order, not draw order. This is a working hypothesis, not a reconstructed legal deck." +
             " Unseen guesses start early and update automatically; significance is recommendation strength, not probability." +
             (weakFit ? $" Weak cache fit: at best {meta.BestMatchedIdentities}/{meta.ObservedIdentities} identities matched; tentative fill limited to 8 unless strongly pinned." : "") +
+            (projectionRules.Renfri.State == ConstraintState.RuledOut && rules.Renfri.State != ConstraintState.RuledOut
+                ? " Renfri is excluded from this working projection; a larger starting deck remains possible."
+                : "") +
             (pinned is null ? " Decks larger than 25 remain possible." : $" Pin influence {influence:P0}; {deviations} missing observed copy/copies."), packages,
-            SingletonPairHint.Build(library,evidence,rules,edits));
+            SingletonPairHint.Build(library,evidence,projectionRules,edits));
     }
 
     // Positive overlap protects a plausible variant. At 3 discrepancies, 0 matches gives

@@ -7,6 +7,8 @@ namespace GwentCompanion.App;
 
 public partial class MainWindow
 {
+    private DeckEditorDraft[]? _savedDeckDrafts;
+
     private void ShowObservedDecks_OnChanged(object sender, System.Windows.RoutedEventArgs e)
     {
         ApplyDeckFilter();
@@ -17,7 +19,7 @@ public partial class MainWindow
 
     private IEnumerable<DeckListItem> SavedObservedDraftItems()
     {
-        try { return DeckEditorDraftStore.Load(ObservedDraftPath).Select(DraftListItem).ToArray(); }
+        try { return (_savedDeckDrafts ??= DeckEditorDraftStore.Load(ObservedDraftPath).ToArray()).Select(DraftListItem).ToArray(); }
         catch (Exception error) { LibraryActionStatus("Saved drafts unavailable; their cache was preserved: " + error.Message); return []; }
     }
     private DeckListItem DraftListItem(DeckEditorDraft draft)
@@ -35,6 +37,8 @@ public partial class MainWindow
     {
         if (BuilderBlockReason() is { } reason) throw new InvalidOperationException(reason);
         DeckEditorDraftStore.Save(ObservedDraftPath, draft);
+        _savedDeckDrafts = (_savedDeckDrafts ?? []).Where(item => item.SourceKey != draft.SourceKey)
+            .Append(draft).OrderByDescending(item => item.UpdatedAt).ToArray();
         RefreshDeckList(); // Do not merge incomplete/proposed cards into the inference corpus or raw journal.
         DeckList.SelectedItem = DeckList.Items.Cast<DeckListItem>().FirstOrDefault(i => i.SavedDraft?.SourceKey == draft.SourceKey);
         LibraryActionStatus("Saved draft · " + draft.Name + ". Original match observations unchanged.");
@@ -44,7 +48,7 @@ public partial class MainWindow
         _candidateCatalog ??= GwentOneCardCatalog.Load(Path.Combine(FindDataRoot(), "cache/gwent-one-cards.json"));
         var key = item.DraftSourceKey ?? (item.MemoryId is { } memory ? "learned:" + memory : null)
             ?? throw new InvalidOperationException("This observation has no stable draft source.");
-        var saved = item.SavedDraft ?? DeckEditorDraftStore.Load(ObservedDraftPath).FirstOrDefault(d => d.SourceKey == key);
+        var saved = item.SavedDraft ?? (_savedDeckDrafts ??= DeckEditorDraftStore.Load(ObservedDraftPath).ToArray()).FirstOrDefault(d => d.SourceKey == key);
         var faction = saved is not null ? saved.Faction : item.FilterFaction;
         var leader = _candidateCatalog.FirstOrDefault(c => c.Kind == CardKind.Leader &&
             (saved is not null ? c.Id == saved.LeaderId : c.Name == item.FilterLeader) && (faction is null || c.Faction == faction));

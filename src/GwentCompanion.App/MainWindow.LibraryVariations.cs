@@ -15,12 +15,15 @@ public partial class MainWindow
     private DeckListItem[] GroupLibraryItems(DeckListItem[] matches)
     {
         var groups = _library.VariationGroups.ToDictionary(g => g.Id);
-        var membership = _library.VariationGroups.SelectMany(g => _library.GroupVariants(g).Select(r => (r.Deck.Id, Group: g.Id)))
+        var records = _library.Records.ToDictionary(record => record.Fingerprint, StringComparer.Ordinal);
+        var membership = _library.VariationGroups.SelectMany(group => group.Members
+                .Where(records.ContainsKey).Select(fingerprint => (records[fingerprint].Deck.Id, Group: group.Id)))
             .ToDictionary(p => p.Id, p => p.Group, StringComparer.Ordinal);
-        return matches.GroupBy(item => item.Deck is { } deck && membership.TryGetValue(deck.Id, out var id) ? id :
-            "ungrouped-" + Array.IndexOf(matches, item)).Select(bucket =>
+        return matches.Select((item, index) => (Item: item, Index: index))
+            .GroupBy(pair => pair.Item.Deck is { } deck && membership.TryGetValue(deck.Id, out var id) ? id :
+                "ungrouped-" + pair.Index).Select(bucket =>
         {
-            var variants = bucket.ToArray();
+            var variants = bucket.Select(pair => pair.Item).ToArray();
             if (!groups.TryGetValue(bucket.Key, out var group)) return variants[0];
             var active = variants.FirstOrDefault(v => v.Deck?.Id == _variationSelection.GetValueOrDefault(group.Id)) ?? variants[0];
             _variationSelection[group.Id] = active.Deck!.Id;

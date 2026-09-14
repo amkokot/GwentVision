@@ -16,7 +16,11 @@ public partial class MainWindow
             window._library = DeckLibrary.Load(LibraryPath); window._cachedDecks = window._library.Decks;
             window._candidateCatalog = GwentOneCardCatalog.Load(Path.Combine(FindGameRoot(), "GwentCompanion/cache/gwent-one-cards.json"));
             window._library.EnsureVariationGroups(window._candidateCatalog);
-            window.ShowPage(UiPage.Library); window.SetDeckListItems(window.CreateDeckItems(window._cachedDecks));
+            window.ShowPage(UiPage.Library);
+            var displayClock = System.Diagnostics.Stopwatch.StartNew();
+            window.SetDeckListItems(window.CreateDeckItems(window._cachedDecks));
+            displayClock.Stop();
+            if (displayClock.Elapsed >= TimeSpan.FromSeconds(2)) throw new InvalidOperationException("Full library display preparation is too slow: " + displayClock.Elapsed);
             var group = window._library.VariationGroups.Where(g => g.Members.Length >= 3 && !g.Name.All(c => char.IsAsciiHexDigit(c)))
                 .OrderByDescending(g => g.Members.Length).First();
             var heading = window.DeckList.Items.Cast<DeckListItem>().Single(i => i.GroupId == group.Id);
@@ -61,7 +65,7 @@ public partial class MainWindow
             var rows = window.DeckList.Items.Cast<DeckListItem>().ToArray();
             if (!rows.Any(r => r.Variations?.Any(v => v.Deck?.Id == chosen.Id) == true)) throw new InvalidOperationException("Search hid a matching variation.");
             window.Close();
-            File.WriteAllText(Path.Combine(folder, "result.txt"), $"PASS: {window._cachedDecks.Length} lists grouped under {window._library.VariationGroups.Count} headings; next/previous switch exact lists, previews and export markers; search preserves matching variants; full/compact UI rendered. Startup/capture/network disabled; live library unchanged.");
+            File.WriteAllText(Path.Combine(folder, "result.txt"), $"PASS: {window._cachedDecks.Length} lists grouped under {window._library.VariationGroups.Count} headings in {displayClock.ElapsedMilliseconds}ms; next/previous switch exact lists, previews and export markers; search preserves matching variants; full/compact UI rendered. Startup/capture/network disabled; live library unchanged.");
             return 0;
         }
         catch (Exception error) { File.WriteAllText(Path.Combine(folder, "result.txt"), "FAIL: " + error); return 1; }

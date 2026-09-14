@@ -1,0 +1,43 @@
+{
+  "SchemaVersion": 1,
+  "Id": "off-the-books-leader",
+  "Summary": "The persistent opponent plaque must identify Off the Books from repeated sparse fixed-HUD emblems.",
+  "AddedIn": "0.2.67",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 1849906,
+      "Sha256": "4335F9504149E6F157DF3797006B47D51C56A8A59811CC5EC176D888FF424B8C",
+      "Tags": [
+        "regression",
+        "off-the-books-leader"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 1860577,
+      "Sha256": "3AE32F4B0CEFB0FB1E8117E5DF792B7FAD9672317C32FC201F86CDE1685AF7FC",
+      "Tags": [
+        "regression",
+        "off-the-books-leader"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 1846602,
+      "Sha256": "EB002BB3955FDC264736FCC80AADDC335440CDA537A10C60203451E099358141",
+      "Tags": [
+        "regression",
+        "off-the-books-leader"
+      ]
+    }
+  ]
+}

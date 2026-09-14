@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Interop;
+using GwentCompanion.Platform.Windows.Capture;
 using GwentCompanion.Platform.Windows.Windows;
 using GwentCompanion.Core.Vision;
 using GwentCompanion.Platform.Windows.Vision;
@@ -15,20 +16,9 @@ public partial class MainWindow
     private readonly bool _analysisControlTest = Environment.GetCommandLineArgs().Contains("--analysis-control-test");
     private bool _testFailureInjected;
     private readonly PostMatchAutoStopGate _mmrStopGate = new();
+    private readonly MatchCaptureLifecycle _matchLifecycle = new();
+    private bool _waitingOnMenu, _closedAtNextGame;
     private Task? _autoStopTask;
-
-    private void ExperimentalAnalysis_OnChanged(object sender, RoutedEventArgs e)
-    {
-        if (_libraryReady && !_restoringReviewPreference) SaveUserSettings();
-        if (!ExperimentalOverviewEnabled && _page == UiPage.Plays) ShowPage(UiPage.Deck);
-        else UpdateWorkspaceLayout();
-        if (ExperimentalOverviewEnabled)
-        {
-            ShowAnalysisStatus("Experimental Overview layout enabled. Live analysis behavior is unchanged.");
-        }
-        else
-            ShowAnalysisStatus("Standard Live layout: opponent deck, candidate cards, and snapshots.");
-    }
 
     private void AutoStopOnMmr_OnChanged(object sender, RoutedEventArgs e)
     { if (_libraryReady && !_restoringReviewPreference) SaveUserSettings(); }
@@ -44,7 +34,9 @@ public partial class MainWindow
     private async Task AutoStopAtMmrAsync()
     {
         _analysisTransition = true; RefreshAnalysisButton();
-        try { await StopAnalysisCoreAsync("Analysis stopped automatically after confirmed rating result · evidence retained."); }
+        try { await StopAnalysisCoreAsync(_closedAtNextGame
+            ? "Tracking stopped as the next game began · best available rating and previous match saved."
+            : "Tracking stopped automatically after confirmed rating result · evidence retained."); }
         catch (Exception error) { ShowAnalysisFailure("Automatic stop needs attention; use Stop to retry.", error); }
         finally
         {
@@ -64,11 +56,12 @@ public partial class MainWindow
         await StopVisionAsync(); // Drain retained text/artwork before persisting the final state.
         if (_autoEncounterSave is { } save) await save;
         PersistCurrentMatch(); RefreshDeckList();
+        if (_projectionQueue is not null) await _projectionQueue.Idle;
+        await FlushMatchAcquisitionAsync();
         // The last preview can arrive only a few seconds before Stop. Its journal
         // update is already drained above; also wait for the coalesced ledger writer
         // so the saved provision floor cannot trail the final event stream.
         if (_valueWriter is not null) await _valueWriter.Idle;
-        OpenSessionButton.IsEnabled = _diagnosticSession?.CurrentSessionDirectory is not null;
         ShowAnalysisStatus(status);
         MemoryStatusText.Text = _autoEncounterError is { } error ? "Encounter auto-save needs attention: " + error + ". Observation snapshot retained." :
             _observedPostMatchMmr?.RatingAfter is null && _observedPostMatchRank is null
@@ -78,13 +71,15 @@ public partial class MainWindow
 
     private async Task InitializeAnalysisAsync()
     {
+        var identity = InitializeMatchIdentityAsync();
         SetLoadingStage("Indexing the deck library…");
         ShowAnalysisStatus("Loading deck library… You can click Play to start when ready.");
         await LoadDeckIndexesAsync(loadVision: false);
+        await identity;
         if (_windowClosing) return;
         SetLoadingStage("Finishing startup…");
         if (!_windowClosing && !_analysisTransition)
-            ShowAnalysisStatus("Ready · click Play to load recognition and start analysis.");
+            ShowAnalysisStatus("Ready · click Play to start analysis.");
     }
 
     private void SetLoadingStage(string message)
@@ -99,14 +94,58 @@ public partial class MainWindow
 
     private Task EnsureVisionReadyAsync() => _visionPipeline is not null ? Task.CompletedTask : ReloadVisionAsync();
 
+    private async void BeginVisionWarmup()
+    {
+        // Capture and analysis remain inactive until Play; only immutable local
+        // references are prepared here.
+        var failOnceTest = _analysisControlTest && Environment.GetCommandLineArgs().Contains("--analysis-fail-once");
+        if (failOnceTest || _reviewEvidencePath is not null && !_analysisControlTest || !_libraryReady || _windowClosing) return;
+        if (_visionPipeline is not null || _visionLoadTask is { IsCompleted: false }) return;
+        // Let the first visible interaction win the CPU/disk budget. If the user
+        // opens Library or an editor immediately, leaving that surface schedules
+        // another idle warm-up; Play can always request recognition directly.
+        await Task.Delay(TimeSpan.FromSeconds(3));
+        if (_windowClosing || _page == UiPage.Library || _libraryWindow is not null ||
+            _builderWindow is not null || _libraryTransferBusy) return;
+        if (_visionPipeline is not null || _visionLoadTask is { IsCompleted: false }) return;
+        BeginOcrWarmup();
+        try { await ReloadVisionAsync(announce: false); }
+        catch (Exception error) { _visionError = error.Message; } // Play retries and reports a foreground error.
+    }
+
     private void RecordingChoice_OnChanged(object sender, RoutedEventArgs e)
     {
         if (_diagnosticSession is not null) _diagnosticSession.RetainTrainingFrames = RecordTrainingChoice.IsChecked == true;
         if (_libraryReady && !_restoringReviewPreference) SaveUserSettings();
         if (_diagnosticSession?.IsRunning == true)
             ShowAnalysisStatus(RecordTrainingChoice.IsChecked == true
-                ? "Analyzing · training recording on."
+                ? $"Analyzing · training recording on at {SelectedRecordingFrameRate} FPS."
                 : "Analyzing · training recording off; compact match evidence only.");
+    }
+
+    private int SelectedRecordingFrameRate => RecordingFrameRateChoice?.SelectedItem is System.Windows.Controls.ComboBoxItem item &&
+        int.TryParse(item.Tag?.ToString(), out var framesPerSecond)
+            ? TrainingRecordingFrameRate.Normalize(framesPerSecond)
+            : TrainingRecordingFrameRate.Recommended;
+
+    private void SelectRecordingFrameRate(int framesPerSecond)
+    {
+        var normalized = TrainingRecordingFrameRate.Normalize(framesPerSecond);
+        foreach (var option in RecordingFrameRateChoice.Items.OfType<System.Windows.Controls.ComboBoxItem>())
+            if (option.Tag?.ToString() == normalized.ToString())
+            {
+                RecordingFrameRateChoice.SelectedItem = option;
+                return;
+            }
+        RecordingFrameRateChoice.SelectedIndex = 1;
+    }
+
+    private void RecordingFrameRate_OnChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (_diagnosticSession is not null) _diagnosticSession.RetainedFramesPerSecond = SelectedRecordingFrameRate;
+        if (_libraryReady && !_restoringReviewPreference) SaveUserSettings();
+        if (_diagnosticSession?.IsRunning == true && _diagnosticSession.RetainTrainingFrames)
+            ShowAnalysisStatus($"Analyzing · training recording on at {SelectedRecordingFrameRate} FPS.");
     }
 
     private void ShowAnalysisStatus(string message)
@@ -141,7 +180,7 @@ public partial class MainWindow
             (_reviewEvidencePath is null || _analysisControlTest);
         if (_analysisTransition)
         {
-            AutomationProperties.SetName(DiagnosticButton, "Preparing or stopping analysis");
+            AutomationProperties.SetName(DiagnosticButton, "Preparing or stopping tracking");
             DiagnosticButton.ToolTip = "Please wait for the current start/stop operation.";
         }
         else

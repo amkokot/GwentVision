@@ -26,12 +26,13 @@ public partial class DeckBuilderWindow
     private sealed record DraftSnapshot(string Name, string? Faction, CardDefinition? Leader, CardDefinition? Stratagem,
         DeckCard[] Fixed, DeckCopyKey[] Excluded, bool AutoFill, DeckDetails? Details, DeckDefinition? Baseline, string? ObservedSourceKey);
 
-    private void ConfigureCollectionFilters()
+    private void ConfigureCollectionFilters(CardBalanceChanges? balanceChanges)
     {
         CardKindFilter.ItemsSource = new[] { "All types", "Units", "Specials", "Artifacts" };
         CardRarityFilter.ItemsSource = new[] { "Gold + bronze", "Gold", "Bronze" };
         CardSortChoice.ItemsSource = new[] { "Provisions ↓", "Name A–Z", "Power ↓", "Recommended" };
-        try { _balanceChanges = CardBalanceChanges.Load(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(_path)!, "gwent-one-cards.json")); }
+        if (balanceChanges is not null) _balanceChanges = balanceChanges;
+        else try { _balanceChanges = CardBalanceChanges.Load(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(_path)!, "gwent-one-cards.json")); }
         catch (Exception) { _balanceChanges = CardBalanceChanges.Empty; }
         _changedCards = _balanceChanges.Cards.ToDictionary(c => c.CardId);
         CardUpdateFilter.ItemsSource = new[] { "All updates", "Changed cards", "Stat buffs", "Stat nerfs", "New / mixed / reworked" };

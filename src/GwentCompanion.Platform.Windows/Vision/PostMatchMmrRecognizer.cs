@@ -15,17 +15,50 @@ public sealed class PostMatchMmrRecognizer
     private int _rankVotes;
     private int? _rankNumberCandidate;
     private int _rankNumberVotes;
+    private DateTimeOffset _lastMainMenuVote;
+    private int _mainMenuVotes;
 
     public static bool IsResultHeader(string? header) => PostMatchMmr.IsResultHeader(header);
 
     public async Task<GwentVisualObservation> ReadAsync(PixelFrame frame, GwentVisualObservation screen, DateTimeOffset at, ScreenStateRecognizer reader)
     {
-        if (!IsResultHeader(screen.ScreenHeader)) { ClearCandidates(); return screen; }
+        if (!IsResultHeader(screen.ScreenHeader))
+        {
+            if (screen.MatchHudVisible != false) { ClearCandidates(); return screen; }
+            // The progression animation can be skipped before its first retained
+            // sample. Standard Mode exposes the same current/season-peak pair in a
+            // fixed central panel and is also a reliable end-of-match exit cue.
+            if (at - _lastRead < TimeSpan.FromMilliseconds(200)) return screen;
+            _lastRead = at;
+            var labelLines = await reader.ReadLinesAsync(frame, new(.35, .29, .72, .43),
+                scale: 2, enhance: false, whiteLetterMask: true, smooth: true).ConfigureAwait(false);
+            var label = string.Join('\n', labelLines.Select(line => line.Text));
+            if (!IsStandardModeMenu(label)) { ClearCandidates(); return screen; }
+            var numbers = await reader.ReadLinesAsync(frame, new(.44, .49, .67, .55),
+                scale: 3, enhance: false, whiteLetterMask: true, smooth: true).ConfigureAwait(false);
+            var menuCandidate = ParseMainMenu(label, numbers);
+            if (menuCandidate is null)
+            {
+                var current = HudDigitReader.ReadDefault(frame, new(.455, .495, .505, .55));
+                var peak = HudDigitReader.ReadDefault(frame, new(.515, .495, .565, .55));
+                if (current is >= 0 and <= 10000 && peak is >= 0 and <= 10000 && current <= peak)
+                    menuCandidate = new(current, null, true, "Standard Mode summary (current / season peak)", peak);
+            }
+            var exitCue = ConfirmMainMenu(at);
+            var menuReading = Confirm(menuCandidate, at, 200);
+            _rankCandidate = null; _rankVotes = 0; _rankNumberCandidate = null; _rankNumberVotes = 0;
+            return screen with { IsCardSelectionOverlay = true, CardSelectionConfidence = 1,
+                ScreenHeader = "STANDARD MODE", PostMatchMmr = menuReading, PostMatchRank = null,
+                PostMatchExitCue = exitCue, PostMatchMmrCandidate = menuCandidate is null ? null :
+                    menuCandidate with { Confirmed = false, ReadCount = _votes } };
+        }
+        _mainMenuVotes = 0; _lastMainMenuVote = default;
         screen = screen with { IsCardSelectionOverlay = true, CardSelectionConfidence = 1 };
-        // Standard-rank progression can remain fully readable for less than two
-        // seconds. A 600 ms result-only cadence admits two independent reads of
-        // that panel while the stronger three-vote rule below still protects MMR.
-        if (at - _lastRead < TimeSpan.FromMilliseconds(600)) return screen;
+        // Result/progression panels are sometimes skipped in under a second. The
+        // post-game pipeline is numeric-only, so sample it at 200 ms and retain
+        // the three-independent-read requirement for MMR. Rank still uses its
+        // separate 600 ms confirmation gate below.
+        if (at - _lastRead < TimeSpan.FromMilliseconds(200)) return screen;
         _lastRead = at;
         // User/central result panel only. Never read the right-hand opponent profile as ours.
         var lines = await reader.ReadLinesAsync(frame, new(.02, .12, .75, .94), scale: 2).ConfigureAwait(false);
@@ -48,15 +81,16 @@ public sealed class PostMatchMmrRecognizer
                     var glyphCandidate = glyph is >= 0 and <= 30 ? new PostMatchRank(glyph.Value, "Ranked ladder shield glyph") : null;
                     rankCandidate = rankCandidate is not null && glyphCandidate is not null && rankCandidate.Rank != glyphCandidate.Rank
                         ? null : rankCandidate ?? glyphCandidate;
-                    // The exact result header and fixed RANKED label establish the
-                    // screen even when this rank's stylized shield digit is unread.
-                    rankCandidate ??= new(null, "Ranked ladder result screen");
+                    // RANKED labels both layouts. A missing diamond reading does
+                    // not prove this is a ladder shield: fabricating a rank result
+                    // here caused auto-stop before the faction rating was acquired.
                 }
             }
         }
-        var reading = Confirm(candidate, at);
+        var reading = Confirm(candidate, at, 200);
         var rankReading = ConfirmRank(rankCandidate, at);
-        return screen with { PostMatchMmr = reading, PostMatchRank = rankReading };
+        return screen with { PostMatchMmr = reading, PostMatchRank = rankReading,
+            PostMatchMmrCandidate = candidate is null ? null : candidate with { Confirmed = false, ReadCount = _votes } };
     }
 
     public static PostMatchRank? ParseRankPanel(string? header, string label, IReadOnlyList<VisibleTextLine> numbers)
@@ -82,12 +116,42 @@ public sealed class PostMatchMmrRecognizer
         return new(current, null, true, "Ranked faction diamond (lower current / upper season peak)", peak);
     }
 
-    public PostMatchMmr? Confirm(PostMatchMmr? candidate, DateTimeOffset at)
+    public static bool IsStandardModeMenu(string text)
     {
-        if (at <= _lastVote || at - _lastVote < TimeSpan.FromMilliseconds(750)) return null;
+        var compact = string.Concat(text.Where(char.IsLetter)).ToUpperInvariant();
+        return compact.Contains("STANDARDMODE", StringComparison.Ordinal) &&
+            compact.Contains("SEASON", StringComparison.Ordinal);
+    }
+
+    public static PostMatchMmr? ParseMainMenu(string label, IReadOnlyList<VisibleTextLine> numbers)
+    {
+        if (!IsStandardModeMenu(label)) return null;
+        var values = numbers.OrderBy(line => line.Region.Left).SelectMany(line =>
+                Regex.Matches(line.Text, @"(?<![0-9])[0-9]{3,4}(?![0-9])").Cast<Match>()
+                    .Select(match => (Value: int.Parse(match.Value), line.Region)))
+            .Where(item => item.Value is >= 0 and <= 10000).ToArray();
+        if (values.Length < 2) return null;
+        // The panel can show current MMR, season peak, and a rightmost leaderboard
+        // position. With all three present the first pair is unambiguous. When OCR
+        // sees only two, reject a right-lane second value instead of caching rank
+        // position as season peak (2393 / 3209 in the retained September panel).
+        var peak = values[1];
+        if (values.Length == 2 && peak.Region.Right > .59) return null;
+        if (values[0].Value > peak.Value) return null;
+        return new(values[0].Value, null, true, "Standard Mode summary (current / season peak)", peak.Value);
+    }
+
+    public PostMatchMmr? Confirm(PostMatchMmr? candidate, DateTimeOffset at, int intervalMs = 600)
+    {
+        // Match the OCR cadence; a longer vote interval silently discards every
+        // second read and can miss a short progression panel entirely.
+        if (at <= _lastVote || at - _lastVote < TimeSpan.FromMilliseconds(intervalMs)) return null;
         if (at - _lastVote > TimeSpan.FromSeconds(4)) { _candidate = null; _votes = 0; }
         _lastVote = at;
-        _votes = candidate is not null && candidate == _candidate ? _votes + 1 : candidate is null ? 0 : 1;
+        _votes = candidate is not null && _candidate is not null &&
+            candidate.RatingAfter == _candidate.RatingAfter && candidate.Change == _candidate.Change &&
+            candidate.IsFactionRating == _candidate.IsFactionRating && candidate.SeasonPeak == _candidate.SeasonPeak
+            ? _votes + 1 : candidate is null ? 0 : 1;
         _candidate = candidate;
         return _votes >= 3 ? candidate : null;
     }
@@ -110,9 +174,17 @@ public sealed class PostMatchMmrRecognizer
         // 1.4 seconds. Two 600-ms-spaced reads fit that animation while the
         // exact VICTORY/DEFEAT header plus fixed RANKED label keep the screen
         // gate substantially stronger than an ordinary OCR number match.
-        return _rankVotes >= 2 && candidate is not null
-            ? candidate with { Rank = _rankNumberVotes >= 2 ? _rankNumberCandidate : null }
+        return _rankVotes >= 2 && candidate?.Rank is not null && _rankNumberVotes >= 2
+            ? candidate with { Rank = _rankNumberCandidate }
             : null;
+    }
+
+    private bool ConfirmMainMenu(DateTimeOffset at)
+    {
+        if (at <= _lastMainMenuVote || at - _lastMainMenuVote < TimeSpan.FromMilliseconds(200)) return false;
+        _mainMenuVotes = at - _lastMainMenuVote <= TimeSpan.FromSeconds(4) ? _mainMenuVotes + 1 : 1;
+        _lastMainMenuVote = at;
+        return _mainMenuVotes >= 3;
     }
 
     public static PostMatchMmr? Parse(string? header, IReadOnlyList<VisibleTextLine> lines)
@@ -156,6 +228,7 @@ public sealed class PostMatchMmrRecognizer
     private void ClearCandidates()
     {
         _candidate = null; _votes = 0; _rankCandidate = null; _rankVotes = 0; _rankNumberCandidate = null; _rankNumberVotes = 0;
+        _mainMenuVotes = 0; _lastMainMenuVote = default;
     }
 
     public void Reset()

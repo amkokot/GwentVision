@@ -5,7 +5,8 @@ using GwentCompanion.Core.Inference;
 
 namespace GwentCompanion.Platform.Windows.Vision;
 
-public sealed record VisionInput<T>(PixelFrame Frame, DateTimeOffset SampledAt, double Priority, T Context, bool PointerInPlayerHand = false);
+public sealed record VisionInput<T>(PixelFrame Frame, DateTimeOffset SampledAt, double Priority, T Context,
+    bool PointerInPlayerHand = false, bool ResultsOnly = false);
 public sealed record VisionOutput<T>(CardVisionResult Result, T Context);
 
 /// <summary>
@@ -38,8 +39,10 @@ public sealed class StreamingVisionProcessor<T>(ICardVisionPipeline pipeline, in
         var producer = Task.Run(async () =>
         {
             DateTimeOffset? last = null;
+            DateTimeOffset? thinningPriorityStartedAt = null;
             DateTimeOffset? thinningPriorityUntil = null;
-            int? userScore = null, opponentScore = null, userHand = null, opponentHand = null;
+            int? userScore = null, opponentScore = null, userHand = null, opponentHand = null,
+                userDeck = null, opponentDeck = null;
             try
             {
                 await foreach (var sample in input.WithCancellation(stop.Token).ConfigureAwait(false))
@@ -52,7 +55,9 @@ public sealed class StreamingVisionProcessor<T>(ICardVisionPipeline pipeline, in
                     try
                     {
                         using var recognition = WorkPriority?.EnterRecognition();
-                        var analyzed = await pipeline.PrepareAsync(sample.Frame, sample.SampledAt).ConfigureAwait(false);
+                        var analyzed = await (sample.ResultsOnly
+                            ? pipeline.PrepareResultsAsync(sample.Frame, sample.SampledAt)
+                            : pipeline.PrepareAsync(sample.Frame, sample.SampledAt)).ConfigureAwait(false);
                         // Live capture has the actual OS pointer position. Preserve it
                         // separately and make it authoritative for zone-sensitive
                         // bookkeeping: lower-board tooltips occupy the same visual band
@@ -70,22 +75,35 @@ public sealed class StreamingVisionProcessor<T>(ICardVisionPipeline pipeline, in
                     var screen = prepared.Screen;
                     if (prepared.Titles.Any(item => item.Source == CardSightSource.PlayPreview &&
                         CompanionCardRules.ThinningPairs.Contains(item.Card.Id)))
-                        thinningPriorityUntil = sample.SampledAt.AddSeconds(7);
+                    {
+                        // Preserve one episode start instead of sliding the whole
+                        // window while the same enlarged preview remains visible.
+                        // The most informative samples are the clean, settled-board
+                        // frames a few seconds after that first exact title.
+                        if (thinningPriorityUntil is null || sample.SampledAt > thinningPriorityUntil)
+                            thinningPriorityStartedAt = sample.SampledAt;
+                        thinningPriorityUntil = thinningPriorityStartedAt?.AddSeconds(15);
+                    }
                     var opponentPlayed = screen.OpponentHandCount is {} enemyHand && opponentHand is {} oldEnemyHand && enemyHand < oldEnemyHand ||
                         prepared.Titles.Any(sight => sight.Side == GwentCompanion.Core.Domain.PlayerSide.Opponent && sight.Source == CardSightSource.PlayPreview);
                     var userPlayed = screen.UserHandCount is {} hand && userHand is {} oldHand && hand < oldHand;
+                    var deckDeparted = SmallDeckDeparture(userDeck, screen.UserDeckCount) ||
+                        SmallDeckDeparture(opponentDeck, screen.OpponentDeckCount);
                     var hudChanged = userPlayed ||
                         screen.UserScore is {} own && userScore is {} oldOwn && own != oldOwn ||
                         screen.OpponentScore is {} other && opponentScore is {} oldOther && other != oldOther;
                     userScore = screen.UserScore ?? userScore; opponentScore = screen.OpponentScore ?? opponentScore;
                     userHand = screen.UserHandCount ?? userHand;
                     opponentHand = screen.OpponentHandCount ?? opponentHand;
-                    if (opponentPlayed || hudChanged || prepared.NeedsArtwork || prepared.Titles.Any(s => s.Source == CardSightSource.PlayPreview))
+                    userDeck = screen.UserDeckCount ?? userDeck;
+                    opponentDeck = screen.OpponentDeckCount ?? opponentDeck;
+                    if (opponentPlayed || hudChanged || deckDeparted || prepared.NeedsArtwork || prepared.Titles.Any(s => s.Source == CardSightSource.PlayPreview))
                         WorkPriority?.SignalAction();
                     // Snapshot the latest confirmed HUD for scheduling only. Most HUD
                     // readings occur on text-only frames, which the art worker can skip.
                     // Do not copy these cached values into Screen as fresh measurements.
-                    var item = new PreparedInput(prepared, sample.Context, userScore, opponentScore, userHand, opponentHand);
+                    var item = new PreparedInput(prepared, sample.Context, userScore, opponentScore, userHand, opponentHand,
+                        userDeck, opponentDeck, deckDeparted);
                     try { OnPreparedText?.Invoke(prepared.TextResult, sample.Context); }
                     catch (Exception exception) when (exception is not OperationCanceledException)
                     { Interlocked.Increment(ref _errors); OnError?.Invoke(exception); }
@@ -94,11 +112,14 @@ public sealed class StreamingVisionProcessor<T>(ICardVisionPipeline pipeline, in
                     MaximumPendingFrames = Math.Max(MaximumPendingFrames, pending.Count);
                     // A framed, white-letter header that OCR could not resolve needs the
                     // artwork path more than a preview whose exact title already survived.
-                    var thinningPriority = thinningPriorityUntil is { } until && sample.SampledAt <= until;
+                    var thinningPriority = ThinningFollowupPriority(sample.SampledAt, thinningPriorityStartedAt,
+                        thinningPriorityUntil);
                     // A player hand decrement is the best bounded opportunity to
                     // recover a missed/tutored play and its settled board arrival.
                     // Give it the same queue protection as an opponent hand drop.
-                    artwork.Offer(item, sample.SampledAt, opponentPlayed || userPlayed || thinningPriority ? Math.Max(3, sample.Priority) :
+                    artwork.Offer(item, sample.SampledAt, deckDeparted ? Math.Max(4, sample.Priority) :
+                        opponentPlayed || userPlayed ? Math.Max(3, sample.Priority) :
+                        thinningPriority > 0 ? Math.Max(thinningPriority, sample.Priority) :
                         prepared.NeedsArtwork || hudChanged ? Math.Max(2, sample.Priority) : sample.Priority);
                     WorkPriority?.ObservePressure(artwork.Count, TimeSpan.Zero);
                     SkippedArtworkFrames = artwork.Dropped;
@@ -129,7 +150,8 @@ public sealed class StreamingVisionProcessor<T>(ICardVisionPipeline pipeline, in
                     recognized = pipeline.RecognizePrepared(selected.Prepared, schedule.NextIncludesBoard(selected.Prepared.SampledAt,
                         selected.UserScore, selected.OpponentScore, selected.UserHand,
                         selected.Prepared.HoverInPlayerHand && selected.Prepared.HoveredCard is not null, selected.OpponentHand,
-                        artworkBacklogged: artwork.Count >= 3));
+                        selected.UserDeck, selected.OpponentDeck,
+                        artworkBacklogged: artwork.Count >= 3, deckDepartureSignal: selected.DeckDeparted));
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
@@ -162,5 +184,26 @@ public sealed class StreamingVisionProcessor<T>(ICardVisionPipeline pipeline, in
         }
     }
 
-    private sealed record PreparedInput(PreparedVisionFrame Prepared, T Context, int? UserScore, int? OpponentScore, int? UserHand, int? OpponentHand);
+    /// <summary>
+    /// Gives a self-thinning episode a shaped retention window. Under a slow board
+    /// scan, equal-priority samples otherwise continuously evict the earlier clean
+    /// frames and leave only a late tooltip-covered board. The fixed window and
+    /// peak keep the work bounded while retaining settled summon evidence.
+    /// </summary>
+    public static double ThinningFollowupPriority(DateTimeOffset at, DateTimeOffset? startedAt,
+        DateTimeOffset? until)
+    {
+        if (startedAt is not { } started || until is not { } end || at < started || at > end) return 0;
+        var elapsed = (at - started).TotalSeconds;
+        if (elapsed < 1) return 3.5;     // initiating preview / animation
+        if (elapsed <= 4.5) return 5;   // bodies normally finish settling here
+        if (elapsed <= 9) return 4;     // one protected late corroboration band
+        return 3;                       // bounded tail for unusually slow effects
+    }
+
+    private static bool SmallDeckDeparture(int? prior, int? current) =>
+        prior is >= 0 and <= 25 && current is >= 0 and <= 25 && current < prior && prior - current <= 3;
+
+    private sealed record PreparedInput(PreparedVisionFrame Prepared, T Context, int? UserScore, int? OpponentScore,
+        int? UserHand, int? OpponentHand, int? UserDeck, int? OpponentDeck, bool DeckDeparted);
 }

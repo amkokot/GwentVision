@@ -1,39 +1,45 @@
 # Interface tour
 
-These screens use the offline demonstration fixture and public deck data. No game capture or personal library is shown.
+These screens use sample matches and public deck data. They contain no player identity or private deck library.
 
-## Live analysis
+## Opponent Cards
 
-The default wide layout puts the hypothesized opponent deck first, highly correlated candidate cards in the middle, and saved snapshots on the right. The same tools can be displayed as a single column beside a windowed GWENT game.
+The wide live layout shows detected opponent cards, the searchable card list, and saved snapshots in three columns. The card list follows the usual deck-builder order. Compact mode shows the same three views one at a time beside a windowed game.
 
-![Live analysis with a selected snapshot](images/live-analysis-with-snapshot.png)
+![Wide live tracking layout](images/live-opponent-cards.png)
 
-## Snapshot review
+## Match history
 
-The compact snapshot view keeps capture history and the selected image together. This can preserve information from cards such as Maxii or Vial of Forbidden Knowledge while play continues. The camera button takes a fresh frame rather than saving an old preview.
+Match Data initially shows games from the latest saved patch. History includes the result, both factions and leaders, date, round score, and faction MMR. Selecting a match shows your complete saved deck on the left and the opponent deck information on the right. Labels and a slight fade distinguish detected cards from estimated cards.
 
-![Snapshot selected for review](images/snapshot-review.png)
+![Match Data history](images/match-data-history.png)
+
+## Faction and leader matchups
+
+The middle Match Data display shows either how often each faction or leader appears or the win rate for that matchup. It can summarize the opponent's side or the decks you played. Factions with no games remain visible.
+
+![Faction matchup breakdown](images/match-data-matchups.png)
+
+## MMR progress and review priorities
+
+The statistics display plots each faction's MMR against the number of games played with that faction during the selected patch. A gap appears when the game did not show a clear MMR value. The remaining statistics focus on gameplay results and useful areas to review.
+
+![Faction MMR progress](images/match-data-progress.png)
 
 ## Deck library
 
-The Library groups close variants and shows the selected list beside its cards. It supports search and filtering, PlayGWENT links and link spreadsheets, deck-builder scanning, and preparation of a PlayGWENT link for importing a stored deck into GWENT.
+The extended Library groups similar versions of a deck, displays cards in deck-builder order, and clearly marks the deck you are currently playing. It includes search, filters, manual editing, PlayGWENT link imports, spreadsheet imports, and scans from the in-game deck builder.
 
 ![Deck library](images/deck-library.png)
 
-## Opponent reference
+## Data sharing settings
 
-Reference mode compares the observed opponent cards with a pinned reference deck. This gives the user an exact list to consult when a statistical hypothesis is not the preferred view.
+Settings contains the manual database push, the choice to display an anonymous MMR curve, the monthly sharing option, your season code, and a direct link to the public MMR site. A short message explains data sharing the first time the app opens, with complete details available under **More details** and in the privacy policy.
 
-![Opponent reference](images/opponent-reference.png)
+![Data contribution settings](images/settings-data-sharing.png)
 
-## Settings
+## Snapshot review
 
-Settings include the explicit switch for the experimental Overview layout.
+The snapshot view keeps capture history and the selected image together. The camera button captures a fresh frame; images remain local.
 
-![Settings](images/settings.png)
-
-## Experimental Overview
-
-When enabled, the former Overview, opponent deck, and candidate layout replaces the default Live panes.
-
-![Experimental Overview layout](images/experimental-overview.png)
+![Snapshot review](images/snapshot-review.png)

@@ -1,0 +1,43 @@
+{
+  "SchemaVersion": 1,
+  "Id": "board-spawn-then-hand-original",
+  "Summary": "A Cursed Damsel spawned earlier by The Manor does not suppress a later exact Cursed Damsel preview that is independently paid from hand.",
+  "AddedIn": "0.2.74",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 2222426,
+      "Sha256": "B0E493D7173ED67B10580E463E0CDA603A6D44D2DFA7780F47A032FBC0ECD7EB",
+      "Tags": [
+        "regression",
+        "board-spawn-then-hand-original"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 2207167,
+      "Sha256": "805511C8719615F355865324BA7A319C66EA568523CBBF4E9E3E851BAF850065",
+      "Tags": [
+        "regression",
+        "board-spawn-then-hand-original"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 2209494,
+      "Sha256": "F36D1744AA47FE0956231DDDA5CA86EC5F0E38E37182CB01570F951F822A036E",
+      "Tags": [
+        "regression",
+        "board-spawn-then-hand-original"
+      ]
+    }
+  ]
+}

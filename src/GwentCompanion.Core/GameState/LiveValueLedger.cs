@@ -14,7 +14,9 @@ public sealed record BountyHistory(PlayerSide Side, int TotalBasePower, int Tota
 public sealed record ProvisionUsage(int SpentFloor, int? Total, int? RemainingCeiling, string Detail,
     int CommittedCards = 0, int? UnaccountedCards = null, double? ProvisionsPerCard = null, bool AssumedSize = false)
 {
-    public string RemainingReadout => Total is { } total && SpentFloor > total
+    public bool Conflicts => Total is { } total && (SpentFloor > total ||
+        RemainingCeiling is { } remaining && UnaccountedCards is { } slots && remaining < slots * 4);
+    public string RemainingReadout => Conflicts
         ? "Provision evidence conflicts — review origins / copies"
         : RemainingCeiling is { } p && UnaccountedCards is > 0
         ? $"Left {p}p / {UnaccountedCards} · {ProvisionsPerCard:F1}p/card"
@@ -469,18 +471,32 @@ public sealed class LiveValueLedger
                 if (seenById.ContainsKey(id)) marker=Math.Min(1,marker);
                 return (Id: id, Copies: Math.Min(listed, Math.Max(seenById.GetValueOrDefault(id), marker)));
             }).Where(item => item.Copies > 0).ToArray();
+        // An exact hand identity plus its own one-card payment can prove that the
+        // selected library list is stale. Such independently origin-cleared cards
+        // still spend real starting slots/provisions even though they are absent
+        // from that reference. Ordinary off-reference previews and generated cards
+        // never enter `seen`, so they remain excluded.
+        var offReferenceCommitted = reference is null ? [] : seen
+            .Where(item => reference.CountOf(item.Card.Id) == 0 && Copies(item) > 0).ToArray();
+        var staleReference = offReferenceCommitted.Length > 0;
         var spent = reference is null
             ? seen.Sum(item => item.Card.Provision * Copies(item))
-            : referenceCommitted!.Sum(item => referenceCosts!.GetValueOrDefault(item.Id) * item.Copies);
-        var total = reference?.ProvisionTotal ?? allowance;
-        var count = reference is null ? seen.Sum(Copies) : referenceCommitted!.Sum(item => item.Copies);
-        var remainingCards = Math.Max(0, (reference?.CardCount ?? startingSize ?? Math.Max(25, minimumStartingSize)) - count);
+            : referenceCommitted!.Sum(item => referenceCosts!.GetValueOrDefault(item.Id) * item.Copies) +
+              offReferenceCommitted.Sum(item => item.Card.Provision * Copies(item));
+        var total = staleReference ? allowance : reference?.ProvisionTotal ?? allowance;
+        var count = reference is null ? seen.Sum(Copies) : referenceCommitted!.Sum(item => item.Copies) + offReferenceCommitted.Sum(Copies);
+        var assumedSize = reference is null && startingSize is null || staleReference;
+        var deckSize = staleReference ? startingSize ?? Math.Max(reference!.CardCount, minimumStartingSize)
+            : reference?.CardCount ?? startingSize ?? Math.Max(25, minimumStartingSize);
+        var remainingCards = Math.Max(0, deckSize - count);
         var remaining = total is { } max && max >= spent ? max - spent : (int?)null;
         return new(spent, total, remaining,
             "Distinct original-copy provision floor, not repeated cast costs. Generated/replayed cards do not spend a second starting slot. " +
             "Left p / cards = unaccounted starting provisions / unaccounted starting slots, NOT the draw pile or last hand. * uses the minimum supported starting size (normally 25) until exact size is read. Average is a rough estimate, not a bound on any particular card. " +
-            (reference is null ? "Denominator is the maximum starting-leader allowance, not proven deck expenditure. Unaccounted includes deck, hand, missed cards and unused allowance." : "Full player deck is known: denominator is its actual provision sum. Only recognized committed copies are counted; missed plays and unresolved duplicate copies can raise the numerator. Remaining is an upper bound, not a claim about cards still in deck."),
+            (reference is null ? "Denominator is the maximum starting-leader allowance, not proven deck expenditure. Unaccounted includes deck, hand, missed cards and unused allowance." : staleReference ?
+                "Exact paid hand evidence shows the selected player reference is stale. Off-reference originals are charged; denominator is the selected leader allowance when available, and starting size is conservative until the correct list is selected." :
+                "Full player deck is known: denominator is its actual provision sum. Only recognized committed copies are counted; missed plays and unresolved duplicate copies can raise the numerator. Remaining is an upper bound, not a claim about cards still in deck."),
             count, remainingCards, remainingCards > 0 && remaining is not null ? remaining.Value / (double)remainingCards : null,
-            reference is null && startingSize is null);
+            assumedSize);
     }
 }

@@ -1,0 +1,187 @@
+<Window x:Class="GwentCompanion.App.MatchAnalysisWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:GwentCompanion.App.Controls"
+        Title="Gwent Vision · Match Data" Width="1280" Height="900" MinWidth="900" MinHeight="620"
+        WindowStartupLocation="CenterScreen" WindowState="Maximized" Background="#101619" Foreground="#EEE8D9"
+        FontSize="13" Topmost="False" PreviewKeyDown="WindowKeyDown">
+    <Window.Resources>
+        <Style TargetType="TextBlock"><Setter Property="Foreground" Value="#EEE8D9"/></Style>
+        <Style x:Key="Muted" TargetType="TextBlock"><Setter Property="Foreground" Value="#B5BFBC"/><Setter Property="TextWrapping" Value="Wrap"/></Style>
+        <Style x:Key="Caption" TargetType="TextBlock" BasedOn="{StaticResource Muted}"><Setter Property="FontSize" Value="11"/><Setter Property="Margin" Value="0,0,0,7"/></Style>
+        <Style x:Key="GoldTitle" TargetType="TextBlock"><Setter Property="FontFamily" Value="Georgia"/><Setter Property="Foreground" Value="#E3C789"/><Setter Property="FontSize" Value="20"/><Setter Property="Margin" Value="0,0,0,8"/></Style>
+        <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}"><Setter Property="FontSize" Value="13"/><Setter Property="MinHeight" Value="36"/><Setter Property="MaxDropDownHeight" Value="340"/></Style>
+        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Setter Property="MinHeight" Value="36"/><Setter Property="Margin" Value="0,0,8,0"/></Style>
+        <DataTemplate x:Key="Identity">
+            <Grid MinHeight="54" Margin="0,0,10,0">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="48"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <Border Background="{Binding Surface}" BorderBrush="{Binding Accent}" BorderThickness="1" Width="40" Height="48" HorizontalAlignment="Left">
+                    <Grid>
+                        <TextBlock Text="{Binding Monogram}" Foreground="{Binding Accent}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Icon}" Value="{x:Null}"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                        </TextBlock>
+                        <Image Source="{Binding Icon}" Stretch="Uniform" ToolTip="{Binding Subtitle}"/>
+                    </Grid>
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Title}" Foreground="{Binding Accent}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding Subtitle}" FontSize="13" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="Kpi">
+            <Border Background="#182125" BorderBrush="#39443F" BorderThickness="1" Padding="18,13" Margin="0,0,10,0">
+                <StackPanel><TextBlock Text="{Binding Label}" Style="{StaticResource Caption}"/>
+                    <TextBlock Text="{Binding Value}" Foreground="#E8CC8C" FontFamily="Georgia" FontSize="27"/>
+                    <TextBlock Text="{Binding Note}" Foreground="#BAC4C0" FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+        <DataTemplate x:Key="HistoryHeader">
+            <Grid Margin="12,10,8,10">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="108"/><ColumnDefinition Width="92"/><ColumnDefinition Width="*"/><ColumnDefinition Width="40"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center"><TextBlock Text="{Binding DateLabel}" FontWeight="SemiBold"/><TextBlock Text="{Binding PatchLabel}" Foreground="#B5BFBC" FontSize="11" Margin="0,5,0,0"/></StackPanel>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding ResultLabel}" Foreground="{Binding OutcomeBrush}" FontWeight="Bold" FontSize="14"/><TextBlock Text="{Binding RatingLabel}" Foreground="#B5BFBC" FontSize="11" Margin="0,5,0,0"/></StackPanel>
+                <ContentControl Grid.Column="2" Content="{Binding Mine}" ContentTemplate="{StaticResource Identity}"/>
+                <TextBlock Grid.Column="3" Text="vs" Foreground="#98A6A0" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                <ContentControl Grid.Column="4" Content="{Binding Other}" ContentTemplate="{StaticResource Identity}"/>
+            </Grid>
+        </DataTemplate>
+        <Style x:Key="HistoryExpander" TargetType="Expander">
+            <Setter Property="Margin" Value="0,0,0,9"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Expander">
+                <Border Background="#182125" BorderBrush="#36413D" BorderThickness="1">
+                    <StackPanel>
+                        <Border BorderBrush="{Binding OutcomeBrush}" BorderThickness="4,0,0,0">
+                            <ToggleButton IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" HorizontalContentAlignment="Stretch" Focusable="True" AutomationProperties.Name="{Binding AccessibleName}">
+                                <ToggleButton.Template><ControlTemplate TargetType="ToggleButton">
+                                    <Border x:Name="RowSurface" Background="Transparent" BorderThickness="1" BorderBrush="Transparent">
+                                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="32"/></Grid.ColumnDefinitions>
+                                            <ContentPresenter/>
+                                            <Path x:Name="Arrow" Grid.Column="1" Data="M 0,0 L 5,5 L 0,10" Stroke="#D9BC7D" StrokeThickness="1.6" Width="10" Height="10" HorizontalAlignment="Center" VerticalAlignment="Center" RenderTransformOrigin=".5,.5"/>
+                                        </Grid>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="RowSurface" Property="Background" Value="#24302F"/></Trigger>
+                                        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="RowSurface" Property="BorderBrush" Value="#D9BC7D"/></Trigger>
+                                        <Trigger Property="IsChecked" Value="True"><Setter TargetName="Arrow" Property="RenderTransform"><Setter.Value><RotateTransform Angle="90"/></Setter.Value></Setter></Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate></ToggleButton.Template>
+                                <ContentPresenter Content="{TemplateBinding Header}" ContentTemplate="{TemplateBinding HeaderTemplate}"/>
+                            </ToggleButton>
+                        </Border>
+                        <ContentPresenter x:Name="Details" Visibility="Collapsed" Margin="16,0,16,16"/>
+                    </StackPanel>
+                </Border>
+                <ControlTemplate.Triggers><Trigger Property="IsExpanded" Value="True"><Setter TargetName="Details" Property="Visibility" Value="Visible"/></Trigger></ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <DataTemplate x:Key="CardGroup">
+            <StackPanel Margin="0,12,0,3"><TextBlock Text="{Binding Title}" Foreground="{Binding Accent}" FontWeight="SemiBold" FontSize="14"/>
+                <TextBlock Text="{Binding Note}" Style="{StaticResource Muted}" FontSize="11" Margin="0,4,0,8"/>
+                <controls:DeckCardList Rows="{Binding Cards}" RowHeight="46"/>
+            </StackPanel>
+        </DataTemplate>
+        <DataTemplate x:Key="DeckPanel">
+            <StackPanel><TextBlock Text="{Binding Label}" Style="{StaticResource Caption}"/>
+                <ContentControl Content="{Binding Identity}" ContentTemplate="{StaticResource Identity}"/>
+                <ItemsControl ItemsSource="{Binding Groups}" ItemTemplate="{StaticResource CardGroup}"/>
+            </StackPanel>
+        </DataTemplate>
+        <DataTemplate x:Key="MatchDetails">
+            <StackPanel>
+                <Border BorderBrush="#53604D" BorderThickness="0,1,0,1" Padding="0,10" Margin="0,0,0,16">
+                    <TextBlock Text="{Binding Context}" Style="{StaticResource Muted}" FontSize="12"/>
+                </Border>
+                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="24"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <ContentControl Content="{Binding Mine}" ContentTemplate="{StaticResource DeckPanel}"/>
+                    <ContentControl Grid.Column="2" Content="{Binding Other}" ContentTemplate="{StaticResource DeckPanel}"/>
+                </Grid>
+            </StackPanel>
+        </DataTemplate>
+        <DataTemplate x:Key="BreakdownRow">
+            <Border Background="#182125" BorderBrush="#35423D" BorderThickness="1" Padding="15,10" Margin="0,0,0,8">
+                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="300"/><ColumnDefinition Width="*"/><ColumnDefinition Width="170"/></Grid.ColumnDefinitions>
+                    <ContentControl Content="{Binding Identity}" ContentTemplate="{StaticResource Identity}"/>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="18,0,25,0">
+                        <DockPanel Margin="0,0,0,8"><TextBlock Text="{Binding ValueLabel}" FontSize="19" Foreground="#E3C789"/><TextBlock Text="{Binding SampleLabel}" Style="{StaticResource Muted}" HorizontalAlignment="Right" VerticalAlignment="Center"/></DockPanel>
+                        <ProgressBar Value="{Binding Value}" Maximum="100" Height="7" BorderThickness="0" Background="#303E39" Foreground="#BCA16C">
+                            <ProgressBar.Template><ControlTemplate TargetType="ProgressBar"><Grid x:Name="PART_Track" Background="{TemplateBinding Background}"><Border x:Name="PART_Indicator" HorizontalAlignment="Left" Background="{TemplateBinding Foreground}"/></Grid></ControlTemplate></ProgressBar.Template>
+                        </ProgressBar>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center"><TextBlock Text="{Binding RecordLabel}" FontSize="13"/>
+                        <TextBlock Text="{Binding UnknownLabel}" Foreground="#AFBCB5" FontSize="11" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+        <DataTemplate x:Key="Statistic">
+            <Border BorderBrush="#34423C" BorderThickness="0,0,0,1" Padding="0,15">
+                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="170"/></Grid.ColumnDefinitions>
+                    <StackPanel Margin="0,0,20,0"><TextBlock Text="{Binding Label}" FontSize="14"/><TextBlock Text="{Binding Note}" Style="{StaticResource Muted}" FontSize="12" Margin="0,5,0,0"/></StackPanel>
+                    <TextBlock Grid.Column="1" Text="{Binding Value}" FontSize="23" Foreground="#E3C789" TextWrapping="Wrap" TextAlignment="Right" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </Window.Resources>
+    <Grid Margin="28,20,20,16">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <Grid Margin="0,0,0,21"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel><TextBlock Text="GWENT VISION  /  LOCAL DATA" Foreground="#A5B4AA" FontSize="11" Margin="0,0,0,8"/>
+                <TextBlock Text="Match Data" FontFamily="Georgia" FontSize="32" Foreground="#E8CC8C"/>
+                <TextBlock Text="Your games, observed opponents and changing matchups." Style="{StaticResource Muted}" Margin="0,8,0,0"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                <Button x:Name="RefreshButton" Content="Refresh data" Click="RefreshClicked"/>
+                <Button x:Name="FullscreenButton" Content="Full screen · F11" Click="FullscreenClicked"/>
+            </StackPanel>
+        </Grid>
+        <Border Grid.Row="1" Background="#182125" BorderBrush="#455044" BorderThickness="1" Padding="16,12" Margin="0,0,10,16">
+            <WrapPanel>
+                <StackPanel Width="210" Margin="0,0,20,0"><TextBlock Text="PATCH" Style="{StaticResource Caption}"/><ComboBox x:Name="PatchChoice" DisplayMemberPath="Label" SelectionChanged="FilterChanged" AutomationProperties.Name="Filter matches by saved patch"/></StackPanel>
+                <StackPanel Width="210" Margin="0,0,20,0"><TextBlock Text="DISPLAY" Style="{StaticResource Caption}"/><ComboBox x:Name="DisplayChoice" SelectionChanged="FilterChanged" AutomationProperties.Name="Analysis display"/></StackPanel>
+                <StackPanel x:Name="SideControls" Width="110" Margin="0,0,20,0" Visibility="Collapsed"><TextBlock Text="SIDE" Style="{StaticResource Caption}"/><ComboBox x:Name="SideChoice" SelectionChanged="FilterChanged" AutomationProperties.Name="Player or opponent statistics"/></StackPanel>
+                <StackPanel x:Name="GroupControls" Width="150" Margin="0,0,20,0" Visibility="Collapsed"><TextBlock Text="GROUP BY" Style="{StaticResource Caption}"/><ComboBox x:Name="GroupChoice" SelectionChanged="FilterChanged" AutomationProperties.Name="Group opponents by faction or leader ability"/></StackPanel>
+                <StackPanel x:Name="MetricControls" Width="160" Visibility="Collapsed"><TextBlock Text="MEASURE" Style="{StaticResource Caption}"/><ComboBox x:Name="MetricChoice" SelectionChanged="FilterChanged" AutomationProperties.Name="Encounter share or win rate"/></StackPanel>
+            </WrapPanel>
+        </Border>
+        <ItemsControl Grid.Row="2" x:Name="Kpis" ItemTemplate="{StaticResource Kpi}" Margin="0,0,0,20"><ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="4"/></ItemsPanelTemplate></ItemsControl.ItemsPanel></ItemsControl>
+        <Grid Grid.Row="3">
+            <Grid x:Name="HistoryView"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <StackPanel Margin="0,0,0,12"><TextBlock Text="Match history" Style="{StaticResource GoldTitle}"/>
+                    <TextBlock Text="You on the left · opponent on the right. Select a game to inspect both decks. Dates are UTC. Older date-only records have no same-day order. MMR* means its scope was unspecified." Style="{StaticResource Muted}" FontSize="12"/>
+                </StackPanel>
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl x:Name="HistoryList" Margin="0,0,10,0"><ItemsControl.ItemTemplate><DataTemplate>
+                        <Expander Style="{StaticResource HistoryExpander}" Header="{Binding}" HeaderTemplate="{StaticResource HistoryHeader}" Expanded="MatchExpanded" Collapsed="MatchCollapsed"/>
+                    </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                </ScrollViewer>
+                <DockPanel Grid.Row="2" Margin="0,10,10,0"><StackPanel DockPanel.Dock="Right" Orientation="Horizontal"><Button x:Name="PreviousButton" Content="Previous" Click="PreviousClicked"/><Button x:Name="NextButton" Content="Next" Click="NextClicked"/></StackPanel><TextBlock x:Name="PageLabel" Foreground="#B5BFBC" VerticalAlignment="Center"/></DockPanel>
+            </Grid>
+            <Grid x:Name="BreakdownView" Visibility="Collapsed"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <StackPanel Margin="0,0,0,12"><TextBlock x:Name="BreakdownTitle" Style="{StaticResource GoldTitle}"/>
+                    <TextBlock x:Name="BreakdownExplanation" Style="{StaticResource Muted}" FontSize="12"/>
+                </StackPanel>
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><ItemsControl x:Name="BreakdownList" ItemTemplate="{StaticResource BreakdownRow}" Margin="0,0,10,0"/></ScrollViewer>
+            </Grid>
+            <ScrollViewer x:Name="StatisticsView" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="0,0,18,0"><TextBlock Text="Your progress" Style="{StaticResource GoldTitle}"/>
+                    <TextBlock Text="Faction MMR by games played with that faction, within the selected patch. Hover over a point for its rating. Gaps mark missing ratings or older games whose order is unknown; lines stop at patch boundaries." Style="{StaticResource Muted}" Margin="0,0,0,12"/>
+                    <ItemsControl x:Name="RatingCharts"><ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="2"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate><DataTemplate><Border Background="#182125" BorderBrush="#34423C" BorderThickness="1" Padding="10" Margin="0,0,10,10">
+                            <controls:MatchRatingChart Series="{Binding}" Height="235"/>
+                        </Border></DataTemplate></ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Text="Review priorities" Style="{StaticResource GoldTitle}" Margin="0,12,0,0"/>
+                    <ItemsControl x:Name="StatisticsList" ItemTemplate="{StaticResource Statistic}"/>
+                </StackPanel>
+            </ScrollViewer>
+            <Border x:Name="EmptyPanel" Visibility="Collapsed" Background="#182125" BorderBrush="#465344" BorderThickness="1" Margin="0,0,10,0" Padding="40">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="510"><TextBlock Text="Your next match starts the story" FontFamily="Georgia" FontSize="25" Foreground="#E3C789" TextAlignment="Center" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="EmptyText" Text="Run live recognition in Gwent Vision, then return here and refresh. Saved games will appear automatically." Style="{StaticResource Muted}" Margin="0,15,0,0" TextAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+        <TextBlock Grid.Row="4" x:Name="StatusText" Style="{StaticResource Muted}" FontSize="11" Margin="0,14,10,0" Text="Loading local match records…"/>
+    </Grid>
+</Window>

@@ -24,18 +24,17 @@ public partial class MainWindow
     {
         // This panel is optional. Do not repeatedly build and bind its tactical
         // presentation while the normal low-overhead three-lane layout is active.
-        if (!ExperimentalOverviewEnabled && !_analysisControlTest && _reviewEvidencePath is null) return;
+        if (!_analysisControlTest && _reviewEvidencePath is null) return;
         if (SummonWatchList is null || Watch is not { } watch) return;
-        var faction = _opponentTracker.HasStableFaction ? _opponentTracker.Faction : _confirmedOpponentDeck?.Faction;
-        _tacticalReport = watch.Build(faction, _opponentKnowledge.StartingLeader, _confirmedOpponentDeck,
+        var faction = _opponentTracker.HasStableFaction ? _opponentTracker.Faction : null;
+        _tacticalReport = watch.Build(faction, _opponentKnowledge.StartingLeader, null,
             _opponentEdits.Included.Values, _opponentTracker.Observations, _lastProjection?.Meta,
             _cachedDecks, _opponentKnowledge.Opportunities, WatchTime, _zoneInventory.Entries,
             _opponentKnowledge.SummonAbsence.Evidence);
-        var compatiblePin = _confirmedOpponentDeck?.Faction == faction ? _confirmedOpponentDeck : null;
         _playsSections = PlaysSectionBuilder.Build(_tacticalReport, faction, _opponentTracker.Observations,
-            compatiblePin, _opponentEdits.Included.Values);
+            null, _opponentEdits.Included.Values);
         PlaysContextText.Text = faction is null ? "Faction not yet observed · neutral and seen cards only"
-            : "Opponent · " + faction + (compatiblePin is null ? "" : " · pinned reference active");
+            : "Opponent · " + faction;
         RenderSummons();
         RenderSynergies();
         RenderLiveValues();
@@ -89,7 +88,7 @@ public partial class MainWindow
     {
         if (_playsSections is null) return;
         var (opponentLeader, opponentLeaderConfirmed) = SynergyLeader();
-        var faction = _opponentTracker.HasStableFaction ? _opponentTracker.Faction : _confirmedOpponentDeck?.Faction;
+        var faction = _opponentTracker.HasStableFaction ? _opponentTracker.Faction : null;
         UserSynergySideText.Text = "YOU" + (_selectedUserDeck?.Faction is { Length: > 0 } ownFaction ? " · " + ownFaction.ToUpperInvariant() : "");
         OpponentSynergySideText.Text = "OPPONENT" + (faction is { Length: > 0 } opponentFaction ? " · " + opponentFaction.ToUpperInvariant() : "");
         var own = FactionSynergyCatalog.ForFaction(_selectedUserDeck?.Faction)
@@ -113,9 +112,9 @@ public partial class MainWindow
             AddHistoryMeter(SynergyButtons, faction, PlayerSide.Opponent);
         }
         UserSynergyEmptyText.Visibility = own.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
-        UserSynergyEmptyText.Text = _selectedUserDeck is null ? "Pin your deck to show its live mechanics." : "No tracked live synergy in this deck.";
+        UserSynergyEmptyText.Text = _selectedUserDeck is null ? "Choose your deck to show its live mechanics." : "No tracked live synergy in this deck.";
         SynergyEmptyText.Visibility = opponent.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
-        SynergyEmptyText.Text = "No tracked opponent synergy yet · identify cards, leader, or pin a reference.";
+        SynergyEmptyText.Text = "No tracked opponent synergy yet · identify cards or leader.";
         if (faction != "Nilfgaard" && _selectedUserDeck?.Faction != "Nilfgaard") SpyingMemoryPanel.Visibility = Visibility.Collapsed;
         if (faction != "Syndicate" && _selectedUserDeck?.Faction != "Syndicate") BountyMemoryPanel.Visibility = Visibility.Collapsed;
         void RenderMeters(Panel panel, IEnumerable<LiveSynergyReading> readings)
@@ -141,8 +140,6 @@ public partial class MainWindow
         {
             if (!string.IsNullOrWhiteSpace(_opponentKnowledge.StartingLeader))
                 return (_opponentKnowledge.StartingLeader, true);
-            if (!string.IsNullOrWhiteSpace(_confirmedOpponentDeck?.Leader))
-                return (_confirmedOpponentDeck.Leader, false);
             var meta = _lastProjection?.Meta;
             if (meta is null || meta.ObservedIdentities < 3 || meta.BestObservedCoverage < .5) return (null, false);
             var ranked = meta.RankedDecks.Where(item => item.Score > 0 && !string.IsNullOrWhiteSpace(item.Deck.Leader)).ToArray();

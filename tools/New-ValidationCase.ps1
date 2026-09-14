@@ -4,7 +4,8 @@ param(
     [Parameter(Mandatory = $true)][string]$Summary,
     [Parameter(Mandatory = $true)][string[]]$MediaPath,
     [string]$AddedIn = 'next',
-    [switch]$ResultScreen
+    [switch]$ResultScreen,
+    [switch]$MenuScreen
 )
 
 Set-StrictMode -Version Latest
@@ -40,20 +41,28 @@ $standardMasks = @(
     [pscustomobject]@{ Name = 'bottom-left player identity'; X = 0; Y = .875; Width = .22; Height = .125 }
 )
 $resultMasks = @(
+    [pscustomobject]@{ Name = 'left result header identity'; X = 0; Y = .065; Width = .37; Height = .17 },
+    [pscustomobject]@{ Name = 'right result header identity'; X = .63; Y = .065; Width = .37; Height = .17 },
     [pscustomobject]@{ Name = 'left result identity'; X = .045; Y = .42; Width = .37; Height = .22 },
     [pscustomobject]@{ Name = 'right result identity'; X = .585; Y = .42; Width = .37; Height = .22 },
     [pscustomobject]@{ Name = 'result notification identity'; X = .735; Y = .035; Width = .265; Height = .20 }
 )
+$menuMasks = @(
+    [pscustomobject]@{ Name = 'menu notification identity'; X = .75; Y = .055; Width = .25; Height = .18 }
+)
 $protectedRegions = @($standardMasks.Name)
 if ($ResultScreen) { $protectedRegions += $resultMasks.Name }
-$jpegCodec = [Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object MimeType -eq 'image/jpeg' | Select-Object -First 1
+if ($MenuScreen) { $protectedRegions += $menuMasks.Name }
 $temporaryRoot = Join-Path $casesRoot ('.' + $CaseId + '.tmp-' + [Guid]::NewGuid().ToString('N'))
 [IO.Directory]::CreateDirectory($temporaryRoot) | Out-Null
 $entries = [Collections.Generic.List[object]]::new()
 
 try {
     for ($index = 0; $index -lt $sources.Count; $index++) {
-        $name = 'evidence-{0:D2}.jpg' -f ($index + 1)
+        # Keep the decoded source pixels unchanged outside the identity masks.
+        # Re-encoding difficult low-feature frames as JPEG can erase the exact
+        # correspondences the regression is intended to preserve.
+        $name = 'evidence-{0:D2}.png' -f ($index + 1)
         $destination = Join-Path $temporaryRoot $name
         $bitmap = $null; $graphics = $null; $brush = $null
         try {
@@ -63,16 +72,14 @@ try {
             $brush = [Drawing.SolidBrush]::new([Drawing.Color]::FromArgb(255, 8, 10, 12))
             $masks = @($standardMasks)
             if ($ResultScreen) { $masks += $resultMasks }
+            if ($MenuScreen) { $masks += $menuMasks }
             foreach ($mask in $masks) {
                 $rectangle = [Drawing.Rectangle]::new(
                     [Math]::Floor($bitmap.Width * $mask.X), [Math]::Floor($bitmap.Height * $mask.Y),
                     [Math]::Ceiling($bitmap.Width * $mask.Width), [Math]::Ceiling($bitmap.Height * $mask.Height))
                 $graphics.FillRectangle($brush, $rectangle)
             }
-            $parameters = [Drawing.Imaging.EncoderParameters]::new(1)
-            $quality = [Drawing.Imaging.EncoderParameter]::new([Drawing.Imaging.Encoder]::Quality, [long]96)
-            try { $parameters.Param[0] = $quality; $bitmap.Save($destination, $jpegCodec, $parameters) }
-            finally { $quality.Dispose(); $parameters.Dispose() }
+            $bitmap.Save($destination, [Drawing.Imaging.ImageFormat]::Png)
         }
         finally {
             if ($null -ne $brush) { $brush.Dispose() }

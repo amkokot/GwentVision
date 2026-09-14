@@ -374,7 +374,8 @@ internal static class VideoArchiveScan
         var cards = BuiltInCardCatalog.Merge(GwentOneCardCatalog.Load(Path.Combine(cache, "gwent-one-cards.json")));
         var references = VisionReferenceLibrary.Load(cards, cache);
         Console.WriteLine($"Preparing {references.Count} cached artwork references for selected keyframes…");
-        using var pipeline = new CardVisionPipeline(references, cards, Path.Combine(cache, "recognition-features"));
+        using var pipeline = new CardVisionPipeline(references, cards, Path.Combine(cache, "recognition-features"),
+            allowStreamResolution: true);
         var frames = Directory.GetFiles(input, "during.jpg", SearchOption.AllDirectories)
             .GroupBy(path => Path.GetFileName(Path.GetDirectoryName(path))!.Split('-')[0], StringComparer.Ordinal)
             .Select(group => group.First()).OrderBy(path => path, StringComparer.Ordinal).ToArray();

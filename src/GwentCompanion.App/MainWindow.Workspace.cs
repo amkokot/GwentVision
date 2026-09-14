@@ -76,11 +76,9 @@ public partial class MainWindow
 
     private void Workspace_OnKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.F && (Keyboard.Modifiers & ModifierKeys.Control) != 0 && _page is UiPage.Library or UiPage.Reference or UiPage.MyDeck or UiPage.Pinned or UiPage.Candidates)
+        if (e.Key == Key.F && (Keyboard.Modifiers & ModifierKeys.Control) != 0 && _page is UiPage.Library or UiPage.Candidates)
         {
-            var reference = _page is UiPage.Reference or UiPage.MyDeck or UiPage.Pinned;
-            if (reference) { if (!_wideWorkspace) ShowPage(UiPage.Reference); ReferencePicker.IsExpanded = true; }
-            var query = reference ? ReferenceSearch.Query : _page == UiPage.Candidates ? CandidateCardSearch : LibrarySearch.Query;
+            var query = _page == UiPage.Candidates ? CandidateCardSearch : LibrarySearch.Query;
             query.Focus(); query.SelectAll(); e.Handled = true; return;
         }
         if (e.Key != Key.F11 && !(e.Key == Key.Escape && _fullScreen)) return;
@@ -140,7 +138,7 @@ public partial class MainWindow
             WorkspaceBody.LayoutTransform = _expandedWorkspace ? new ScaleTransform(_workspaceZoom, _workspaceZoom) : Transform.Identity;
             HoverThreatViewport.MaxHeight = _wideWorkspace ? 220 : double.PositiveInfinity;
             BrandTitle.FontSize = _wideWorkspace ? 20 : 16;
-            LibraryNavigation.Visibility = GameplayNavigation.Visibility = Visibility.Visible;
+            LibraryNavigation.Visibility = Visibility.Visible;
             WorkspaceDisplayButton.Visibility = _expandedWorkspace ? Visibility.Visible : Visibility.Collapsed;
             WorkspaceToggleIcon.Data = Geometry.Parse(_expandedWorkspace
                 ? "M 5,1 L 15,1 L 15,11 M 1,5 L 11,5 L 11,15 L 1,15 Z"
@@ -148,11 +146,16 @@ public partial class MainWindow
             WorkspaceToggle.ToolTip = _expandedWorkspace ? "Return to compact companion" : "Expanded workspace · F11 for full screen";
             AutomationProperties.SetName(WorkspaceToggle, _expandedWorkspace ? "Return to compact companion" : "Expand workspace");
             WindowLayout.Margin = new Thickness(_wideWorkspace ? 20 : 12);
+            Grid.SetColumn(LibraryNavigation, 0);
+            Grid.SetColumnSpan(LibraryNavigation, _wideWorkspace ? 2 : 3);
+            LibraryNavigation.Margin = new Thickness(0, 0, _wideWorkspace ? 8 : 0, 8);
+            Grid.SetRow(PlayerDeckBanner, _wideWorkspace ? 2 : 3);
+            Grid.SetColumn(PlayerDeckBanner, _wideWorkspace ? 2 : 0);
+            Grid.SetColumnSpan(PlayerDeckBanner, _wideWorkspace ? 1 : 3);
+            PlayerDeckBanner.Margin = new Thickness(0, 0, 0, _wideWorkspace ? 8 : 7);
             var isLive = _page is UiPage.Plays or UiPage.Deck or UiPage.Candidates or UiPage.Pinned;
-            var isReference = _page is UiPage.Reference or UiPage.MyDeck;
             var live = _wideWorkspace && isLive;
-            var reference = _wideWorkspace && isReference;
-            for (var i = 0; i < 3; i++) Pages.ColumnDefinitions[i].Width = (live || reference && i < 2 || i == 0)
+            for (var i = 0; i < 3; i++) Pages.ColumnDefinitions[i].Width = (live || i == 0)
                 ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
             foreach (var page in Pages.Children.OfType<FrameworkElement>().Where(c => c != WorkspaceLaneHeadings))
             {
@@ -160,33 +163,27 @@ public partial class MainWindow
                 page.Margin = new Thickness(0);
                 page.Visibility = page.Name == _page + "Page" ? Visibility.Visible : Visibility.Collapsed;
             }
-            WorkspaceLaneHeadings.Visibility = live || reference ? Visibility.Visible : Visibility.Collapsed;
-            WorkspaceLaneHeadings.Columns = reference ? 2 : 3;
-            FirstLaneTitle.Text = reference ? "OPPONENT PIN" : ExperimentalOverviewEnabled ? "OVERVIEW" : "OPPONENT DECK";
-            SecondLaneTitle.Text = reference ? "MY DECK" : ExperimentalOverviewEnabled ? "OPPONENT DECK" : "CANDIDATE CARDS";
-            ThirdLaneTitle.Text = ExperimentalOverviewEnabled ? "CANDIDATE CARDS" : "SNAPSHOTS";
-            ThirdLaneTitle.Visibility = reference ? Visibility.Collapsed : Visibility.Visible;
-            if (live || reference)
+            WorkspaceLaneHeadings.Visibility = live ? Visibility.Visible : Visibility.Collapsed;
+            WorkspaceLaneHeadings.Columns = 3;
+            FirstLaneTitle.Text = "OPPONENT CARDS";
+            SecondLaneTitle.Text = "CANDIDATE CARDS";
+            ThirdLaneTitle.Text = "SNAPSHOTS";
+            ThirdLaneTitle.Visibility = Visibility.Visible;
+            if (live)
             {
-                var lanes = reference ? new[] { ReferencePage, MyDeckPage } : ExperimentalOverviewEnabled
-                    ? new[] { PlaysPage, DeckPage, CandidatesPage }
-                    : new[] { DeckPage, CandidatesPage, PinnedPage };
+                var lanes = new[] { DeckPage, CandidatesPage, PinnedPage };
                 for (var i = 0; i < lanes.Length; i++)
                 {
                     lanes[i].Visibility = Visibility.Visible; Grid.SetColumn(lanes[i], i); Grid.SetColumnSpan(lanes[i], 1);
                     lanes[i].Margin = new Thickness(i == 0 ? 0 : 8, 0, i == 2 ? 0 : 8, 0);
                 }
             }
-            LiveOverviewNavigation.Visibility = ExperimentalOverviewEnabled ? Visibility.Visible : Visibility.Collapsed;
-            LiveSnapshotsNavigation.Visibility = ExperimentalOverviewEnabled ? Visibility.Collapsed : Visibility.Visible;
             LiveModeBar.Visibility = isLive && !_wideWorkspace ? Visibility.Visible : Visibility.Collapsed;
-            ReferenceModeBar.Visibility = isReference && !_wideWorkspace ? Visibility.Visible : Visibility.Collapsed;
+            PlayerDeckBanner.Visibility = isLive || _wideWorkspace ? Visibility.Visible : Visibility.Collapsed;
             ApplyBrowserColumns(LibraryLayout, _wideWorkspace);
-            ApplyBrowserColumns(ReferenceLayout, false);
             ArrangeLibraryColumns(_wideWorkspace);
-            ArrangeReferenceColumns(false);
             OpponentDeckCards.RowHeight = _wideWorkspace ? 42 : 29; OpponentDeckCards.ShowDetails = _wideWorkspace;
-            LibraryDeckCards.RowHeight = CandidateDeckCards.RowHeight = UserReferenceCards.RowHeight = _wideWorkspace ? 46 : 38;
+            LibraryDeckCards.RowHeight = _wideWorkspace ? 46 : 38;
             LibraryManagementScroll.MaxHeight = _wideWorkspace ? 180 : _compactPanel ? 80 : 130;
             // Keep the single review controls beside their faction synergy meters.
             if (SynergyHistory.Parent != SynergyHistoryHost)
@@ -204,11 +201,6 @@ public partial class MainWindow
         grid.ColumnDefinitions[1].Width = new GridLength(wide ? 24 : 0);
         grid.ColumnDefinitions[2].Width = wide ? new GridLength(1.15, GridUnitType.Star) : new GridLength(0);
     }
-    private void ReferencePage_OnSizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        if (ReferencePickerScroll is not null)
-            ReferencePickerScroll.MaxHeight = Math.Clamp(e.NewSize.Height - 120, 140, 400);
-    }
     private static void Cell(FrameworkElement control, int row, int column, int rows = 1, int columns = 1)
     {
         Grid.SetRow(control, row); Grid.SetColumn(control, column); Grid.SetRowSpan(control, rows); Grid.SetColumnSpan(control, columns);
@@ -222,14 +214,5 @@ public partial class MainWindow
         Cell(LibraryToolbar, 0, 0); Cell(DeckList, 1, 0, wide ? 3 : 1);
         Cell(LibraryPreviewHeading, wide ? 0 : 2, wide ? 2 : 0);
         Cell(LibraryDeckCards, wide ? 1 : 3, wide ? 2 : 0, wide ? 3 : 1);
-    }
-    private void ArrangeReferenceColumns(bool wide)
-    {
-        ReferenceLayout.RowDefinitions[1].Height = new GridLength(wide ? 1 : 2, GridUnitType.Star);
-        ReferenceLayout.RowDefinitions[3].Height = wide ? new GridLength(0) : new GridLength(3, GridUnitType.Star);
-        Cell(ReferenceToolbar, 0, 0); Cell(OpponentCandidateList, 1, 0, wide ? 3 : 1);
-        Cell(OpponentCandidateDetailText, wide ? 0 : 2, wide ? 2 : 0);
-        Cell(CandidateDeckCards, wide ? 1 : 3, wide ? 2 : 0, wide ? 3 : 1);
-        Cell(ReferenceActions, 4, 0, 1, wide ? 3 : 1);
     }
 }
