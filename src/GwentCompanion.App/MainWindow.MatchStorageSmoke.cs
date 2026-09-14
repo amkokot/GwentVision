@@ -52,7 +52,12 @@ public partial class MainWindow
                 "Confirmed result-table scores did not reach stored match data.");
             Check(match.Opponent.Observations.Any(c => c.CardId == card.Id), "Visual evidence did not reach observations.");
             window.ApplyVisionResult(new(at.AddSeconds(8), board with { ScreenHeader = "STANDARD MODE", MatchHudVisible = false,
-                PostMatchMmrCandidate = new(2392, null, true, "menu", 2440, Confirmed: false, ReadCount: 2) }, [], [], false));
+                PostMatchMmrCandidate = new(2392, null, true, "menu", Confirmed: false, ReadCount: 1) }, [], [], false));
+            await window.FlushMatchAcquisitionAsync();
+            var stoppedWithFallback = LocalMatchStore.Read(files[0]);
+            Check(stoppedWithFallback.MmrAfter == 2392 && stoppedWithFallback.MmrPeak is null &&
+                stoppedWithFallback.MmrUnconfirmed,
+                "Stopping did not preserve the best one-frame partial MMR read as unconfirmed.");
             var nextCard = window._candidateCatalog.First(c => c.Kind == CardKind.Unit && c.CanBeInStartingDeck && c.Id != card.Id);
             var nextSighting = sight with { Card = nextCard };
             window.ApplyVisionResult(new(at.AddSeconds(10), board with { ScreenHeader = "ROUND 1", UserScore = 999 }, [],
