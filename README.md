@@ -2,13 +2,13 @@
 
 Gwent Vision is a free, open-source Windows companion for *GWENT: The Witcher Card Game*. Version 0.3 records cards that are visibly played, keeps a persistent deck library, stores completed matches locally, and turns that history into useful matchup and MMR views.
 
-It is an unofficial, not-for-profit fan project. It does not automate the game, inspect private game state, or expose card recommendations during live play.
+It is an unofficial, not-for-profit fan project. Gwent Vision provides no predictive functionality.
 
 [Download the latest Windows release](../../releases/latest) · [View public season MMR curves](https://amkokot.github.io/GwentVision/) · [Open the interface tour](docs/SCREENSHOTS.md) · [Report a bug](../../issues/new?template=bug_report.yml) · [Request a feature](../../issues/new?template=feature_request.yml)
 
 ## Live tracking
 
-The **Opponent Cards** view records cards seen on the visible game screen. Generated cards and other provenance are retained separately so that a spawned or created card is not silently counted as a starting-deck copy. The Candidates view is a searchable card catalogue in normal deck-builder order and does not rank or recommend unseen cards in the public build.
+The **Opponent Cards** view records cards seen on the visible game screen. Generated cards and other provenance are retained separately so that a spawned or created card is not silently counted as a starting-deck copy. The Candidates view provides a searchable card catalogue in normal deck-builder order.
 
 In the wide layout, Opponent Cards, Candidates, and Snapshots appear in three columns. Compact mode shows the same tools one at a time beside a windowed game. The selected player deck shares the Library row in wide mode, so it remains obvious without taking space from opponent cards.
 
@@ -73,9 +73,9 @@ GWENT The Witcher Card Game\
 
 Gwent Vision supports Windows 10 or later and ships as a self-contained x64 build. For reliable recognition, use a 16:9 GWENT resolution such as 1280×720, 1920×1080, or 3840×2160. Clearly letterboxed displays are normalized automatically.
 
-## Project boundaries
+## How recognition works
 
-Gwent Vision uses ordinary Windows desktop pixels from the visible game window. It does not read game memory, inject code, automate input, or play the game. Recognition is inactive until the user starts it.
+Gwent Vision reads ordinary Windows desktop pixels from the visible game window. All displayed information comes from that screen, and recognition begins only when the user presses the play button.
 
 ## Contributing
 
