@@ -1,40 +1,40 @@
 # Interface tour
 
-These screens use offline demonstration fixtures and public deck data. They contain no live capture, player identity, or private library.
+These screens use sample matches and public deck data. They contain no player identity or private deck library.
 
 ## Opponent Cards
 
-The wide live layout keeps observed opponent cards, the deck-builder-ordered candidate catalogue, and snapshots in parallel columns. Only visibly detected cards appear under Opponent Cards. Compact mode presents the same three views without reducing the card-list viewport.
+The wide live layout shows detected opponent cards, the searchable card list, and saved snapshots in three columns. The card list follows the usual deck-builder order. Compact mode shows the same three views one at a time beside a windowed game.
 
 ![Wide live tracking layout](images/live-opponent-cards.png)
 
 ## Match history
 
-Match Data defaults to the latest saved patch. History shows the result, both factions and leaders, date, round score, and rating. Selecting a match expands the exact saved player deck on the left and one combined opponent list on the right. Seen and inferred opponent cards retain their in-game badges and opacity.
+Match Data initially shows games from the latest saved patch. History includes the result, both factions and leaders, date, round score, and faction MMR. Selecting a match shows your complete saved deck on the left and the opponent deck information on the right. Labels and a slight fade distinguish detected cards from estimated cards.
 
 ![Match Data history](images/match-data-history.png)
 
 ## Faction and leader matchups
 
-The middle Match Data display switches between encounter share and win rate, player and opponent side, and faction or leader grouping. Empty factions remain visible so the proportions are not misleading.
+The middle Match Data display shows either how often each faction or leader appears or the win rate for that matchup. It can summarize the opponent's side or the decks you played. Factions with no games remain visible.
 
 ![Faction matchup breakdown](images/match-data-matchups.png)
 
 ## MMR progress and review priorities
 
-The statistics display plots each faction's MMR against games played within the selected patch. Missing or unconfirmed rating reads create gaps. The remaining statistics focus on gameplay outcomes and useful review priorities.
+The statistics display plots each faction's MMR against the number of games played with that faction during the selected patch. A gap appears when the game did not show a clear MMR value. The remaining statistics focus on gameplay results and useful areas to review.
 
 ![Faction MMR progress](images/match-data-progress.png)
 
 ## Deck library
 
-The Library groups close variations, previews the selected list in deck-builder order, and makes the current player deck clear. It supports search, filtering, manual editing, PlayGWENT links, link spreadsheets, and deck-builder scanning.
+The extended Library groups similar versions of a deck, displays cards in deck-builder order, and clearly marks the deck you are currently playing. It includes search, filters, manual editing, PlayGWENT link imports, spreadsheet imports, and scans from the in-game deck builder.
 
 ![Deck library](images/deck-library.png)
 
 ## Data sharing settings
 
-Settings contains the manual database push, anonymous public-curve choice, monthly sharing choice, season code, and a direct link to the public MMR site. Users choose whether to contribute in a short first-start dialog; detailed terms remain available in its privacy expander and in the repository policy.
+Settings contains the manual database push, the choice to display an anonymous MMR curve, the monthly sharing option, your season code, and a direct link to the public MMR site. A short message explains data sharing the first time the app opens, with complete details available under **More details** and in the privacy policy.
 
 ![Data contribution settings](images/settings-data-sharing.png)
 

@@ -1,14 +1,14 @@
 # Gwent Vision
 
-Gwent Vision is a free, open-source Windows companion for *GWENT: The Witcher Card Game*. Version 0.3 records cards that are visibly played, keeps a persistent deck library, stores completed matches locally, and turns that history into useful matchup and MMR views.
+Gwent Vision is a free, open-source Windows companion for *GWENT: The Witcher Card Game*. Version 0.3 tracks the opponent cards shown during a match, adds an extended deck library with new quality-of-life features, saves your match history, and displays matchup and MMR charts.
 
-It is an unofficial, not-for-profit fan project. Gwent Vision provides no predictive functionality.
+It is an unofficial, not-for-profit fan project. Gwent Vision provides no predictive gameplay features.
 
 [Download the latest Windows release](../../releases/latest) · [View public season MMR curves](https://amkokot.github.io/GwentVision/) · [Open the interface tour](docs/SCREENSHOTS.md) · [Report a bug](../../issues/new?template=bug_report.yml) · [Request a feature](../../issues/new?template=feature_request.yml)
 
 ## Live tracking
 
-The **Opponent Cards** view records cards seen on the visible game screen. Generated cards and other provenance are retained separately so that a spawned or created card is not silently counted as a starting-deck copy. The Candidates view provides a searchable card catalogue in normal deck-builder order.
+The **Opponent Cards** view records cards as they appear on the game screen. It marks cards created or spawned during the match so they are not mistaken for cards from the opponent's starting deck. The Candidates view provides a searchable list of every card in the usual deck-builder order.
 
 In the wide layout, Opponent Cards, Candidates, and Snapshots appear in three columns. Compact mode shows the same tools one at a time beside a windowed game. The selected player deck shares the Library row in wide mode, so it remains obvious without taking space from opponent cards.
 
@@ -16,11 +16,11 @@ In the wide layout, Opponent Cards, Candidates, and Snapshots appear in three co
 
 ## Match Data
 
-Every completed match is saved locally with its date, patch, result, round scores, confirmed rating when available, player deck, and observed opponent cards. Match Data opens in its own resizable or full-screen window and defaults to the latest saved patch.
+Every completed match is saved on your computer with its date, game patch, result, round scores, faction MMR when available, your selected deck, and the opponent cards that were detected. Match Data opens in its own resizable or full-screen window and initially shows the latest saved patch.
 
-- **Match history** shows wins in green and losses in red with both factions and leader abilities. Expanding a row places the saved player deck beside the opponent list; seen and inferred cards share one list while keeping their evidence badge and fade.
-- **Factions and leaders** compares encounter share or win rate for either side of the matchup.
-- **Your progress** plots faction MMR by games played and presents review priorities based on gameplay results.
+- **Match history** shows wins in green and losses in red, together with both factions and leader abilities. Expanding a match shows your complete saved deck on the left and the opponent deck information on the right. Detected cards and estimated cards appear in one list, with labels and a slight fade to show which is which.
+- **Factions and leaders** shows how often you face each faction or leader and your win rate against each one. It can also show the same information for the factions and leaders you play.
+- **Your progress** plots each faction's MMR against the number of games played with that faction. It also highlights results that may be useful to review when improving your play.
 
 ![Patch-filtered match history](docs/images/match-data-history.png)
 
@@ -32,31 +32,31 @@ Players below Pro Rank do not have faction MMR, so those matches remain in histo
 
 ## Deck library, snapshots, and recording
 
-The Library stores any number of decks and supports search, filters, close variations, manual building, deck-builder scans, PlayGWENT links, and spreadsheet imports. The deck selected as **Deck you are playing** is saved as the authoritative player list in subsequent match records. User data is kept outside the replaceable application directory so updates preserve the library, settings, installation identity, and upload receipts.
+The extended Library can store any number of decks. It adds search and filters, groups similar deck versions together, supports manual deck building, scans decks from the in-game builder, and imports decks from PlayGWENT links or spreadsheets. The deck selected as **Deck you are playing** is saved as your complete deck for each new match. Your deck library and settings are preserved when Gwent Vision is updated.
 
 ![The Gwent Vision deck library and selected player deck](docs/images/deck-library.png)
 
-Snapshots keep selected game screens available for quick review. Optional diagnostic recording can reproduce recognition defects. Snapshots and recordings remain local unless the user deliberately shares a sanitized example.
+Snapshots keep selected game screens available for quick review. Optional diagnostic recording helps reproduce missed or incorrectly recognized cards. These files stay on your computer unless you deliberately share a copy after removing personal information.
 
 ## Optional data contribution
 
-On first ordinary startup, Gwent Vision asks whether the user wants to contribute match data for Balance Council recommendations. A manual **Push to database** button can be used repeatedly; signed, revision-aware uploads send only new or corrected completed matches from the current patch. Users can also choose one automatic contribution on the first match played after the 18th of each month.
+The first time Gwent Vision opens, it asks whether you would like to contribute match data for Balance Council recommendations. You can press **Push to database** more than once; each push sends only new matches or updated results from the current patch. You can also choose to share automatically after your first match played on or after the 18th of each month.
 
-The contribution service is configured in the release, so users do not need a Supabase account, API key, or setup step. The raw research data is pseudonymous, is not published, and is available only to individually approved analysts. It excludes player names, Gwent account identifiers, screenshots, and recordings. Read the [data contribution and privacy policy](docs/DATA-CONTRIBUTION-PRIVACY.md) for the exact fields, retention limits, deletion controls, and source categories.
+The connection is already included in the download, so there is no account, API key, or database setup for users. Submitted matches are linked to a random installation ID rather than a player name. This research data is not published and can be accessed only by approved analysts. It does not include player names, Gwent account IDs, screenshots, or recordings. Read the [data contribution and privacy policy](docs/DATA-CONTRIBUTION-PRIVACY.md) for the complete details.
 
-Anonymous public MMR curves are a separate setting, enabled by default. A successful push returns a season code that can highlight that installation's curve on the [public season site](https://amkokot.github.io/GwentVision/). The public feed contains only a per-season curve identity, rounded time buckets, faction, metric, rating, and point order. It contains no decks, opponents, match IDs, installation IDs, or exact timestamps.
+The option to display your MMR curve anonymously is separate and is turned on by default. After a successful push, the app gives you a season code. Enter that code on the [public season site](https://amkokot.github.io/GwentVision/) to highlight your own line. The public charts contain only anonymous MMR points grouped into 15-minute time blocks. They do not include decks, opponents, match IDs, installation IDs, or exact times.
 
 The site provides:
 
-- total MMR as a strictly increasing running sum of the best rating seen in up to four factions, with unplayed factions contributing zero;
-- one-faction and all-faction individual MMR curves; and
-- privacy-thresholded daily faction match share and win rate.
+- a Total MMR line based on the highest rating reached with up to four factions; factions you have not played count as zero, and the line never moves down;
+- separate MMR lines for each faction, with the option to display all factions together; and
+- daily faction popularity and win rate once enough users have contributed data to protect privacy.
 
 ## Install
 
 1. Open the [latest release](../../releases/latest) and download `GwentVision-Windows-x64.zip`.
 2. Extract the ZIP contents into the GWENT installation folder, beside `Gwent.exe`.
-3. Launch **Gwent Vision.cmd** from that folder. It is a portable shortcut to the app inside `GwentVision`. You can also run `GwentVision\GwentVision.exe` directly.
+3. Double-click **Gwent Vision.cmd** in that folder. This shortcut opens the app stored inside the `GwentVision` folder. You can also run `GwentVision\GwentVision.exe` directly.
 4. Start GWENT, then press the play button in Gwent Vision when you want live recognition to begin.
 
 The installed layout is:
@@ -71,7 +71,7 @@ GWENT The Witcher Card Game\
     └── vision-assets\
 ```
 
-Gwent Vision supports Windows 10 or later and ships as a self-contained x64 build. For reliable recognition, use a 16:9 GWENT resolution such as 1280×720, 1920×1080, or 3840×2160. Clearly letterboxed displays are normalized automatically.
+Gwent Vision supports 64-bit Windows 10 or later and does not require a separate .NET installation. For reliable card recognition, use a 16:9 GWENT resolution such as 1280×720, 1920×1080, or 3840×2160. Black bars around a 16:9 game image are handled automatically.
 
 ## How recognition works
 
@@ -79,7 +79,7 @@ Gwent Vision reads ordinary Windows desktop pixels from the visible game window.
 
 ## Contributing
 
-You do not need to be a programmer to help. A short description of a missed card or awkward workflow is useful. Please remove names, profile identifiers, local paths, and private deck information from screenshots before attaching them to an issue.
+You do not need to be a programmer to help. A short description of a missed card or an awkward part of the app is useful. Please remove names, profile IDs, file locations, and private deck information from screenshots before attaching them to an issue.
 
 - [Report a bug](../../issues/new?template=bug_report.yml)
 - [Request a feature](../../issues/new?template=feature_request.yml)
@@ -93,7 +93,7 @@ dotnet run --project tests/GwentCompanion.Tests/GwentCompanion.Tests.csproj -c R
 dotnet run --project tests/GwentCompanion.Tests/GwentCompanion.Tests.csproj -c Release -- --contributor-validation-regression
 ```
 
-GitHub repeats these checks for pull requests, validates the public export for private files and secrets, and performs a ClamAV scan before release.
+GitHub repeats these checks for each proposed change, checks that private files and passwords were not included, and scans every release file for malware.
 
 ## License and attribution
 
