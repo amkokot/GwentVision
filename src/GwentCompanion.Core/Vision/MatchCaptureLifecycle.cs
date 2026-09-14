@@ -4,6 +4,7 @@ namespace GwentCompanion.Core.Vision;
 public sealed class MatchCaptureLifecycle
 {
     private bool _started, _resultSeen;
+    private bool _menuSeenAfterResult;
     private DateTimeOffset _lastAt;
     public bool WaitingForGame => !_started;
     public bool NewGameStarted { get; private set; }
@@ -16,11 +17,17 @@ public sealed class MatchCaptureLifecycle
         var header = screen.ScreenHeader?.Trim().ToUpperInvariant();
         var result = PostMatchMmr.IsResultHeader(header) || header == "GAME OVER";
         var menu = header == "STANDARD MODE" || screen.PostMatchExitCue;
-        var game = !result && !menu && (screen.MatchHudVisible == true || header is "ROUND 1" or "REDRAW");
-        if (_resultSeen && game) { NewGameStarted = true; return; }
+        var explicitOpening = header is "ROUND 1" or "REDRAW";
+        var game = !result && !menu && (screen.MatchHudVisible == true || explicitOpening);
+        // The completed board can reappear briefly while the result overlay fades.
+        // It is the same match, so keep reading until a real menu transition or an
+        // explicit next-game opening has authenticated the boundary.
+        if (_resultSeen && (explicitOpening || _menuSeenAfterResult && game))
+        { NewGameStarted = true; return; }
         if (game || result) _started = true;
         if (!_started) return;
         if (result || menu) _resultSeen = true;
+        if (_resultSeen && menu) _menuSeenAfterResult = true;
         if (!_resultSeen) return;
         var reading = screen.PostMatchMmr ?? screen.PostMatchMmrCandidate;
         if (reading is not { IsFactionRating: true, RatingAfter: >= 0 and <= 10000 }) return;
@@ -30,5 +37,5 @@ public sealed class MatchCaptureLifecycle
     }
 
     public void Reset()
-    { _started = false; _resultSeen = false; _lastAt = default; NewGameStarted = false; BestRating = null; }
+    { _started = false; _resultSeen = false; _menuSeenAfterResult = false; _lastAt = default; NewGameStarted = false; BestRating = null; }
 }
