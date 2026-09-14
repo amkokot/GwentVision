@@ -32,7 +32,7 @@ jobs:
         run: |
           dotnet publish src/GwentCompanion.App/GwentCompanion.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:DebugType=None -p:DebugSymbols=false -o dist/GwentVision
           New-Item -ItemType Directory -Force dist/GwentVision/cache | Out-Null
-          Copy-Item cache/gwent-one-cards.json,cache/create-point-profiles.json,cache/deck-library.json dist/GwentVision/cache
+          Copy-Item cache/gwent-one-cards.json,cache/create-point-profiles.json,cache/deck-library.json,cache/data-service.json dist/GwentVision/cache
           foreach ($folder in @('portraits','premium-frames','observed-art')) {
             if (Test-Path "cache/$folder") { Copy-Item "cache/$folder" dist/GwentVision/cache -Recurse }
           }

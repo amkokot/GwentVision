@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Gwent Vision · Season MMR</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <div class="brand">GV</div>
+    <div><p class="eyebrow">GWENT VISION</p><h1>Season MMR field</h1></div>
+  </header>
+  <main>
+    <section class="panel controls" aria-label="Chart controls">
+      <label>Season<select id="season"></select></label>
+      <label>Display<select id="display">
+        <option value="total">Total MMR</option>
+        <option value="all-factions">All faction MMRs</option>
+        <option value="faction">One faction</option>
+      </select></label>
+      <label>Faction<select id="faction" disabled></select></label>
+      <form id="highlight-form"><label>Season code<span class="code-row"><input id="code" maxlength="16" autocomplete="off" spellcheck="false" placeholder="Enter your code"><button>Highlight</button></span></label></form>
+    </section>
+
+    <p id="status" class="status" role="status">Loading seasons…</p>
+    <section class="panel chart-panel">
+      <div class="title-row"><div><p class="eyebrow">INDIVIDUAL PROGRESSION</p><h2 id="chart-title">Total MMR</h2></div><div id="legend" class="legend"></div></div>
+      <canvas id="mmr-chart" height="520" aria-label="Individual MMR progression chart"></canvas>
+      <p id="chart-summary" class="summary"></p>
+    </section>
+
+    <section class="panel chart-panel">
+      <div class="title-row"><div><p class="eyebrow">FACTION FIELD</p><h2>Popularity and results over time</h2></div>
+        <label>Measure<select id="population-measure"><option value="share">Match share</option><option value="winrate">Win rate</option></select></label>
+      </div>
+      <canvas id="population-chart" height="360" aria-label="Faction popularity or win-rate chart"></canvas>
+      <p class="summary">Daily cells appear only after at least five installations contributed to that faction. Match share uses visible cells; win rate excludes draws. These are contributor-sample estimates, not the full Gwent population.</p>
+    </section>
+  </main>
+  <footer>No player names, decks, opponents, match IDs, installation IDs, or exact timestamps are published.</footer>
+  <script src="runtime-config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

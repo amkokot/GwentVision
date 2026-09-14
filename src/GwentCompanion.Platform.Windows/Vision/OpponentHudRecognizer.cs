@@ -86,8 +86,18 @@ public sealed class OpponentHudRecognizer
         var lines=await reader.ReadLinesAsync(frame,new(.714,.025,.788,.145),2,enhance:false,whiteLetterMask:true,smooth:true).ConfigureAwait(false);
         var values=lines.Select(line=>ParseDeck(line.Text)).Where(value=>value is not null).Distinct().ToArray();
         if(values.Length==1) return values[0];
-        var tight=await reader.ReadLinesAsync(frame,new(.735,.050,.759,.083),2,enhance:false,whiteLetterMask:true,smooth:true).ConfigureAwait(false);
-        return ParseDeck(string.Join('\n',tight.Select(line=>line.Text)));
+        // The opening deal animation places the small far-pile count lower and
+        // farther left than the ordinary board camera. Read that literal fixed
+        // crop independently; the live recognizer still requires two matching
+        // one-second samples before publishing a deck count.
+        foreach (var tightRegion in new[] { new NormalizedRegion(.735,.050,.759,.083), new(.708,.083,.744,.137) })
+        {
+            var tight=await reader.ReadLinesAsync(frame,tightRegion,2,enhance:false,whiteLetterMask:true,smooth:true).ConfigureAwait(false);
+            var parsed=ParseDeck(string.Join('\n',tight.Select(line=>line.Text))) ??
+                ParseDeck(await reader.ReadAsync(frame,tightRegion).ConfigureAwait(false));
+            if (parsed is >= 0 and <= 99) return parsed;
+        }
+        return null;
     }
     public static async Task<int?> ReadUserDeckCandidateAsync(PixelFrame frame, ScreenStateRecognizer reader)
     {

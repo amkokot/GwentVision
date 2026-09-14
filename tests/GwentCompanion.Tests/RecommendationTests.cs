@@ -103,8 +103,13 @@ internal static class RecommendationTests
         var library = DeckLibrary.Load(Path.Combine(root, "GwentCompanion/cache/deck-library.json"));
         var illusionist = library.Decks.SelectMany(d => d.Cards).First(c => c.Card.Name == "Illusionist").Card;
         var actual = analyzer.AnalyzeAt(library.Decks, [Seen(illusionist)], "Nilfgaard", null, null, At).Cards.Single(c => c.Card.Id == illusionist.Id).CopyRecommendations![1];
-        var measured = library.Decks.Where(d => DeckMetaAnalyzer.IsComplete(d) && d.Faction == "Nilfgaard")
-            .GroupBy(DeckMetaAnalyzer.CompositionKey).Select(g => g.First()).Where(d => d.CountOf(illusionist.Id) >= 1).ToArray();
+        var patch = PatchRecency.Current(At);
+        var measured = library.Decks.Where(d => d.CardCount > 0)
+            .Select(d => (Deck: d, Patch: PatchRecency.Resolve(d, patch))).Where(s => s.Patch.Available)
+            .GroupBy(s => DeckMetaAnalyzer.CompositionKey(s.Deck)).Select(g => g
+                .OrderByDescending(s => s.Patch.Weight).ThenByDescending(s => DeckMetaAnalyzer.SourceDate(s.Deck))
+                .ThenBy(s => s.Deck.Id, StringComparer.Ordinal).First().Deck)
+            .Where(d => DeckMetaAnalyzer.IsComplete(d) && d.Faction == "Nilfgaard" && d.CountOf(illusionist.Id) >= 1).ToArray();
         Check(actual.SupportingMatches == measured.Count(d => d.CountOf(illusionist.Id) >= 2) && actual.MatchingDecks == measured.Length,
             "Cached Illusionist audit no longer agrees with live recommendation stats.");
         Console.WriteLine($"  Deduplication, family support, calendar age, partials, leader conditioning, confidence, measured auto-fill; cached Illusionist {actual.SupportingMatches}/{actual.MatchingDecks}, estimate {actual.Score:P0}.");

@@ -17,7 +17,7 @@ public partial class MainWindow
     private string? _memoryLoadError;
     private bool _updatingKnowledge;
     private bool _knowledgeChoicesLoaded;
-    private DateTimeOffset _opponentTime = DateTimeOffset.Now;
+    private DateTimeOffset _opponentTime = DateTimeOffset.UtcNow;
     private CreatedCardDescription? _descriptionHint;
     private DeckDefinition? _variantAnchor;
     private IReadOnlyList<DeckDefinition> _compatibleVariants = [];
@@ -31,7 +31,8 @@ public partial class MainWindow
         int.TryParse(MatchMmrInput.Text, out var rating) && rating is >= 0 and <= 10000 ? rating : null;
     private bool ObservePostMatchMmr(PostMatchMmr? reading)
     {
-        if (reading is null || reading == _observedPostMatchMmr) return false;
+        if (reading is null || reading == _observedPostMatchMmr ||
+            _observedPostMatchMmr is { Confirmed: true } && !reading.Confirmed) return false;
         _observedPostMatchMmr = reading;
         MatchMmrStatus.Text = reading.Summary;
         MatchMmrStatus.Visibility = Visibility.Visible;
@@ -48,6 +49,8 @@ public partial class MainWindow
         return true;
     }
     private static string OpponentMemoryPath => Path.Combine(FindDataRoot(), "cache", "opponent-memory.json");
+    private ObservedCard[] EffectiveOpponentDeckEvidence() =>
+        _opponentEdits.ApplyEvidenceCorrections(_opponentTracker.DeckBuildingObservations);
 
     private void InitializeKnowledgeChoices()
     {
@@ -57,6 +60,7 @@ public partial class MainWindow
         {
             _candidateCatalog ??= GwentOneCardCatalog.Load(Path.Combine(FindDataRoot(), "cache", "gwent-one-cards.json"));
             if(_candidateCatalog.FirstOrDefault(card=>card.Id=="201627") is {} shupe) _opponentKnowledge.ConfigureShupe(shupe);
+            _opponentKnowledge.ConfigureOpeningSetupCards(_candidateCatalog);
             var renfri = _candidateCatalog.FirstOrDefault(card => card.Name == "Renfri" && card.CanBeInStartingDeck);
             var units = _candidateCatalog.Where(card => card.CanBeInStartingDeck && card.Kind == CardKind.Unit && card.Provision > 0).ToArray();
             var leaders = GwentOneCardCatalog.StartingLeaders(_candidateCatalog).ToArray();
@@ -99,7 +103,7 @@ public partial class MainWindow
 
     private OpponentProvisionBudget CurrentOpponentBudget()
     {
-        var evidence = _opponentTracker.DeckBuildingObservations;
+        var evidence = EffectiveOpponentDeckEvidence();
         var rules = _opponentKnowledge.Assess(evidence);
         int? capacity = _opponentKnowledge.LeaderBonus is { } bonus ? 150 + bonus : null;
         var source = "confirmed original leader";
@@ -147,8 +151,9 @@ public partial class MainWindow
         if (_confirmedOpponentDeck is null) { _variantAnchor = null; VariantPanel.Visibility = Visibility.Collapsed; return; }
         if (_variantAnchor is null || DeckVariants.Replacements(_variantAnchor, _confirmedOpponentDeck) > 2 ||
             _variantAnchor.Leader != _confirmedOpponentDeck.Leader || _variantAnchor.Faction != _confirmedOpponentDeck.Faction) _variantAnchor = _confirmedOpponentDeck;
-        _compatibleVariants = DeckVariants.CompatibleFamily(_variantAnchor, _cachedDecks, _opponentTracker.DeckBuildingObservations,
-            _opponentKnowledge.Assess(_opponentTracker.DeckBuildingObservations));
+        var evidence = EffectiveOpponentDeckEvidence();
+        _compatibleVariants = DeckVariants.CompatibleFamily(_variantAnchor, _cachedDecks, evidence,
+            _opponentKnowledge.Assess(evidence));
         var index = _compatibleVariants.ToList().FindIndex(deck => deck.Id == _confirmedOpponentDeck.Id);
         VariantPanel.Visibility = Visibility.Visible;
         VariantSummary.Text = _compatibleVariants.Count == 0 ? "No exact variant remains; pin is a loose reference" :
@@ -171,7 +176,7 @@ public partial class MainWindow
         CurrentEncounterId, _opponentTime,
         _opponentTracker.HasStableFaction ? _opponentTracker.Faction : null, _opponentKnowledge.StartingLeader,
         _opponentKnowledge.LeaderBonus, _opponentKnowledge.StartingStratagemId, _opponentKnowledge.StartingSize,
-        _opponentKnowledge.MinimumSize(_opponentTracker.DeckBuildingObservations), _opponentTracker.DeckBuildingObservations.ToArray(),
+        _opponentKnowledge.MinimumSize(EffectiveOpponentDeckEvidence()), EffectiveOpponentDeckEvidence(),
         _opponentKnowledge.Resolved.Where(item => !item.Evidence.StartsWith("Musicians recognized", StringComparison.Ordinal)).ToArray(),
         CurrentOpponentBudget(), _deckMutations.Changes.ToArray(), _zones.Entries.ToArray(), _hiddenTraps.Entries.ToArray(), MatchMmr(), _observedPostMatchMmr,
         CompositionClues: _deckCompositionClues.Where(item => item.Key.Side == PlayerSide.Opponent).Select(item => item.Value).ToArray(),
@@ -292,6 +297,8 @@ public partial class MainWindow
     {
         if (_updatingKnowledge || OpeningStratagemChoice.SelectedItem is not CardDefinition card) return;
         _opponentKnowledge.StartingStratagemId = card.Id.Length == 0 ? null : card.Id;
+        if (card.Id.Length == 0) _playOrigins.ClearOpeningStratagem(PlayerSide.Opponent);
+        else _playOrigins.ObserveOpeningStratagem(PlayerSide.Opponent, card);
         RenderLiveInference(); PersistCurrentMatch();
     }
     private void RoundChoice_OnChanged(object sender, SelectionChangedEventArgs e)

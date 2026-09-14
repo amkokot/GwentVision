@@ -1,0 +1,52 @@
+{
+  "SchemaVersion": 1,
+  "Id": "bonded-triggered-highwaymen-pair",
+  "Summary": "A committed Bonded play must arm Highwaymen as a separate automatic-pair target; two adjacent Highwaymen bodies corroborated in repeated frames must count two starting copies, while one frame or the trigger alone remains insufficient.",
+  "AddedIn": "0.2.71",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 2111105,
+      "Sha256": "C440CE4E53F1CFF12C837E0CA4BCA3452CB121DB146A40757BED82F55570FA1F",
+      "Tags": [
+        "regression",
+        "bonded-triggered-highwaymen-pair"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 2086522,
+      "Sha256": "AC68139576CF8B9602F85CC01E7F2E04B8C41E794E3A2CFEEF33C1F3F2A192FB",
+      "Tags": [
+        "regression",
+        "bonded-triggered-highwaymen-pair"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 2047981,
+      "Sha256": "8353757367D8A8DF2D1754F9AA83B0691631661D8AD545454AD8BEF623CEB178",
+      "Tags": [
+        "regression",
+        "bonded-triggered-highwaymen-pair"
+      ]
+    },
+    {
+      "File": "evidence-04.png",
+      "Bytes": 2043606,
+      "Sha256": "868DBA99C4697968CCDC4F2B38133BB0749F9E60CAE8FDD7D8E01EA7275123FF",
+      "Tags": [
+        "regression",
+        "bonded-triggered-highwaymen-pair"
+      ]
+    }
+  ]
+}

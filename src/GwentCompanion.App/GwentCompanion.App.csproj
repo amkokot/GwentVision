@@ -8,11 +8,18 @@
     <UseWPF>true</UseWPF>
     <PlatformTarget>x64</PlatformTarget>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\GwentVision.ico</ApplicationIcon>
     <AssemblyName>GwentVision</AssemblyName>
     <RootNamespace>GwentCompanion.App</RootNamespace>
+    <!-- Release packages pay a little more disk space to avoid first-use JIT work
+         while the WPF shell and card-library models are being created. -->
+    <PublishReadyToRun Condition="'$(Configuration)' == 'Release' and '$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
   </PropertyGroup>
 
   <ItemGroup>
+    <Resource Include="Assets\GwentVision.ico" />
+    <Content Include="..\..\cache\data-service.json" Link="cache\data-service.json"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4129.50" />
     <ProjectReference Include="..\GwentCompanion.Core\GwentCompanion.Core.csproj" />
     <ProjectReference Include="..\GwentCompanion.Platform.Windows\GwentCompanion.Platform.Windows.csproj" />

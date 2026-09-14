@@ -6,6 +6,7 @@ using GwentCompanion.Core.Domain;
 using GwentCompanion.Core.GameState;
 using GwentCompanion.Core.Inference;
 using GwentCompanion.Core.Simulation;
+using GwentCompanion.Core.Vision;
 using GwentCompanion.Platform.Windows.Vision;
 
 internal static class LeaderSpawnTests
@@ -21,6 +22,91 @@ internal static class LeaderSpawnTests
         var named = leaders.SelectMany(leader => LeaderSpawnCatalog.NamedUnits(leader, cards)).DistinctBy(card => card.Id).ToArray();
         Check(named.Length == 15, "Leader named-unit coverage changed; review the catalog and token references: " + string.Join(", ", named.Select(card => card.Name + "#" + card.Id)));
         Check(named.All(card => references.Any(item => item.Card.Id == card.Id)), "A leader-spawned card has no recognition reference.");
+        var publicSources = leaders.Concat(cards.Where(card => card.Kind == CardKind.Stratagem &&
+            card.AbilityText?.Contains("Spawn", StringComparison.OrdinalIgnoreCase) == true)).ToArray();
+        var publicRoutes = publicSources.SelectMany(source => cards.Where(target =>
+                LeaderSpawnCatalog.NamesSpawnedCard(source, target)).Select(target => (Source: source, Target: target)))
+            .ToArray();
+        Check(publicRoutes.Any(route => route.Source.Name == "Uprising" && route.Target.Name == "Lyrian Scytheman"),
+            "Uprising's collectible Lyrian Scytheman output was not parsed.");
+        Check(publicRoutes.Any(route => route.Source.Name == "Pirate's Cove" && route.Target.Name == "Sea Jackal"),
+            "Pirate's Cove's collectible Sea Jackal output was not parsed.");
+        Check(publicRoutes.Any(route => route.Source.Name == "Aen Seidhe Saber" && route.Target.Name == "Scoia'tael Neophyte"),
+            "Aen Seidhe Saber's collectible Neophyte output was not parsed.");
+        Check(publicRoutes.Any(route => route.Source.Name == "Toussaintois Hospitality" && route.Target.Name == "Buhurt" &&
+                route.Target.Kind == CardKind.Special && route.Target.CanBeInStartingDeck),
+            "Toussaintois Hospitality's collectible Buhurt special output was not parsed.");
+        foreach (var route in publicRoutes)
+        {
+            var resolver = new PlayProvenanceResolver();
+            if (route.Source.Kind == CardKind.Leader) resolver.ObserveCurrentLeader(PlayerSide.Opponent, route.Source);
+            else resolver.ObserveOpeningStratagem(PlayerSide.Opponent, route.Source);
+            var eventAt = new DateTimeOffset(2026, 9, 11, 9, 38, 13, TimeSpan.FromHours(-4));
+            var sighting = new CardSighting(route.Target, PlayerSide.Opponent, CardSightSource.PlayPreview,
+                new(.80, .11, .93, .43), .08, .45, "public-source fixture");
+            var evidence = new VisionEvidenceEvent(eventAt, sighting, "public-source fixture");
+            var origin = resolver.Observe(evidence);
+            Check(origin.Provenance == CardProvenance.Spawned && (!route.Target.CanBeInStartingDeck ||
+                    origin.Reason.Contains(route.Source.Name, StringComparison.Ordinal)),
+                $"{route.Source.Name} -> {route.Target.Name} was charged to the starting deck.");
+        }
+
+        // A natural copy of a leader output can still be in hand. The persistent
+        // public route starts conservatively, but an independently measured hand
+        // decrement must supersede it even if the initial art match was stronger.
+        var uprising = cards.Single(card => card.Name == "Uprising");
+        var scytheman = cards.Single(card => card.Name == "Lyrian Scytheman");
+        var handResolver = new PlayProvenanceResolver(); handResolver.ObserveCurrentLeader(PlayerSide.Opponent, uprising);
+        var handAt = new DateTimeOffset(2026, 9, 11, 9, 30, 0, TimeSpan.FromHours(-4));
+        var handSighting = new CardSighting(scytheman, PlayerSide.Opponent, CardSightSource.PlayPreview,
+            new(.80, .11, .93, .43), .01, .45, "natural-copy fixture");
+        var handEvent = new VisionEvidenceEvent(handAt, handSighting, "natural-copy fixture");
+        var conservative = handResolver.Observe(handEvent);
+        var handOpponent = new LiveDeckTracker(PlayerSide.Opponent);
+        handOpponent.ConsiderDirectPlay(scytheman, .99, handAt, conservative.Reason, conservative.Provenance);
+        HandCommitTracker.Apply([handEvent], handResolver, new DeckMutationLedger(), new ThinningCopyTracker(),
+            new LiveDeckTracker(PlayerSide.User), handOpponent, null);
+        Check(handOpponent.Observations.Single(item => item.Card.Id == scytheman.Id).Provenance == CardProvenance.ProbableStartingDeck,
+            "Independent hand cost could not restore a natural Lyrian Scytheman copy after conservative leader routing.");
+
+        var hospitality = cards.Single(card => card.Name == "Toussaintois Hospitality");
+        var buhurt = cards.Single(card => card.Name == "Buhurt");
+        var specialResolver = new PlayProvenanceResolver(); specialResolver.ObserveCurrentLeader(PlayerSide.Opponent, hospitality);
+        var specialSighting = handSighting with { Card = buhurt };
+        var specialEvent = new VisionEvidenceEvent(handAt, specialSighting, "leader-played collectible special fixture");
+        var generatedSpecial = specialResolver.Observe(specialEvent);
+        Check(generatedSpecial.Provenance == CardProvenance.Spawned && generatedSpecial.Reason.Contains(hospitality.Name, StringComparison.Ordinal),
+            "Toussaintois Hospitality's generated Buhurt was charged as a natural special.");
+        var specialOpponent = new LiveDeckTracker(PlayerSide.Opponent);
+        specialOpponent.ConsiderDirectPlay(buhurt, .99, handAt, generatedSpecial.Reason, generatedSpecial.Provenance);
+        HandCommitTracker.Apply([specialEvent], specialResolver, new DeckMutationLedger(), new ThinningCopyTracker(),
+            new LiveDeckTracker(PlayerSide.User), specialOpponent, null);
+        Check(specialOpponent.Observations.Single(item => item.Card.Id == buhurt.Id).Provenance == CardProvenance.ProbableStartingDeck,
+            "Independent hand cost could not restore a natural Buhurt after conservative leader routing.");
+
+        var precision = cards.Single(card => card.Name == "Precision Strike");
+        var sentinel = cards.Single(card => card.Name == "Brokilon Sentinel");
+        var precisionAssumption = LeaderSpawnCatalog.StartingDeckAssumptions(precision, cards).Single();
+        Check(precisionAssumption.Card.Id == sentinel.Id && precisionAssumption.Copies == 2,
+            "Precision Strike did not infer the two natural Brokilon Sentinels that its generated body summons.");
+        Check(leaders.Where(leader => leader.Id != precision.Id).SelectMany(leader =>
+                LeaderSpawnCatalog.StartingDeckAssumptions(leader, cards)).Count() == 0,
+            "The strong two-copy prior spread to a leader without the exact fixed-spawn/self-summon package.");
+        var precisionDeck = new LiveDeckTracker(PlayerSide.Opponent); precisionDeck.SetFactionPrior("Scoia'tael");
+        precisionDeck.ConsiderDirectPlay(sentinel,.84,handAt,precisionAssumption.Reason,CardProvenance.ProbableStartingDeck);
+        precisionDeck.SetObservedCopyLowerBound(sentinel.Id,precisionAssumption.Copies,"Precision Strike package");
+        precisionDeck.ConsiderDirectPlay(sentinel,.99,handAt.AddSeconds(1),"Observed leader-created body",CardProvenance.Spawned);
+        var retainedSentinels=precisionDeck.DeckBuildingObservations.Single(item=>item.Card.Id==sentinel.Id);
+        Check(retainedSentinels.ObservedCopies==2 && retainedSentinels.Provenance==CardProvenance.ProbableStartingDeck,
+            "Recognizing Precision Strike's spawned Sentinel erased or triple-counted the two starting copies.");
+        var deckSource = cards.First(source => DeckPlayResolutionTracker.IsGenericDeckPlaySource(source) &&
+            DeckPlayResolutionTracker.CanSelectFromDeck(source, sentinel));
+        var deckResolver = new PlayProvenanceResolver(); deckResolver.ObserveCurrentLeader(PlayerSide.Opponent, precision);
+        var sourceSighting = handSighting with { Card = deckSource };
+        deckResolver.Observe(new(handAt, sourceSighting, "mandatory deck-play source"));
+        var fromDeck = deckResolver.Observe(new(handAt.AddSeconds(1), handSighting with { Card = sentinel }, "matched deck play"));
+        Check(fromDeck.Provenance == CardProvenance.ProbableStartingDeck && fromDeck.Reason.Contains("deck origin established", StringComparison.Ordinal),
+            "A definite card-driven deck play was overridden by a merely available leader Spawn route.");
         var audit = leaders.Select(leader => new { leader.Id, leader.Name, leader.Faction,
             CalculationSupported = engine.Leader(leader.Id) is not null, VariableCopy = LeaderSpawnCatalog.VariableCopy(leader),
             Units = LeaderSpawnCatalog.NamedUnits(leader, cards).Select(card => new { card.Id, card.Name, card.CanBeInStartingDeck,

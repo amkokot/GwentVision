@@ -12,6 +12,15 @@ public static class GwentOneCardCatalog
             !card.Faction.Equals("Neutral", StringComparison.OrdinalIgnoreCase))
         .DistinctBy(card => card.Id).OrderBy(card => card.Faction).ThenBy(card => card.Name).ToArray();
 
+    /// <summary>
+    /// Every ability that can occupy the live leader plaque. Unlike
+    /// <see cref="StartingLeaders"/>, this includes neutral replacement abilities
+    /// such as Renfri's curses. It must never be used as a deck-builder list.
+    /// </summary>
+    public static CardDefinition[] CurrentLeaderAbilities(IEnumerable<CardDefinition> catalog) => catalog
+        .Where(card => card.Kind == CardKind.Leader && !string.IsNullOrWhiteSpace(card.Faction))
+        .DistinctBy(card => card.Id).OrderBy(card => card.Faction).ThenBy(card => card.Name).ToArray();
+
     public static IReadOnlyList<CardDefinition> Load(string path)
     {
         if (!File.Exists(path)) return [];

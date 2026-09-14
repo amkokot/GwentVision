@@ -38,6 +38,7 @@ public sealed class LiveDeckTracker
     public bool HasStableFaction => _faction is not null && FactionConfidence >= 0.60;
     public IReadOnlyCollection<ObservedCard> DeckBuildingObservations => _observations.Values
         .Where(item => StartingDeckRules.CountsAgainstStartingDeck(item.Provenance))
+        .Where(item => StartingDeckRules.IsStartingCard(item.Card))
         .Where(item => HasStableFaction
             ? !IsFactionException(item.Card)
             : string.Equals(item.Card.Faction, "Neutral", StringComparison.OrdinalIgnoreCase))
@@ -174,6 +175,13 @@ public sealed class LiveDeckTracker
         ArgumentNullException.ThrowIfNull(card);
         ArgumentException.ThrowIfNullOrWhiteSpace(evidence);
         _observations.TryGetValue(card.Id, out var existing);
+        // A later generated body or board sighting cannot erase an already
+        // established starting copy of the same identity. The tracker stores one
+        // original-copy lower bound per identity, while generated bodies remain
+        // available in the event/game-state evidence.
+        if (existing is not null && StartingDeckRules.CountsAgainstStartingDeck(existing.Provenance) &&
+            !StartingDeckRules.CountsAgainstStartingDeck(provenance))
+            return false;
         // A later board sighting cannot erase stronger play/provenance evidence.
         if (existing is not null && provenance == CardProvenance.Unknown && existing.Provenance != CardProvenance.Unknown)
             return false;

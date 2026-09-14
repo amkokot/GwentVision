@@ -1,0 +1,43 @@
+{
+  "SchemaVersion": 1,
+  "Id": "uprising-generated-scytheman",
+  "Summary": "Uprising leader output recognizes Lyrian Scytheman but excludes the collectible spawned body from opponent starting-deck provisions.",
+  "AddedIn": "0.2.75",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 1927342,
+      "Sha256": "99E59F48E3FFA3D2F78B8D01AB55C5335CB0E8E75D4CA7FEECBBCD4C884F286A",
+      "Tags": [
+        "regression",
+        "uprising-generated-scytheman"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 1929553,
+      "Sha256": "9ECAF15DDA58A3EDA3C8EA9AB6905D841F7F716ED5D3AE5AFCE225EA107A05D8",
+      "Tags": [
+        "regression",
+        "uprising-generated-scytheman"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 1914234,
+      "Sha256": "AC48A2F76DFF91BD241076143D7C987DFEFF1B9D3034BE8E640C254DDEEE290E",
+      "Tags": [
+        "regression",
+        "uprising-generated-scytheman"
+      ]
+    }
+  ]
+}

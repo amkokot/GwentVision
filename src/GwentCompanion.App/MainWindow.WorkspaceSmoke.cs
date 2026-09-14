@@ -55,13 +55,20 @@ public partial class MainWindow
             var selected = (DeckListItem)window.DeckList.SelectedItem;
             var deck = selected.Deck!;
             var rows = OpponentDeckProjector.Reference(deck).Select(window.Strip).ToArray();
-            window.OpponentDeckCards.Rows = rows;
             window.UserReferenceCards.Rows = rows;
-            window._lastProjection = new OpponentDeckProjector().Build(window._cachedDecks, [], deck.Faction, catalog: window._candidateCatalog);
-            window.RenderCandidateTray();
-            Check(window.CandidateCardTray.Rows!.Cast<object>().Count() > 40, "Expanded candidates still have the former 40-card limit.");
+            var observed = deck.Cards.Take(10).Select(item => new ObservedCard(item.Card,
+                CardProvenance.ProbableStartingDeck, .95, DateTimeOffset.UtcNow, "Offline display fixture", item.Count)).ToArray();
+            window._lastProjection = new OpponentDeckProjector().Build(window._cachedDecks, observed, deck.Faction, catalog: window._candidateCatalog);
+            window.RenderCompletedProjection();
+            var candidateRows = window.CandidateCardTray.Rows!.Cast<DeckStripRow>().ToArray();
+            Check(candidateRows.Length > 40, "Expanded candidates still have the former 40-card limit.");
+            Check(candidateRows.Select(row => row.Slot.Card!).SequenceEqual(
+                candidateRows.Select(row => row.Slot.Card!).OrderBy(card => card, DeckBuilderOrder.Comparer)),
+                "Candidate catalog does not follow deck-builder order.");
+            Check(candidateRows.All(row => row.Badge.Length == 0) &&
+                window.PresentedOpponentSlots(window._lastProjection).All(slot => slot.State == DeckSlotState.Observed),
+                "Standard live tracking exposed unseen recommendations.");
             window.UserReferenceSummary.Text = "DEMONSTRATION · " + deck.Name + " · " + deck.Leader;
-            window.OpponentDeckSummary.Text = "DEMONSTRATION · hypothesized slots from sample observations";
             window.OpponentFactionText.Text = deck.Faction;
             window.GameStatusText.Text = "DEMONSTRATION · sample data · no game capture";
             window.DeckDataStatusText.Text = "Read-only sample library · " + window._cachedDecks.Length + " public decks";
@@ -73,9 +80,12 @@ public partial class MainWindow
             }
             Render("analysis-1920", 1920, 1040, UiPage.Deck);
             Render("live-analysis", 1920, 1040, UiPage.Deck);
+            Check(window.OpponentDeckCards.Rows!.Cast<DeckStripRow>().All(row =>
+                row.Slot.State == DeckSlotState.Observed && row.Badge == "SEEN"),
+                "Rendered opponent deck contains an unseen card.");
             Check(window.LibraryNavigation.Visibility == Visibility.Visible && window.GameplayNavigation.Visibility == Visibility.Visible &&
                 Grid.GetRow(window.LibraryNavigation) < Grid.GetRow(window.GameplayNavigation) &&
-                window.GameplayNavigation.Children.OfType<RadioButton>().Select(b => b.Content.ToString()).SequenceEqual(new[] { "Analysis", "Reference" }), "Navigation labels/order or out-of-game separation changed.");
+                window.GameplayNavigation.Children.OfType<RadioButton>().Select(b => b.Content.ToString()).SequenceEqual(new[] { "Tracking", "Reference" }), "Navigation labels/order or out-of-game separation changed.");
             Check(window.DeckPage.Visibility == Visibility.Visible && window.CandidatesPage.Visibility == Visibility.Visible && window.PinnedPage.Visibility == Visibility.Visible && window.PlaysPage.Visibility == Visibility.Collapsed, "Analysis columns must be opponent, candidates, then snapshots without Overview.");
             Check(window.DeckPage.ActualWidth > 350 && window.PinnedPage.ActualWidth > 350 && window.CandidateCardTray.ActualHeight > 200, "Analysis panes were squeezed out.");
             Check(Grid.GetColumn(window.DeckPage) == 0 && Grid.GetColumn(window.CandidatesPage) == 1 && Grid.GetColumn(window.PinnedPage) == 2,
@@ -151,6 +161,8 @@ public partial class MainWindow
             Render("narrow-fallback", 1000, 800, UiPage.Deck);
             Check(!window._wideWorkspace && window.CandidatesPage.Visibility == Visibility.Collapsed && window.PinnedPage.Visibility == Visibility.Collapsed, "Narrow/high-DPI fallback overlapped pages.");
             Check(window.LiveModeBar.Visibility == Visibility.Visible, "Compact analysis lost navigation to its other panes.");
+            Check(!window._useOpponentModel, "Standard smoke unexpectedly enabled the opponent model display.");
+            window.RenderCandidateTray();
             Render("compact-candidates", 410, 760, UiPage.Candidates);
             Check(window.CandidatesPage.Visibility == Visibility.Visible && window.DeckPage.Visibility == Visibility.Collapsed && window.PinnedPage.Visibility == Visibility.Collapsed, "Compact candidate navigation overlapped another analysis page.");
             Render("compact-snapshots", 410, 760, UiPage.Pinned);
@@ -174,7 +186,7 @@ public partial class MainWindow
             window.ReferencePicker.IsExpanded = false;
             Render("compact-return", 410, 760, UiPage.Library);
             Check(Grid.GetColumn(window.LibraryDeckCards) == 0 && window.WorkspaceDisplayButton.Visibility == Visibility.Collapsed, "Compact arrangement did not restore.");
-            Check(ReferenceEquals(window.UserReferenceCards.Rows, rows) && ReferenceEquals(window.OpponentDeckCards.Rows, rows), "Layout changes replaced live data instances.");
+            Check(ReferenceEquals(window.UserReferenceCards.Rows, rows) && window.OpponentDeckCards.Rows is not null, "Layout changes replaced live data instances.");
             window.CheckCompactTooltips(folder);
             foreach (var faction in new[] { "Monsters", "Nilfgaard", "Northern Realms", "Scoia'tael", "Skellige", "Syndicate", "Neutral" })
             {

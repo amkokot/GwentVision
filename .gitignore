@@ -6,9 +6,12 @@
 artifacts/
 release/
 snapshots/
+match-data/
 pinned-views/
 deck-scans/
 diagnostics/
+backend/supabase/.temp/
+backend/supabase/.env*
 cache/decks/
 cache/recognition-features/
 cache/premium/

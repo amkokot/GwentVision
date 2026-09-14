@@ -1,0 +1,4 @@
+project_id = "gwent-vision-data"
+
+[functions.gw-api]
+verify_jwt = false

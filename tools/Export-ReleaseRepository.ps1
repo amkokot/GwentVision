@@ -11,6 +11,9 @@ $releaseRoot = [IO.Path]::GetFullPath((Join-Path $project 'release')).TrimEnd([I
 $target = [IO.Path]::GetFullPath($Destination).TrimEnd([IO.Path]::DirectorySeparatorChar)
 if (!$target.StartsWith($releaseRoot, [StringComparison]::OrdinalIgnoreCase)) { throw 'Destination must remain inside the project release directory.' }
 if (Test-Path -LiteralPath $target) {
+    if (Test-Path -LiteralPath (Join-Path $target '.git')) {
+        throw "Refusing to replace a tracked public checkout: $target. Export to a fresh staging sibling (for example release/GwentVision-next), validate it, then review and apply that diff while preserving .git."
+    }
     if (!$Force) { throw "Destination already exists: $target. Pass -Force to replace this verified release-only path." }
     Remove-Item -LiteralPath $target -Recurse -Force
 }
@@ -38,7 +41,10 @@ foreach ($file in @('GwentCompanion.sln', 'Directory.Build.props', 'Directory.Bu
     'CONTRIBUTING.md', 'SECURITY.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'RELEASE_CHECKLIST.md', '.gitattributes')) { Copy-ProjectFile $file }
 Copy-ProjectTree '.github' { param($file, $local) $true }
 Copy-ProjectTree 'docs' { param($file, $local) $true }
+Copy-ProjectTree 'backend' { param($file, $local) $local -notmatch '(^|[\\/])(\.env|\.temp)([\\/]|$)' }
+Copy-ProjectTree 'site' { param($file, $local) $true }
 Copy-ProjectTree 'src' { param($file, $local) $local -notmatch '(^|[\\/])(bin|obj)([\\/]|$)' }
+Copy-ProjectTree 'site' { param($file, $local) $true }
 Copy-ProjectTree 'assets' { param($file, $local) $true }
 Copy-ProjectTree 'tests/GwentCompanion.Tests' { param($file, $local) $local -notmatch '(^|[\\/])(bin|obj)([\\/]|$)' }
 foreach ($file in @('tests/board-recovery-training.json', 'tests/vision-fixtures.json', 'tests/vision-training-v0.1.14.json')) { Copy-ProjectFile $file }
@@ -46,7 +52,7 @@ Copy-ProjectTree 'tests/recording-validation/cases' { param($file, $local) $true
 foreach ($file in @('tools/Export-AnonymizedValidationCorpus.ps1', 'tools/Export-PublicDeckLibrary.ps1',
     'tools/Export-ReleaseRepository.ps1', 'tools/New-ValidationCase.ps1', 'tools/New-ValidationTest.ps1',
     'tools/Test-PublicRelease.ps1')) { Copy-ProjectFile $file }
-foreach ($file in @('cache/gwent-one-cards.json', 'cache/create-point-profiles.json')) { Copy-ProjectFile $file }
+foreach ($file in @('cache/gwent-one-cards.json', 'cache/create-point-profiles.json', 'cache/data-service.json')) { Copy-ProjectFile $file }
 foreach ($folder in @('cache/portraits', 'cache/premium-frames', 'cache/observed-art')) {
     if (Test-Path -LiteralPath (Join-Path $project $folder)) { Copy-ProjectTree $folder { param($file, $local) $true } }
 }
@@ -63,9 +69,12 @@ foreach ($folder in @('cache/portraits', 'cache/premium-frames', 'cache/observed
 artifacts/
 release/
 snapshots/
+match-data/
 pinned-views/
 deck-scans/
 diagnostics/
+backend/supabase/.temp/
+backend/supabase/.env*
 cache/decks/
 cache/recognition-features/
 cache/premium/

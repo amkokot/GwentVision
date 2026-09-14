@@ -1,0 +1,51 @@
+<Window x:Class="GwentCompanion.App.DataContributionConsentWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Gwent Vision · Match-data contribution" Width="570" Height="570"
+        MinWidth="460" MinHeight="500" ResizeMode="CanResizeWithGrip"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="#101619" Foreground="#EEE8D9">
+    <Grid Margin="22">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock Text="HELP IMPROVE GWENT BALANCE" FontFamily="Georgia" FontSize="23" Foreground="#D6B664"/>
+            <TextBlock Text="Optional match-data contribution" FontSize="14" Foreground="#91B9A7" Margin="0,5,0,16"/>
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock Text="Gwent Vision can contribute your saved match results to help develop evidence-based Balance Council recommendations." TextWrapping="Wrap" FontSize="13" LineHeight="19"/>
+
+                <Border Background="#172020" BorderBrush="#465752" BorderThickness="1" Padding="12" Margin="0,15,0,14">
+                    <StackPanel>
+                        <TextBlock Text="WHAT IS SHARED" Foreground="#D6B664" FontFamily="Georgia" FontSize="13"/>
+                        <TextBlock Margin="0,7,0,0" TextWrapping="Wrap" Foreground="#CAD2D0" LineHeight="17"
+                                   Text="Date and private match time, patch, result, round scores, rank or confirmed faction MMR, your selected reference deck, observed and inferred opponent cards, detector version, and evidence-quality markers."/>
+                        <TextBlock Margin="0,9,0,0" TextWrapping="Wrap" Foreground="#AEB7C0" LineHeight="17"
+                                   Text="Your player name and Gwent account are not collected. A random installation identity is retained privately so repeated uploads can be recognized and rejected. Only designated analysts may access private records."/>
+                    </StackPanel>
+                </Border>
+
+                <CheckBox x:Name="PublishCurveChoice" IsChecked="True" Foreground="#EEF2F5" Margin="0,1,0,4">
+                    <TextBlock Text="Display my monthly MMR curve anonymously" TextWrapping="Wrap"/>
+                </CheckBox>
+                <TextBlock Text="The public chart receives only a separate seasonal curve ID, 15-minute time buckets, faction, and rating values. It receives no decks, opponents, match IDs, exact times, or cross-season identity." TextWrapping="Wrap" Foreground="#AEB7C0" FontSize="11" LineHeight="16" Margin="22,0,0,12"/>
+
+                <CheckBox x:Name="AutomaticUploadChoice" IsChecked="True" Foreground="#EEF2F5" Margin="0,1,0,4">
+                    <TextBlock Text="Share once monthly on my first played match after the 18th" TextWrapping="Wrap"/>
+                </CheckBox>
+                <TextBlock Text="Opening tracking from a menu does not count. You can turn either option off later in Settings. Nothing is sent until the database service is available." TextWrapping="Wrap" Foreground="#AEB7C0" FontSize="11" LineHeight="16" Margin="22,0,0,6"/>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Grid Grid.Row="2" Margin="0,16,0,0">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBlock Text="This choice is stored on this computer." VerticalAlignment="Center" Foreground="#87938F" FontSize="10"/>
+            <Button Grid.Column="1" Content="Keep data local" Click="KeepLocal_OnClick" Padding="14,8"/>
+            <Button Grid.Column="2" Content="Share match data" Click="Share_OnClick" IsDefault="True" Padding="14,8" BorderBrush="#C49B46"/>
+        </Grid>
+    </Grid>
+</Window>

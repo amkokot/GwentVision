@@ -1,0 +1,43 @@
+{
+  "SchemaVersion": 1,
+  "Id": "winter-queen-long-persistence",
+  "Summary": "Winter Queen persists on the opponent ranged row across sparse scans; one later clean two-anchor hit must corroborate the earlier tooltip-covered hit without admitting a high-distance player-side false candidate.",
+  "AddedIn": "0.2.68",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 1953283,
+      "Sha256": "9981B0525435F65F6893E36ED95F430AAEA71E0FBBE28F0F41822C3BA8A273CF",
+      "Tags": [
+        "regression",
+        "winter-queen-long-persistence"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 2004592,
+      "Sha256": "7BF2B04FD5CC03FEEAADAB2B20F0B0D007653E38E04F7201DE1C6758C912F9A0",
+      "Tags": [
+        "regression",
+        "winter-queen-long-persistence"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 1925049,
+      "Sha256": "5384121A7E556AAD34F2AD1E531E0327501E38CA8EF10C6CEA6A23B6BACA9162",
+      "Tags": [
+        "regression",
+        "winter-queen-long-persistence"
+      ]
+    }
+  ]
+}

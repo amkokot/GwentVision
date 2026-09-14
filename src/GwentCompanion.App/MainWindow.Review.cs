@@ -33,7 +33,7 @@ public partial class MainWindow
         ShowPage(UiPage.Deck);
         try
         {
-            var catalog = GwentOneCardCatalog.Load(Path.Combine(FindDataRoot(), "cache", "gwent-one-cards.json"));
+            var catalog = _candidateCatalog ??= GwentOneCardCatalog.Load(CardDataPath);
             if (Environment.GetCommandLineArgs().Contains("--review-live-insights")) { LoadLiveInsightsFixture(catalog); return; }
             var events = SavedVisionEvents.Read(_reviewEvidencePath!, catalog);
             foreach (var evidence in events)

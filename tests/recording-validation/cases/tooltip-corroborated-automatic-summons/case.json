@@ -1,0 +1,52 @@
+{
+  "SchemaVersion": 1,
+  "Id": "tooltip-corroborated-automatic-summons",
+  "Summary": "Repeated exact opponent-board titles must promote guarded Nauzicaa Brigade and Affan automatic-arrival candidates without weakening one-frame fallback negatives.",
+  "AddedIn": "0.2.69",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 2016132,
+      "Sha256": "305AEA5CFBB89FF277E5EDC026F38609399640189EDBF90F2F444E48F98E87CC",
+      "Tags": [
+        "regression",
+        "tooltip-corroborated-automatic-summons"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 2030520,
+      "Sha256": "6D3274D826F62D076322CA8BDC805909F29CBE528DC4D5FBB262E2258DB8DAAA",
+      "Tags": [
+        "regression",
+        "tooltip-corroborated-automatic-summons"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 2009773,
+      "Sha256": "D72507AAA3EC58B1E2AEF97318DB870815E25140FE3CF549137C5687C8AB840B",
+      "Tags": [
+        "regression",
+        "tooltip-corroborated-automatic-summons"
+      ]
+    },
+    {
+      "File": "evidence-04.png",
+      "Bytes": 2008191,
+      "Sha256": "E200D542AFFD97067FAD718F14C2C8DE7C2ADE2B49E0AA7904017123157A87F6",
+      "Tags": [
+        "regression",
+        "tooltip-corroborated-automatic-summons"
+      ]
+    }
+  ]
+}

@@ -21,7 +21,7 @@ public partial class MainWindow
     private async void TryAutoCacheOpponent()
     {
         if (_reviewEvidencePath is not null || _autoEncounterBusy || !_libraryReady ||
-            (_observedPostMatchMmr?.RatingAfter is null && _observedPostMatchRank is null) || _opponentTracker.DeckBuildingObservations.Count == 0 ||
+            (_observedPostMatchMmr?.RatingAfter is null && _observedPostMatchRank is null) || EffectiveOpponentDeckEvidence().Length == 0 ||
             DateTimeOffset.UtcNow < _autoEncounterRetryAfter) return;
         var encounter = CurrentEncounter();
         var key = encounter.SessionId + "/" + (_observedPostMatchMmr?.ToString() ?? _observedPostMatchRank?.ToString());
@@ -99,8 +99,9 @@ public partial class MainWindow
                 memory.Save(OpponentMemoryPath); _opponentMemory = memory; _memoryRenderKey = null;
                 _library.RemoveInferredEncounters(current.Encounters.Select(e => e.SessionId)); _library.Save(LibraryPath);
                 _cachedDecks = _library.Decks.Select(CurrentDeck).ToArray();
+                _deckSearchOptionsDirty = true;
                 RefreshDeckList(); RenderOpponentMemories(); RenderDeckProjection();
-            }, c => CardArt(c), SaveObservedDraft) { Owner = this };
+            }, c => CardArt(c), SaveObservedDraft, _cardBalanceChanges) { Owner = this };
             _builderWindow = window; _pendingEncounterReview = null;
             SyncDecksButton.IsEnabled = false; RefreshAnalysisButton();
             window.Closed += (_, _) =>

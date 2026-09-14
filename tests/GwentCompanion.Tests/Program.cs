@@ -24,7 +24,15 @@ if (args.Contains("--vision-efficiency-regression")) { await VisionEfficiencyTes
 if (args.Contains("--vision-efficiency-review")) { await VisionEfficiencyTests.Run(ResolveGameRoot(),true); return 0; }
 if (args.Contains("--vision-efficiency-stream")) { await VisionEfficiencyTests.Stream(ResolveGameRoot(),args); return 0; }
 if (args.Contains("--frame-compatibility-regression")) { VisionFrameCompatibilityTests.Run(); return 0; }
+if (args.Contains("--stream-mode-regression")) { StreamModeTests.Run(); StreamValidationCorpusTests.Run(ResolveProjectRoot()); return 0; }
+if (args.Contains("--stream-corpus-evaluate")) { return await StreamCorpusEvaluation.RunAsync(ResolveGameRoot(), args); }
+if (args.Contains("--stream-archive-evaluate")) { return await StreamArchiveEvaluation.RunAsync(ResolveGameRoot(), args); }
+if (args.Contains("--stream-score-window-probe")) { return await StreamArchiveEvaluation.ProbeScoresAsync(args); }
+if (args.Contains("--stream-deck-gate-probe")) { return StreamArchiveEvaluation.ProbeDeckGate(args); }
+if (args.Contains("--stream-card-window-probe")) { return await StreamArchiveEvaluation.ProbeCardsAsync(ResolveGameRoot(), args); }
 if (args.Contains("--post-match-workflow-regression")) { await PostMatchWorkflowTests.Run(ResolveGameRoot()); return 0; }
+if (args.Contains("--calibrate-result-scores")) { PostMatchScoreTests.Calibrate(ResolveGameRoot()); return 0; }
+if (args.Contains("--post-match-scores-regression")) { await PostMatchScoreTests.Run(ResolveGameRoot()); return 0; }
 
 if (args.Contains("--title-style-probe")) { await TitleStyleTests.Probe(ResolveGameRoot()); return 0; }
 if (args.Contains("--title-style-audit")) { await TitleStyleTests.Audit(ResolveGameRoot()); return 0; }
@@ -174,7 +182,7 @@ if (args.Contains("--recommendation-regression"))
     OpponentKnowledgeTests.Memory(root); EncounterFrequencyTests.Run(root);
     Console.WriteLine("Recommendation regression passed (latest recorded match only)."); return 0;
 }
-if (args.Contains("--detector-update-regression")) { DetectorUpdateTests.Confirmation(); DetectorUpdateTests.Origins(ResolveGameRoot()); DetectorUpdateTests.RefillingHandPlays(ResolveGameRoot()); await DetectorUpdateTests.RecordedTitlesAsync(ResolveGameRoot()); await DetectorUpdateTests.NamedSpawnCandidatePixelsAsync(ResolveGameRoot()); return 0; }
+if (args.Contains("--detector-update-regression")) { DetectorUpdateTests.Confirmation(); DetectorUpdateTests.Origins(ResolveGameRoot()); DetectorUpdateTests.RefillingHandPlays(ResolveGameRoot()); await DetectorUpdateTests.RecordedTitlesAsync(ResolveGameRoot()); await DetectorUpdateTests.NamedSpawnCandidatePixelsAsync(ResolveGameRoot()); DetectorUpdateTests.KnownPlayerThinningPairPixels(ResolveGameRoot()); return 0; }
 if (args.Contains("--preview-title-regression")) { await TestPreviewTitles(ResolveGameRoot()); await MatchReviewTests.TitlesAsync(ResolveGameRoot()); return 0; }
 
 if (args.Length >= 2 && args[0] == "--builder-audit")
@@ -791,6 +799,13 @@ static void TestRollingVision()
     expired.Offer(2, at.AddSeconds(7), 0);
     expired.Complete();
     Assert(Drain(expired).GetAwaiter().GetResult().SequenceEqual([2]), "Stale samples must not accumulate indefinitely.");
+    var protectedQueue = new RollingVisionBuffer<int>(2, TimeSpan.FromSeconds(2), protectedCapacity: 4,
+        protectedMinimumPriority: 4, protectedMaximumAge: TimeSpan.FromSeconds(8));
+    protectedQueue.Offer(1, at, 0); protectedQueue.Offer(2, at.AddSeconds(1), 0);
+    protectedQueue.Offer(3, at.AddSeconds(3), 4); protectedQueue.Offer(4, at.AddSeconds(4), 4);
+    protectedQueue.Offer(5, at.AddSeconds(5), 4); protectedQueue.Complete();
+    Assert(Drain(protectedQueue).GetAwaiter().GetResult().SequenceEqual([3, 4, 5]),
+        "Critical result frames must outlive the ordinary age/capacity without retaining stale ordinary frames.");
     static async Task<List<int>> Drain(RollingVisionBuffer<int> queue)
     {
         var result = new List<int>();

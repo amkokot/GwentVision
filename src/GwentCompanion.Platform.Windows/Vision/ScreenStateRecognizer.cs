@@ -48,9 +48,18 @@ public sealed class ScreenStateRecognizer : IDisposable
             _endVote = ended ? "GAME OVER" : null;
         }
         else _endVote = null;
+        // Result ribbons are centered over the board; they are not top headings.
+        // Retry only after the fixed match HUD has disappeared so ordinary play
+        // pays no extra OCR cost and card/stream overlays cannot become outcomes.
+        if (string.IsNullOrWhiteSpace(header) && observation.MatchHudVisible == false)
+        {
+            var centered = await ReadLinesAsync(frame, new(.30, .35, .70, .61),
+                scale: 4, enhance: true, whiteLetterMask: true).ConfigureAwait(false);
+            header = centered.Select(line => NormalizeResult(line.Text)).FirstOrDefault(value => value is not null) ?? "";
+        }
         // Verified against the latest result screenshot: the decorative V is read as U.
         // Normalize only this exact heading, never arbitrary OCR letters or numeric ratings.
-        if (header.Trim().Equals("UICTORY", StringComparison.OrdinalIgnoreCase)) header = "VICTORY";
+        header = NormalizeResult(header) ?? header;
         var overlay = IsOverlayHeader(header);
         return observation with
         {
@@ -65,6 +74,18 @@ public sealed class ScreenStateRecognizer : IDisposable
         var compact = string.Concat(header.Where(char.IsLetterOrDigit)).ToUpperInvariant();
         return new[] { "CHOOSE", "SELECT", "PICK", "FICK", "CARDTOPLAY", "CARDTODISCARD", "GRAVEYARD", "GRAUEYARD", "DECK", "ROUND", "ROIJND", "REDRAW", "VICTORY", "DEFEAT", "DRAW", "GAMEOVER" }
             .Any(word => compact.Contains(word, StringComparison.Ordinal));
+    }
+
+    public static string? NormalizeResult(string? value)
+    {
+        var compact = string.Concat((value ?? "").Where(char.IsLetter)).ToUpperInvariant();
+        return compact switch
+        {
+            "VICTORY" or "UICTORY" => "VICTORY",
+            "DEFEAT" => "DEFEAT",
+            "DRAW" => "DRAW",
+            _ => null,
+        };
     }
 
     public async Task<string> ReadAsync(PixelFrame frame, NormalizedRegion region)

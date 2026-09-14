@@ -30,6 +30,10 @@ public static class StartingDeckRules
     public static bool IsStartingCard(CardDefinition card) => card.CanBeInStartingDeck &&
         card.Kind is CardKind.Unit or CardKind.Special or CardKind.Artifact;
 
+    public static bool IsLegalStartingCard(CardDefinition card, string? faction) =>
+        IsStartingCard(card) && (string.IsNullOrWhiteSpace(faction) ||
+            FactionCompatibility.IsPlayableBy(card, faction));
+
     public static StartingDeckAssessment EvaluateExactDeck(DeckDefinition deck)
     {
         ArgumentNullException.ThrowIfNull(deck);

@@ -93,7 +93,7 @@ The script will:
 3. number the evidence as `evidence-01.jpg`, `evidence-02.jpg`, and so on; and
 4. create a matching C# test file.
 
-Open the generated images and inspect every part of them. Automatic masking is a starting point, not proof that an image is safe to publish. Remove any names or other identifying information the script missed.
+Open the generated images and inspect every part of them. Remove any names or other identifying information the script missed.
 
 The generated test contains a deliberate `NotImplementedException`. Replace that line with the assertion for your expected behavior, then commit the case folder and its test together.
 
@@ -119,9 +119,9 @@ The ID and kind use lowercase words separated by hyphens. Common kinds include:
 
 These are examples, not a closed list. Choose another clear kind if it describes the change better.
 
-Open the generated C# file and replace its `NotImplementedException` with a deterministic check. **Deterministic** means the same code should produce the same result every time. A good validation test must not require GWENT to be running, internet access, a user account, or private files from your computer.
+Open the generated C# file and replace its `NotImplementedException` with a deterministic check. **Deterministic** means the same code should produce the same result every time. A good validation test must not require Gwent to be running, internet access, a user account, or private files from your computer.
 
-Small, non-personal sample files may go in `tests/GwentCompanion.Tests/Fixtures`. A performance test should check a stable limit—such as a maximum amount of work—not whether one computer finished within an exact number of milliseconds.
+Small, non-personal sample files may go in `tests/GwentCompanion.Tests/Fixtures`
 
 If you intentionally redesign the interface, update the test that describes the old layout and add or revise a test that describes the new layout. Explain the decision in your PR. Do not simply delete a failing test to make the checks green.
 
@@ -155,7 +155,7 @@ There is no shared validation version number to update. Once your branch include
 
 ## Protect people's privacy
 
-Never commit a raw capture or recording. Public evidence must not contain:
+Try not to commit a raw capture or recording. If possible, it may be desirable to remove some of the following:
 
 - player names or avatars tied to an account;
 - profile or account identifiers;
@@ -195,9 +195,6 @@ A useful PR description answers four questions:
 
 It is fine to open a **draft PR** before the work is complete. A draft lets other contributors offer advice without treating the change as ready to merge.
 
-## Maintainer merge settings
-
-Maintainers should require the Validation and Malware scan checks before merging. If the repository belongs to an organization, GitHub's merge queue is the easiest way to test each queued PR against the newest `main`. Otherwise, enable **Require branches to be up to date before merging**.
 
 ## Need help?
 

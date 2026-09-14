@@ -40,6 +40,9 @@ internal static class BuilderFillFilterTests
         var starting = ObservedDeckStore.StartingCards(raw, catalog);
         Check(starting.Length == 1 && starting[0].Id == collectible.Id && starting[0].ObservedCopies == 2, "Generated sightings polluted the original-copy count.");
         Check(raw.Length == 6 && raw[0].Provenance == CardProvenance.Spawned, "Raw evidence was mutated.");
+        var offFaction = catalog.First(c => c.Faction == "Nilfgaard" && StartingDeckRules.IsStartingCard(c));
+        Check(ObservedDeckStore.StartingCards([Seen(collectible, CardProvenance.ProbableStartingDeck), Seen(offFaction, CardProvenance.ProbableStartingDeck)], catalog, "Monsters")
+            .All(card => card.Id != offFaction.Id), "Stored starting-card view admitted another faction's card.");
         var rejectedPath = Path.Combine(root, "GwentCompanion/diagnostics", "invalid-token-draft-" + Guid.NewGuid().ToString("N") + ".json");
         try
         {

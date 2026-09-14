@@ -23,6 +23,7 @@ public partial class MainWindow
     private readonly PlayGwentDeckCacheService _deckCacheService = new();
     private readonly PlayGwentArtCacheService _artCacheService = new();
     private readonly ObservedDeckStore _observedDeckStore = new();
+    private ObservedDeckRecord[]? _observedDeckRecords;
     private readonly PlayEventStore _playEventStore = new();
     private readonly LiveDeckTracker _userTracker = new(PlayerSide.User);
     private readonly LiveDeckTracker _opponentTracker = new(PlayerSide.Opponent);
@@ -35,6 +36,7 @@ public partial class MainWindow
     private BitmapSource? _lastPreview;
     private int _recordedPlayEvents;
     private CardPointEstimate[] _pointCatalog = Array.Empty<CardPointEstimate>();
+    private bool _pointCatalogDirty = true;
     private DeckListItem[] _deckListItems = Array.Empty<DeckListItem>();
     private CardPointModelListItem[] _pointModelItems = Array.Empty<CardPointModelListItem>();
     private DateTimeOffset _lastDiscoveryReport = DateTimeOffset.MinValue;
@@ -61,23 +63,25 @@ public partial class MainWindow
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
-        RefreshCardDataStatus();
+        if (_reviewEvidencePath is null || _analysisControlTest) BeginOcrWarmup();
         if (_reviewEvidencePath is not null && !_analysisControlTest)
         {
             try { await LoadDeckIndexesAsync(loadVision: false); LoadOfflineReview(); }
             finally { HideLoadingShell(); }
             return;
         }
-        if (!_analysisControlTest) { RefreshGameWindow(); _discoveryTimer.Start(); }
-        else { SnapshotButton.IsEnabled = false; GameStatusText.Text = "OFFLINE REVIEW · capture fixture is this window only"; }
+        if (_analysisControlTest) { SnapshotButton.IsEnabled = false; GameStatusText.Text = "OFFLINE REVIEW · capture fixture is this window only"; }
         SyncDecksButton.IsEnabled = false;
         _startupTask = InitializeAnalysisAsync();
         try { await _startupTask; }
         finally { HideLoadingShell(); }
         if (_windowClosing) return;
+        if (!_analysisControlTest) ShowDataContributionConsentIfNeeded();
+        if (!_analysisControlTest) { RefreshGameWindow(); _discoveryTimer.Start(); }
         SyncDecksButton.IsEnabled = !_analysisControlTest && !_analysisTransition &&
             _libraryWindow is null && _builderWindow is null && _diagnosticSession?.IsRunning != true;
         RefreshPinnedCaptures();
+        BeginVisionWarmup();
     }
 
     protected override async void OnClosed(EventArgs e)
@@ -89,6 +93,11 @@ public partial class MainWindow
             await _diagnosticSession.DisposeAsync();
             await StopVisionAsync();
             PersistCurrentMatch();
+        }
+        if (_projectionQueue is { } projections)
+        {
+            projections.Dispose();
+            await projections.Idle;
         }
         _visionPipeline?.Dispose();
         if (_valueWriter is not null) { await _valueWriter.Idle; _valueWriter.Dispose(); }
@@ -254,6 +263,7 @@ public partial class MainWindow
                 _analysisControlTest ? Path.Combine(FindDataRoot(), "diagnostics", "analysis-control-tests", Environment.ProcessId.ToString()) :
                 Path.Combine(FindDataRoot(), "sessions"));
             _diagnosticSession.RetainTrainingFrames = RecordTrainingChoice.IsChecked == true;
+            _diagnosticSession.RetainedFramesPerSecond = SelectedRecordingFrameRate;
             _diagnosticSession.Progress -= DiagnosticSession_OnProgress;
             _diagnosticSession.Progress += DiagnosticSession_OnProgress;
             StartVision();
@@ -261,7 +271,7 @@ public partial class MainWindow
             SyncDecksButton.IsEnabled = false;
             SetAnalysisButtonState(true);
             OpenSessionButton.IsEnabled = false;
-            ShowAnalysisStatus((_diagnosticSession.RetainTrainingFrames ? "Analyzing · training recording on." : "Analyzing · training recording off.") +
+            ShowAnalysisStatus((_diagnosticSession.RetainTrainingFrames ? $"Analyzing · training recording on at {_diagnosticSession.RetainedFramesPerSecond} FPS." : "Analyzing · training recording off.") +
                 " Recognition runs in the background.");
         }
         catch (Exception exception)
@@ -392,7 +402,8 @@ public partial class MainWindow
             }
 
             var inference = new DeckInferenceEngine();
-            var deckObservations = observations.Where(item=>StartingDeckRules.CountsAgainstStartingDeck(item.Provenance)).ToArray();
+            var deckObservations = tracker.Side == PlayerSide.Opponent ? EffectiveOpponentDeckEvidence() :
+                tracker.DeckBuildingObservations.ToArray();
             var inferenceFaction = tracker.HasStableFaction ? tracker.Faction : null;
             var assessment = tracker.Side == PlayerSide.Opponent ? _opponentKnowledge.Assess(deckObservations) : StartingDeckRules.EvaluateObservedDeck(deckObservations);
             var compatible = inference.CompatibleDecks(_cachedDecks, deckObservations, inferenceFaction, assessment);
@@ -402,12 +413,10 @@ public partial class MainWindow
                     ? null
                     : inference.Rank(compatible, deckObservations, inferenceFaction, null, 1)[0].Deck.Id;
             var provisionFloor = StartingDeckRules.ProbableProvisionLowerBound(deckObservations);
-            _observedDeckStore.Save(
-                ResolveObservedDeckDirectory(),
-                new ObservedDeckRecord(
+            var record = new ObservedDeckRecord(
                     sessionId,
                     tracker.Side,
-                    DateTimeOffset.Now,
+                    DateTimeOffset.UtcNow,
                     tracker.Faction,
                     compatible.Count,
                     best,
@@ -430,7 +439,12 @@ public partial class MainWindow
                     TrainingOnly: tracker.Side == PlayerSide.User,
                     ManualPicks: tracker.Side == PlayerSide.Opponent ? _opponentEdits.Included.Keys.Select(key => new StoredDeckAssumption(key.CardId, key.Copy)).ToArray() : null,
                     DismissedSuggestions: tracker.Side == PlayerSide.Opponent ? _opponentEdits.Excluded.Select(key => new StoredDeckAssumption(key.CardId, key.Copy)).ToArray() : null,
-                    LearnedEvidence: tracker.Side == PlayerSide.Opponent ? CurrentEncounter() : null));
+                    DismissedObservations: tracker.Side == PlayerSide.Opponent ? _opponentEdits.CorrectedEvidence.Select(key => new StoredDeckAssumption(key.CardId, key.Copy)).ToArray() : null,
+                    LearnedEvidence: tracker.Side == PlayerSide.Opponent ? CurrentEncounter() : null);
+            _observedDeckStore.Save(ResolveObservedDeckDirectory(), record);
+            _observedDeckRecords = (_observedDeckRecords ?? []).Where(item =>
+                    item.Side != record.Side || !item.SessionId.Equals(record.SessionId, StringComparison.OrdinalIgnoreCase))
+                .Append(record).OrderByDescending(item => item.RecordedAt).ToArray();
         }
     }
 
@@ -555,8 +569,17 @@ public partial class MainWindow
             var workbooks = SuppliedDeckWorkbooks.Find(gameRoot);
             _libraryReady = false;
             var cacheDirectory = ResolveDeckCacheDirectory();
+            var cardDataPath = CardDataPath;
+            var observedDirectory = ResolveObservedDeckDirectory();
+            var draftPath = ObservedDraftPath;
+            var opponentMemoryPath = OpponentMemoryPath;
+            var preserveHistoricalValues = _reviewEvidencePath is not null;
             var loaded = await Task.Run(() =>
             {
+                var updater = new CardDataUpdater(cardDataPath);
+                var cardData = updater.Current() ?? throw new InvalidDataException("No public card catalogue is installed.");
+                var cardChanges = CardBalanceChanges.Load(cardDataPath, cardData);
+                var currentValues = new CurrentCardValues(cardData.Cards);
                 var library = DeckLibrary.Load(LibraryPath);
                 var sourceEntries = WorkbookIndexCache.LoadOrRead(gameRoot, Path.Combine(cacheDirectory, "workbook-index.json"));
                 var index = sourceEntries.Concat(library.ImportedLinks).OrderByDescending(e => e.LastEdited)
@@ -572,22 +595,44 @@ public partial class MainWindow
                 }
                 if (library.VariationPolicy is null)
                 {
-                    library.EnsureVariationGroups(GwentOneCardCatalog.Load(Path.Combine(gameRoot, "GwentCompanion/cache/gwent-one-cards.json")));
+                    library.EnsureVariationGroups(cardData.Cards);
                     if (_reviewEvidencePath is null) library.Save(LibraryPath); // One-time schema/group migration, with backup.
                 }
-                return (Library: library, Entries: sourceEntries, Index: index, Cached: cachedDecks);
+                OpponentDeckMemoryStore? memory = null; string? memoryError = null;
+                try { memory = OpponentDeckMemoryStore.Load(opponentMemoryPath); }
+                catch (Exception error) { memoryError = error.Message; }
+                DeckEditorDraft[] drafts = []; string? draftError = null;
+                try { drafts = DeckEditorDraftStore.Load(draftPath).ToArray(); }
+                catch (Exception error) { draftError = error.Message; }
+                var observed = _observedDeckStore.Load(observedDirectory).ToArray();
+                var currentDecks = preserveHistoricalValues ? library.Decks : library.Decks.Select(currentValues.Deck).ToArray();
+                return (Library: library, Entries: sourceEntries, Index: index, Cached: cachedDecks,
+                    CurrentDecks: currentDecks, CardData: cardData, CardChanges: cardChanges,
+                    CanRestoreCardData: File.Exists(updater.BackupPath), CurrentValues: currentValues,
+                    Observed: observed, Drafts: drafts, DraftError: draftError, Memory: memory, MemoryError: memoryError);
             });
             if (_windowClosing) return;
             var entries = loaded.Entries;
             var cached = loaded.Cached;
             _library = loaded.Library;
             _deckIndexEntries = loaded.Index;
+            _currentCardValues = loaded.CurrentValues;
+            _candidateCatalog = loaded.CardData.Cards.ToArray();
+            _observedDeckRecords = loaded.Observed;
+            _savedDeckDrafts = loaded.Drafts;
+            _opponentMemory = loaded.Memory;
+            _memoryLoadError = loaded.MemoryError;
+            ApplyCardDataStatus(loaded.CardData, loaded.CardChanges, loaded.CanRestoreCardData);
             _libraryReady = true;
-            _cachedDecks = _library.Decks.Select(CurrentDeck).ToArray();
+            _cachedDecks = loaded.CurrentDecks;
+            _deckSearchOptionsDirty = true;
             RestoreSelectedUserDeck();
-            RebuildPointCatalog();
+            BeginVisionWarmup();
+            InvalidatePointCatalog();
             // Deck search must be available even while vision is loading or unavailable.
-            RefreshDeckList();
+            var deckItems = await Task.Run(BuildDeckListItems);
+            if (_windowClosing) return;
+            SetDeckListItems(deckItems);
             RenderLiveInference();
             var observedCount = CreateObservedDeckItems().Length;
             DeckDataStatusText.Text =
@@ -595,7 +640,8 @@ public partial class MainWindow
                 (cached.Length > 0
                     ? $"Loaded {_cachedDecks.Length:N0} unique complete decks; duplicate compositions merged."
                     : "Index links are searchable; complete deck payloads are not cached yet.") +
-                (observedCount > 0 ? $" Added {observedCount:N0} unlisted/variant observed partial deck(s)." : string.Empty);
+                (observedCount > 0 ? $" Added {observedCount:N0} unlisted/variant observed partial deck(s)." : string.Empty) +
+                (loaded.DraftError is not null ? " Saved drafts unavailable; their cache was preserved: " + loaded.DraftError : string.Empty);
             var indexStatus = DeckDataStatusText.Text;
             if (!loadVision) return;
             try { await ReloadVisionAsync(); DeckDataStatusText.Text = indexStatus; }
@@ -631,7 +677,6 @@ public partial class MainWindow
                 int.MaxValue,
                 progress);
             MergeLibrary(result.Decks);
-            RefreshDeckList();
             var artProgress = new Progress<ArtCacheProgress>(item =>
             {
                 DeckDataStatusText.Text =
@@ -643,7 +688,6 @@ public partial class MainWindow
                 ResolveArtCacheDirectory(),
                 artProgress);
             RestoreSelectedUserDeck();
-            RebuildPointCatalog();
             _deckArt.Clear();
             RenderLiveInference();
             await ReloadVisionAsync();
@@ -662,8 +706,17 @@ public partial class MainWindow
         }
     }
 
-    private DeckListItem[] CreateDeckItems(IEnumerable<DeckDefinition> decks) =>
-        DeckSearchCatalog.Build(_deckIndexEntries, decks, _library)
+    private DeckListItem[] CreateDeckItems(IEnumerable<DeckDefinition> decks)
+    {
+        // Library.Find is deliberately flexible and linear. Build the display lookup
+        // once so rendering thousands of headings does not turn into an O(n²) walk.
+        var records = new Dictionary<string, LibraryDeck>(StringComparer.OrdinalIgnoreCase);
+        foreach (var record in _library.Records)
+        {
+            records.TryAdd(record.Deck.Id, record);
+            foreach (var alias in record.Aliases) records.TryAdd(alias, record);
+        }
+        return DeckSearchCatalog.Build(_deckIndexEntries, decks, _library)
             .Select(entry =>
             {
                 if (entry.Deck is not { } deck)
@@ -687,21 +740,22 @@ public partial class MainWindow
                     $" · Stratagem: {deck.Stratagem?.Name ?? "unknown"}" +
                     $" · {DeckPatchMetadata.Describe(deck.Patches)}" +
                     (tags.Length > 0 ? $" · {tags}" : string.Empty) +
-                    (_library.Find(deck.Id) is { } record && (record.Aliases.Length > 1 || record.Sources.Length > 1)
+                    (records.GetValueOrDefault(deck.Id) is { } record && (record.Aliases.Length > 1 || record.Sources.Length > 1)
                         ? $" · merged {record.Aliases.Length} identities / {record.Sources.Length} sources" : ""),
                     deck.SourceUri,
                     deck,
                     entry.SearchText + " " + DeckSearchCatalog.Normalize(tags), entry.IndexEntry);
             })
             .ToArray();
+    }
 
     private DeckListItem[] CreateObservedDeckItems() =>
-        _observedDeckStore.Load(ResolveObservedDeckDirectory())
+        (_observedDeckRecords ??= _observedDeckStore.Load(ResolveObservedDeckDirectory()).ToArray())
             .Where(record => record.RecognitionVersion >= 2)
             .Where(record => record.Side == PlayerSide.Opponent && !record.TrainingOnly)
             .Where(record => record.IsUnlistedOrVariant)
             .Select(record => record with { Cards = ObservedDeckStore.StartingCards(record.Cards, _candidateCatalog ??=
-                GwentOneCardCatalog.Load(Path.Combine(FindDataRoot(), "cache/gwent-one-cards.json"))) })
+                GwentOneCardCatalog.Load(Path.Combine(FindDataRoot(), "cache/gwent-one-cards.json")), record.Faction) })
             .Select(record => new DeckListItem(
                 $"Observed {record.Side.ToString().ToLowerInvariant()} deck · {record.RecordedAt:yyyy-MM-dd HH:mm}",
                 $"Unlisted/variant · partial · {record.Faction ?? "faction unknown"} · " +
@@ -713,12 +767,14 @@ public partial class MainWindow
                 DraftSourceKey: "observed:" + record.Side + ":" + record.SessionId, FilterStratagemId: record.LearnedEvidence?.StratagemId))
             .ToArray();
 
-    private void RefreshDeckList()
+    private DeckListItem[] BuildDeckListItems()
     {
         _candidateCatalog ??= GwentOneCardCatalog.Load(Path.Combine(FindDataRoot(), "cache/gwent-one-cards.json"));
         _library.EnsureVariationGroups(_candidateCatalog);
-        SetDeckListItems(CreateDeckItems(_cachedDecks).Concat(CreateObservedDeckItems()).Concat(LearnedDeckItems()).Concat(SavedObservedDraftItems()));
+        return CreateDeckItems(_cachedDecks).Concat(CreateObservedDeckItems()).Concat(LearnedDeckItems()).Concat(SavedObservedDraftItems()).ToArray();
     }
+
+    private void RefreshDeckList() => SetDeckListItems(BuildDeckListItems());
 
     private void SetDeckListItems(IEnumerable<DeckListItem> items)
     {
@@ -735,6 +791,7 @@ public partial class MainWindow
 
         RefreshDeckSearchOptions();
         var terms = DeckSearchCatalog.Terms(DeckSearchBox.Text);
+        var normalizedQuery = DeckSearchCatalog.Normalize(DeckSearchBox.Text);
         var selected = DeckList.SelectedItem as DeckListItem;
         var matches = _deckListItems.Where(item => ShowObservedDecksChoice.IsChecked != false || !item.IsAutomaticObservation)
             .Where(item => DeckSearchCatalog.Matches(
@@ -746,8 +803,8 @@ public partial class MainWindow
             .Where(item => LibrarySearch.Leader.SelectedIndex <= 0 || (item.Deck?.Leader ?? item.IndexEntry?.Leader ?? item.FilterLeader) == LibrarySearch.Leader.SelectedItem as string)
             .Where(item => LibrarySearch.Filters.Matches(item.Deck, item.IndexEntry, item.Deck is null && item.IndexEntry is null))
             .Where(item => DeckSearchCatalog.ExcludesCards(item.Deck, LibrarySearch.ExcludedCards))
-            .OrderByDescending(item => terms.Length == 0 ? 0 : DeckSearchCatalog.Normalize(item.Name) == DeckSearchCatalog.Normalize(DeckSearchBox.Text) ? 2 :
-                DeckSearchCatalog.Normalize(item.Name).StartsWith(DeckSearchCatalog.Normalize(DeckSearchBox.Text), StringComparison.Ordinal) ? 1 : 0)
+            .OrderByDescending(item => terms.Length == 0 ? 0 : item.NormalizedName == normalizedQuery ? 2 :
+                item.NormalizedName.StartsWith(normalizedQuery, StringComparison.Ordinal) ? 1 : 0)
             .ThenByDescending(item => item.Deck is { } deck ? ReferenceDeckSearch.Date(deck) : item.IndexEntry?.LastEdited ?? item.RecordedAt)
             .ThenBy(item => item.Deck?.RecencyRank ?? item.IndexEntry?.RecencyRank ?? int.MaxValue).ToArray();
         var groupedMatches = GroupLibraryItems(matches);
@@ -801,6 +858,7 @@ public partial class MainWindow
                 PointRangeText(item),
                 item.Explanation))
             .ToArray();
+        _pointCatalogDirty = false;
         ApplyPointFilter();
 
         if (_reviewEvidencePath is not null) return;
@@ -815,6 +873,16 @@ public partial class MainWindow
                     WriteIndented = true,
                     Converters = { new JsonStringEnumConverter() },
                 }));
+    }
+
+    private void InvalidatePointCatalog()
+    {
+        _pointCatalogDirty = true;
+        _pointCatalog = [];
+        _pointModelItems = [];
+        if (PointModelList is not null) PointModelList.ItemsSource = null;
+        if (PointModelStatusText is not null)
+            PointModelStatusText.Text = "Open this tool to build point classifications from the current library.";
     }
 
     private void ApplyPointFilter()
@@ -915,6 +983,7 @@ public partial class MainWindow
             }
 
             var settings = JsonSerializer.Deserialize<UserSettings>(File.ReadAllText(path));
+            _useOpponentModel = settings?.UseOpponentModel ?? false;
             _restoringReviewPreference = true;
             try
             {
@@ -924,6 +993,7 @@ public partial class MainWindow
                 ShowObservedDecksChoice.IsChecked = settings?.ShowObservedDecks ?? true;
                 AutoStopOnMmrChoice.IsChecked = settings?.AutoStopOnMmr ?? false;
                 EnableExperimentalAnalysisChoice.IsChecked = settings?.EnableExperimentalAnalysis ?? false;
+                SelectRecordingFrameRate(settings?.TrainingRecordingFps ?? TrainingRecordingFrameRate.Recommended);
             }
             finally { _restoringReviewPreference = false; }
             _selectedUserDeck = settings?.SelectedUserDeckId is null
@@ -954,7 +1024,7 @@ public partial class MainWindow
             JsonSerializer.Serialize(
                 new UserSettings(_selectedUserDeck?.Id, ReviewNewDecksChoice.IsChecked == true, DetailedReachChoice.IsChecked == true,
                     RecordTrainingChoice.IsChecked == true, ShowObservedDecksChoice.IsChecked != false, AutoStopOnMmrChoice.IsChecked == true,
-                    EnableExperimentalAnalysisChoice.IsChecked == true),
+                    EnableExperimentalAnalysisChoice.IsChecked == true, SelectedRecordingFrameRate, _useOpponentModel),
                 new JsonSerializerOptions { WriteIndented = true }));
     }
 
@@ -1044,6 +1114,7 @@ public partial class MainWindow
         string? GroupId = null, DeckListItem[]? Variations = null, string? DraftSourceKey = null,
         string? FilterStratagemId = null, DeckEditorDraft? SavedDraft = null)
     {
+        public string NormalizedName { get; } = DeckSearchCatalog.Normalize(Name);
         public string? HeadingFaction => Deck?.Faction ?? IndexEntry?.Faction ?? FilterFaction;
         public string? HeadingLeader => Deck?.Leader ?? IndexEntry?.Leader ?? FilterLeader;
         public bool IsAutomaticObservation => SavedDraft is null && Deck is null && IndexEntry is null &&
@@ -1058,6 +1129,7 @@ public partial class MainWindow
     private sealed record PinnedCaptureItem(string Name, string Path);
     private sealed record CardPointModelListItem(string Name, string Range, string Explanation);
     private sealed record UserSettings(string? SelectedUserDeckId, bool ReviewNewOpponentDecks = true, bool DetailedReach = false,
-        bool RecordTraining = false, bool ShowObservedDecks = true, bool AutoStopOnMmr = false, bool EnableExperimentalAnalysis = false);
+        bool RecordTraining = false, bool ShowObservedDecks = true, bool AutoStopOnMmr = false, bool EnableExperimentalAnalysis = false,
+        int TrainingRecordingFps = TrainingRecordingFrameRate.Recommended, bool UseOpponentModel = false);
 
 }

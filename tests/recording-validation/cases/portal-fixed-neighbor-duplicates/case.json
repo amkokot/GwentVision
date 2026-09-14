@@ -1,0 +1,34 @@
+{
+  "SchemaVersion": 1,
+  "Id": "portal-fixed-neighbor-duplicates",
+  "Summary": "Portal summons a second already-seen Elven Swordmaster into its left slot and Peasant Militia into its right Timer slot; fixed neighbor pixels must preserve both physical deck copies.",
+  "AddedIn": "0.2.80",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 1984524,
+      "Sha256": "E23CB926A792393C2497840152A908C47972C63CFBA8DCD2E8D76921D3FA3A75",
+      "Tags": [
+        "regression",
+        "portal-fixed-neighbor-duplicates"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 1942451,
+      "Sha256": "339D6AF9071A812EA3D30263C8A3345DA6D759B51CA56B854577CE26BE56460D",
+      "Tags": [
+        "regression",
+        "portal-fixed-neighbor-duplicates"
+      ]
+    }
+  ]
+}

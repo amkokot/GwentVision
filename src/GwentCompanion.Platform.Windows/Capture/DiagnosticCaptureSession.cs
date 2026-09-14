@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using System.Threading.Channels;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using GwentCompanion.Core.Vision;
@@ -17,7 +18,8 @@ public sealed record DiagnosticProgress(
     GwentVisualObservation? Observation = null,
     string? Error = null,
     DateTimeOffset? SampledAt = null,
-    double PreviewChange = 0, bool PointerInPlayerHand = false, double OpponentPreviewChange = 0, double TrackingPriority = 0);
+    double PreviewChange = 0, bool PointerInPlayerHand = false, double OpponentPreviewChange = 0,
+    double TrackingPriority = 0, bool ResultsOnly = false);
 
 public sealed class DiagnosticCaptureSession : IAsyncDisposable
 {
@@ -26,6 +28,7 @@ public sealed class DiagnosticCaptureSession : IAsyncDisposable
     private CancellationTokenSource? _cancellation;
     private Task? _worker;
     private volatile bool _retainTrainingFrames;
+    private volatile int _retainedFramesPerSecond = TrainingRecordingFrameRate.Recommended;
 
     public DiagnosticCaptureSession(Win32FrameCapture capture, string? sessionRoot = null)
     {
@@ -37,6 +40,11 @@ public sealed class DiagnosticCaptureSession : IAsyncDisposable
 
     public bool IsRunning => _worker is { IsCompleted: false };
     public bool RetainTrainingFrames { get => _retainTrainingFrames; set => _retainTrainingFrames = value; }
+    public int RetainedFramesPerSecond
+    {
+        get => _retainedFramesPerSecond;
+        set => _retainedFramesPerSecond = TrainingRecordingFrameRate.Normalize(value);
+    }
     public string? CurrentSessionDirectory { get; private set; }
 
     public void Start(GwentWindowSnapshot window)
@@ -92,9 +100,12 @@ public sealed class DiagnosticCaptureSession : IAsyncDisposable
         const long maximumSavedBytes = 2L * 1024 * 1024 * 1024;
 
         var locator = new GwentWindowService();
-        var started = DateTimeOffset.Now;
+        var started = DateTimeOffset.UtcNow;
         var captured = 0;
         var saved = 0;
+        var scheduled = 0;
+        var recordingFramesDropped = 0;
+        var reviewFramesDropped = 0;
         long savedBytes = 0;
         var retentionLimitReached = false;
         var lastSavedAt = DateTimeOffset.MinValue;
@@ -103,7 +114,51 @@ public sealed class DiagnosticCaptureSession : IAsyncDisposable
         ReviewKeyFrameWriter? review = null;
         var lastReviewAt = DateTimeOffset.MinValue;
         string? reviewError = null;
+        string? recordingError = null;
         string? finalError = null;
+        // Disk/JPEG work must never throttle the live capture/analysis loop.
+        // Two frozen 1280-wide frames bound queued memory to roughly 7 MiB.
+        var recordingQueue = Channel.CreateBounded<(BitmapSource Frame, string Path)>(new BoundedChannelOptions(2)
+        {
+            SingleReader = true,
+            SingleWriter = true,
+            FullMode = BoundedChannelFullMode.Wait
+        });
+        var recordingWriter = Task.Run(async () =>
+        {
+            await foreach (var pending in recordingQueue.Reader.ReadAllAsync())
+            {
+                try
+                {
+                    SaveJpeg(pending.Frame, pending.Path);
+                    Interlocked.Add(ref savedBytes, new FileInfo(pending.Path).Length);
+                    Interlocked.Increment(ref saved);
+                }
+                catch (Exception exception)
+                {
+                    recordingError = "Training recording writer: " + exception.Message;
+                    try { if (File.Exists(pending.Path)) File.Delete(pending.Path); } catch { }
+                }
+            }
+        });
+        var reviewQueue = Channel.CreateBounded<(BitmapSource Frame, DateTimeOffset At, PreviewMotion Motion)>(
+            new BoundedChannelOptions(2)
+            {
+                SingleReader = true,
+                SingleWriter = true,
+                FullMode = BoundedChannelFullMode.Wait
+            });
+        var reviewWriter = Task.Run(async () =>
+        {
+            await foreach (var pending in reviewQueue.Reader.ReadAllAsync())
+            {
+                if(reviewError is not null) continue;
+                try { (review ??= new ReviewKeyFrameWriter(Path.Combine(directory, "review-keyframes"))).Observe(pending.Frame,pending.At,pending.Motion); }
+                catch (Exception exception) { reviewError = "Review packs disabled: " + exception.Message; }
+            }
+            try { review?.Finish(); }
+            catch (Exception exception) { reviewError ??= "Review pack: " + exception.Message; }
+        });
 
         try
         {
@@ -123,7 +178,7 @@ public sealed class DiagnosticCaptureSession : IAsyncDisposable
                     var previewMotion = new PreviewMotion(0, 0);
                     captured++;
 
-                    var now = DateTimeOffset.Now;
+                    var now = DateTimeOffset.UtcNow;
                     if (now - lastReviewAt >= TimeSpan.FromMilliseconds(190))
                     {
                         // Measure at the retained cadence, so a change on an intervening
@@ -131,22 +186,28 @@ public sealed class DiagnosticCaptureSession : IAsyncDisposable
                         previewMotion = motionSampler.Measure(analysisPixels);
                         if (RetainTrainingFrames && reviewError is null)
                         {
-                            try { (review ??= new ReviewKeyFrameWriter(Path.Combine(directory, "review-keyframes"))).Observe(analysisFrame, now, previewMotion); }
-                            catch (IOException exception) { reviewError = "Review packs disabled: " + exception.Message; }
+                            if(!reviewQueue.Writer.TryWrite((analysisFrame,now,previewMotion)))
+                                Interlocked.Increment(ref reviewFramesDropped);
                         }
                         lastReviewAt = now;
                     }
-                    // Keep five frames/second regardless of global image change. Small, brief
-                    // special-card animations were previously lost against a static battlefield.
-                    var periodic = now - lastSavedAt >= TimeSpan.FromMilliseconds(190);
-                    retentionLimitReached = saved >= maximumSavedFrames || savedBytes >= maximumSavedBytes;
-                    if (RetainTrainingFrames && !retentionLimitReached && (saved == 0 || periodic))
+                    // Periodic training footage is independent of the live detector's capture
+                    // cadence. Contributors can retain 10 FPS for brief animations, while the
+                    // balanced and low-storage settings substantially reduce disk use.
+                    var periodic = now - lastSavedAt >= TrainingRecordingFrameRate.Interval(RetainedFramesPerSecond);
+                    retentionLimitReached = Volatile.Read(ref scheduled) >= maximumSavedFrames ||
+                        Interlocked.Read(ref savedBytes) >= maximumSavedBytes;
+                    if (RetainTrainingFrames && !retentionLimitReached && (Volatile.Read(ref scheduled) == 0 || periodic))
                     {
-                        var file = Path.Combine(directory, $"frame-{captured:000000}-{now:HHmmssfff}.jpg");
-                        SaveJpeg(frame, file);
-                        savedBytes += new FileInfo(file).Length;
-                        saved++;
-                        lastSavedAt = now;
+                        // Keep the established local-time filename convention for
+                        // human browsing; timestamp values in stored data are UTC.
+                        var file = Path.Combine(directory, $"frame-{captured:000000}-{now.ToLocalTime():HHmmssfff}.jpg");
+                        if (recordingQueue.Writer.TryWrite((frame, file)))
+                        {
+                            Interlocked.Increment(ref scheduled);
+                            lastSavedAt = now;
+                        }
+                        else Interlocked.Increment(ref recordingFramesDropped);
                     }
 
                     var preview = observation.View == GwentViewKind.MoveHistory || captured % 10 == 0
@@ -154,12 +215,15 @@ public sealed class DiagnosticCaptureSession : IAsyncDisposable
                         : null;
                     Progress?.Invoke(this, new DiagnosticProgress(
                         captured,
-                        saved,
+                        Volatile.Read(ref saved),
                         directory,
                         preview,
                         analysisFrame,
                         observation,
-                        Error: RetainTrainingFrames && retentionLimitReached ? "Recording limit reached (2 GB or 18,000 frames); live analysis continues, but later frames are not retained." : reviewError,
+                        Error: RetainTrainingFrames && retentionLimitReached ? "Recording limit reached (2 GB or 18,000 frames); live analysis continues, but later frames are not retained." :
+                            recordingError ?? reviewError ?? (Volatile.Read(ref recordingFramesDropped)>0 || Volatile.Read(ref reviewFramesDropped)>0
+                                ? $"Storage is behind; {Volatile.Read(ref recordingFramesDropped)} recording and {Volatile.Read(ref reviewFramesDropped)} review samples skipped. Live analysis is unaffected."
+                                : null),
                         SampledAt: now,
                         PreviewChange: previewMotion.Maximum, OpponentPreviewChange: previewMotion.Opponent));
                 }
@@ -184,23 +248,28 @@ public sealed class DiagnosticCaptureSession : IAsyncDisposable
         }
         finally
         {
-            try { review?.Finish(); }
-            catch (Exception exception) { reviewError ??= "Review pack: " + exception.Message; }
+            recordingQueue.Writer.TryComplete();
+            reviewQueue.Writer.TryComplete();
+            await Task.WhenAll(recordingWriter,reviewWriter).ConfigureAwait(false);
             var manifest = new
             {
                 Started = started,
-                Ended = DateTimeOffset.Now,
+                Ended = DateTimeOffset.UtcNow,
                 CapturedFrames = captured,
-                SavedFrames = saved,
+                SavedFrames = Volatile.Read(ref saved),
                 LastError = finalError,
                 ReviewError = reviewError,
+                RecordingError = recordingError,
+                RecordingFramesDropped = Volatile.Read(ref recordingFramesDropped),
+                ReviewFramesDropped = Volatile.Read(ref reviewFramesDropped),
                 CaptureMethod = "Win32 BitBlt external window crop",
                 RetentionLimitReached = retentionLimitReached,
-                SavedBytes = savedBytes,
+                SavedBytes = Interlocked.Read(ref savedBytes),
                 TrainingRecordingEnabledAtEnd = RetainTrainingFrames,
-                RetainedIntervalMilliseconds = 200,
+                RetainedFramesPerSecond,
+                RetainedIntervalMilliseconds = 1000 / RetainedFramesPerSecond,
                 MaximumImageWidth = 1280,
-                Version = 2,
+                Version = 4,
             };
             var json = JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true });
             await File.WriteAllTextAsync(Path.Combine(directory, "session.json"), json).ConfigureAwait(false);

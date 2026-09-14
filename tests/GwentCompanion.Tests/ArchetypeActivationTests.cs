@@ -93,6 +93,17 @@ internal static class ArchetypeActivationTests
         Check(renfriCheck.Assess([nonUnit with { ObservedCopies = 2 }]).Renfri.State == ConstraintState.RuledOut, "26-card deck with two original non-units cannot contain 25 units");
         renfriCheck.SetStartingSize(null);
         Check(renfriCheck.Assess([nonUnit]).Renfri.State != ConstraintState.RuledOut, "Assumed 25-card minimum was treated as known exact size");
+        var possible = renfriCheck.Assess([nonUnit]);
+        var projectionCatalog = catalog.Append(Card("Renfri")).DistinctBy(card => card.Id).ToArray();
+        var projectedTwentyFive = new OpponentDeckProjector().Build([], [nonUnit], null,
+            constraints: possible, minimumSize: 25, catalog: projectionCatalog);
+        Check(projectedTwentyFive.Renfri.State == ConstraintState.RuledOut &&
+            projectedTwentyFive.Slots.All(slot => slot.Card?.Name != "Renfri"),
+            "A known special left Renfri available in the 25-slot working projection.");
+        var projectedTwentySix = new OpponentDeckProjector().Build([], [nonUnit], null,
+            constraints: possible, minimumSize: 26, catalog: projectionCatalog);
+        Check(projectedTwentySix.Renfri.State != ConstraintState.RuledOut,
+            "One special incorrectly excluded Renfri from a 26-slot working projection.");
         renfriCheck.SetStartingSize(25);
         var impossible = renfriCheck.Assess([nonUnit]);
         var renfriDeck = new DeckDefinition("renfri-fixture", "Renfri fixture", "Neutral", "", 18, [new(Card("Renfri")), new(Card("Fiend"),24)]);

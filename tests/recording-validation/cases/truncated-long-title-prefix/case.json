@@ -1,0 +1,34 @@
+{
+  "SchemaVersion": 1,
+  "Id": "truncated-long-title-prefix",
+  "Summary": "A long opponent popup title is clipped after a unique multiword prefix; repeated Gwent-font reads must recover the exact catalog identity without fuzzy matching.",
+  "AddedIn": "0.2.73",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 2018222,
+      "Sha256": "4386B85CF5B43BBB7EBF2A4C21B6867511C03C14A12B4FDF8D397C9436ED2910",
+      "Tags": [
+        "regression",
+        "truncated-long-title-prefix"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 2016603,
+      "Sha256": "232E49AE3EA7257C57DB4C401655E823A5C9F2E627F544F6CD96EBA3CE3586B8",
+      "Tags": [
+        "regression",
+        "truncated-long-title-prefix"
+      ]
+    }
+  ]
+}

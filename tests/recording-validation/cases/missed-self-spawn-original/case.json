@@ -1,0 +1,34 @@
+{
+  "SchemaVersion": 1,
+  "Id": "missed-self-spawn-original",
+  "Summary": "Two repeatedly recognized Nekker bodies plus the printed Deploy self-spawn establish exactly one original when the enlarged play preview was missed.",
+  "AddedIn": "0.2.74",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 1911127,
+      "Sha256": "7C454753CD7FFB852613A14A12D73A6C517939084D9B7D0D875B0124A0D162AD",
+      "Tags": [
+        "regression",
+        "missed-self-spawn-original"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 1989248,
+      "Sha256": "81FC48344A77F519B09EF8B24F42096A236ACBDA8EC864153AA2A3FED9F9219E",
+      "Tags": [
+        "regression",
+        "missed-self-spawn-original"
+      ]
+    }
+  ]
+}

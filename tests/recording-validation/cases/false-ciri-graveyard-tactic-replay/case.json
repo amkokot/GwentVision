@@ -1,0 +1,52 @@
+{
+  "SchemaVersion": 1,
+  "Id": "false-ciri-graveyard-tactic-replay",
+  "Summary": "False Ciri followed by Buhurt is a graveyard replay, not another starting-deck copy.",
+  "AddedIn": "0.2.84",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 2231857,
+      "Sha256": "8BCB6DF8C2051D1AE995C890D1E0ED5C1135553F25C5693B1A99701F2337618F",
+      "Tags": [
+        "regression",
+        "false-ciri-graveyard-tactic-replay"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 2286017,
+      "Sha256": "05EBB743072300C12B535C007F5A8546B0417FEA6E5A5D94AE47957CDF71CAF4",
+      "Tags": [
+        "regression",
+        "false-ciri-graveyard-tactic-replay"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 2253852,
+      "Sha256": "AEAB9905AEDF37BB451B6B5F7C286D2EA7D5A24EC5B5452AFAF6903160B0839C",
+      "Tags": [
+        "regression",
+        "false-ciri-graveyard-tactic-replay"
+      ]
+    },
+    {
+      "File": "evidence-04.png",
+      "Bytes": 2236032,
+      "Sha256": "4CFD6D4E975E1705A825DD432C628307E8FCC01616D4AEA4302B6B9FECA2080D",
+      "Tags": [
+        "regression",
+        "false-ciri-graveyard-tactic-replay"
+      ]
+    }
+  ]
+}

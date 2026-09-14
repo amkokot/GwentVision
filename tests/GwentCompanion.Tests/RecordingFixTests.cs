@@ -103,21 +103,49 @@ internal static class RecordingFixTests
         copies.ObserveEvent(nav,CardProvenance.ProbableStartingDeck,opponent);
         copies.ObserveEvent(nav with {ObservedAt=at.AddSeconds(128)},CardProvenance.ProbableStartingDeck,opponent,mutations.HasRecentReplay(PlayerSide.Opponent,at.AddSeconds(128)));
         Check(opponent.Observations.Single().ObservedCopies==1,"Board-replayed Navigator charged as second original.");
-        var auberon=cards.Single(c=>c.Name=="Auberon: Conqueror");
-        origins.Reset(); origins.Observe(E(auberon,0,PlayerSide.Opponent));
-        Check(origins.Observe(E(Card("Wild Hunt Rider"),3,PlayerSide.Opponent)).Provenance==CardProvenance.Unknown,"Spawn-from-starting-deck template charged as an original body.");
-        var rider=E(Card("Wild Hunt Rider"),3,PlayerSide.Opponent);
-        var bodies=Enumerable.Range(0,3).Select(i=>rider.Sighting with {Source=CardSightSource.Board,Region=new(.3+i*.1,.16,.36+i*.1,.30)}).ToArray();
-        opponent.Reset(); copies.Reset(); opponent.ConsiderDirectPlay(rider.Sighting.Card,.9,rider.ObservedAt,"generated initiator",CardProvenance.Unknown);
-        copies.ObserveEvent(rider,CardProvenance.Unknown,opponent);
-        copies.ObserveFrame(at.AddSeconds(5),hud,bodies,true,[opponent],_=>true,generatedInitiators:s=>origins.RecentSpawnedInitiators(s,at.AddSeconds(5)));
-        copies.ObserveFrame(at.AddSeconds(6),hud,bodies,true,[opponent],_=>true,generatedInitiators:s=>origins.RecentSpawnedInitiators(s,at.AddSeconds(6)));
-        Check(opponent.DeckBuildingObservations.Single().ObservedCopies==2,"Three bodies minus one generated initiator lost the summoned original pair.");
-        origins.Observe(E(auberon,7,PlayerSide.Opponent));
-        Check(origins.RecentSpawnedInitiators(rider.Sighting,at.AddSeconds(8)) is null,"Repeated generator still assumed only one generated body.");
+        void GeneratedThinner(string sourceName,string targetName,CardProvenance expectedInitialOrigin)
+        {
+            var source=cards.Single(c=>c.Name==sourceName);
+            var target=E(Card(targetName),3,PlayerSide.Opponent);
+            origins.Reset(); origins.Observe(E(source,0,PlayerSide.Opponent));
+            var targetOrigin=origins.Observe(target).Provenance;
+            Check(targetOrigin==expectedInitialOrigin,$"{sourceName} classified its generated {targetName} as {targetOrigin}.");
+            var bodies=Enumerable.Range(0,3).Select(i=>target.Sighting with
+                {Source=CardSightSource.Board,Region=new(.3+i*.1,.16,.36+i*.1,.30)}).ToArray();
+            opponent.Reset(); copies.Reset();
+            opponent.ConsiderDirectPlay(target.Sighting.Card,.9,target.ObservedAt,"generated initiator",targetOrigin);
+            copies.ObserveEvent(target,targetOrigin,opponent);
+            copies.ObserveFrame(at.AddSeconds(5),hud,bodies,true,[opponent],s=>origins.HasCopyRisk(s,at.AddSeconds(5)),
+                generatedInitiators:s=>origins.RecentSpawnedInitiators(s,at.AddSeconds(5)));
+            copies.ObserveFrame(at.AddSeconds(6),hud,bodies,true,[opponent],s=>origins.HasCopyRisk(s,at.AddSeconds(6)),
+                generatedInitiators:s=>origins.RecentSpawnedInitiators(s,at.AddSeconds(6)));
+            var originals=opponent.DeckBuildingObservations.Single(item=>item.Card.Id==target.Sighting.Card.Id);
+            Check(originals.ObservedCopies==2,
+                $"{sourceName}: three bodies minus one generated {targetName} initiator lost the two summoned originals.");
+            origins.Observe(E(source,7,PlayerSide.Opponent));
+            Check(origins.RecentSpawnedInitiators(target.Sighting,at.AddSeconds(8)) is null,
+                $"Repeated {sourceName} still assumed only one generated initiator.");
+        }
+        GeneratedThinner("Auberon: Conqueror","Wild Hunt Rider",CardProvenance.ProbableStartingDeck);
+        GeneratedThinner("Auberon: Invader","Wild Hunt Rider",CardProvenance.Unknown);
+        GeneratedThinner("Auberon: King","Wild Hunt Rider",CardProvenance.Spawned);
+        GeneratedThinner("Garrison","Mahakam Volunteers",CardProvenance.ProbableStartingDeck);
         var index=new HoverTitleIndex(cards);
-        Check(index.ReadGlyphEquivalent("ELUEN SEER")?.Id==Card("Elven Seer").Id && index.ReadGlyphEquivalent("SEER") is null &&
-            index.ReadGlyphEquivalent("ELVEN SEE") is null,"Font equivalence accepted a truncated/fuzzy title.");
+        Check(index.ReadGlyphEquivalent("ELUEN SEER")?.Id==Card("Elven Seer").Id &&
+            index.ReadGlyphEquivalent("QUARIHIS")?.Name=="Quarixis" && index.ReadGlyphEquivalent("SEER") is null &&
+            index.ReadGlyphEquivalent("ELVEN SEE") is null,"Font equivalence missed a complete GWENT-font title or accepted a truncated/fuzzy title.");
+        var saskia=Card("Saskia: Commander"); var abandoned=Card("Abandoned Girl");
+        var broadLedger=new MatchVisionLedger();
+        var broadHud=hud with {OpponentHandCount=8,OpponentDeckCount=14,HasCardTooltip=false,TooltipRegion=null};
+        broadLedger.Observe(at,broadHud,[new(saskia,PlayerSide.Opponent,CardSightSource.PlayPreview,
+            new(.82,.14,.91,.40),.08,1)],artworkWasScanned:true);
+        var targetHud=broadHud with {HasCardTooltip=true,TooltipRegion=new(.57,.20,.75,.43)};
+        Check(broadLedger.Observe(at.AddSeconds(30),targetHud,[],boardWasScanned:false,confirmedHover:abandoned).Count==0,
+            "One exact random-summon target tooltip bypassed temporal confirmation.");
+        var broadArrival=broadLedger.Observe(at.AddSeconds(30.3),targetHud,[],boardWasScanned:false,confirmedHover:abandoned);
+        Check(broadArrival is [{ResolvedDeckCopies:1}] && broadArrival[0].Sighting.Card.Id==abandoned.Id &&
+            broadArrival[0].Sighting.Source==CardSightSource.Board,
+            "Repeated exact Saskia target tooltip did not consume its one bounded Deploy summon credit.");
         var replay=new MatchVisionLedger(); var recovered=new List<VisionEvidenceEvent>();
         foreach(var line in File.ReadLines(Path.Combine(root,"GwentCompanion/sessions/20260831-141529/vision-observations.jsonl")))
         {

@@ -17,6 +17,12 @@ internal static class StreamingVisionTests
         schedule.ObserveArtwork([boardCard],true);
         Check(!schedule.NextIncludesBoard(at.AddSeconds(1.5)) && !schedule.NextIncludesBoard(at.AddSeconds(2)),
             "Existing artwork created an endless heavy scan loop");
+        var thinningEnd = at.AddSeconds(15);
+        Check(StreamingVisionProcessor<int>.ThinningFollowupPriority(at.AddSeconds(3), at, thinningEnd) == 5 &&
+              StreamingVisionProcessor<int>.ThinningFollowupPriority(at.AddSeconds(8), at, thinningEnd) == 4 &&
+              StreamingVisionProcessor<int>.ThinningFollowupPriority(at.AddSeconds(12), at, thinningEnd) == 3 &&
+              StreamingVisionProcessor<int>.ThinningFollowupPriority(at.AddSeconds(16), at, thinningEnd) == 0,
+            "Self-thinning queue retention must peak on settled frames and expire after its bounded tail.");
         var pipeline = new FakePipeline();
         var prepared = new List<int>();
         var stream = new StreamingVisionProcessor<int>(pipeline, artworkCapacity: 2, pendingCapacity: 8)
@@ -25,6 +31,8 @@ internal static class StreamingVisionTests
         Check(prepared.SequenceEqual(Enumerable.Range(0, 120)), "Fast text was dropped/reordered behind artwork");
         Check(outputs.Count == 120 && outputs.Select(item => item.Context).SequenceEqual(Enumerable.Range(0, 120)),
             "Every prepared text frame must survive artwork queue drops, in capture order.");
+        Check(pipeline.ResultOnlyFrames == 10,
+            "Explicit post-game samples must use the lightweight numeric-reader path.");
         Check(stream.SkippedArtworkFrames > 0 && stream.MaximumPendingFrames <= 8, "The pressure test must exercise bounded dropping.");
         Check(outputs.All(o => o.Result.HoverInPlayerHand == (o.Context >= 60) &&
                                o.Result.PointerInPlayerHand == (o.Context >= 60)),
@@ -86,7 +94,8 @@ internal static class StreamingVisionTests
         for (var i = 0; i < 120; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            yield return new VisionInput<int>(pixels, DateTimeOffset.UnixEpoch.AddMilliseconds(i * 100), 0, i, PointerInPlayerHand: i >= 60);
+            yield return new VisionInput<int>(pixels, DateTimeOffset.UnixEpoch.AddMilliseconds(i * 100), 0, i,
+                PointerInPlayerHand: i >= 60, ResultsOnly: i >= 110);
             await Task.Yield();
         }
     }
@@ -96,6 +105,12 @@ internal static class StreamingVisionTests
     private sealed class FakePipeline(bool failArtwork = false, bool failPrepare = false) : ICardVisionPipeline
     {
         private readonly MatchVisionLedger _ledger = new();
+        public int ResultOnlyFrames { get; private set; }
+        public Task<PreparedVisionFrame> PrepareResultsAsync(PixelFrame frame, DateTimeOffset sampledAt)
+        {
+            ResultOnlyFrames++;
+            return PrepareAsync(frame, sampledAt);
+        }
         public async Task<PreparedVisionFrame> PrepareAsync(PixelFrame frame, DateTimeOffset sampledAt)
         {
             await Task.Yield();

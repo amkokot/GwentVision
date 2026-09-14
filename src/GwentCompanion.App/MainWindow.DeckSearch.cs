@@ -14,6 +14,7 @@ public partial class MainWindow
     private ComboBox ReferenceLeaderFilter => ReferenceSearch.Leader;
     private Button ReferenceObservedButton => ReferenceSearch.Reset;
     private bool _settingSearchOptions;
+    private bool _deckSearchOptionsDirty = true;
     private void ConfigureDeckSearch()
     {
         LibrarySearch.Configure("Library", "DeckSearchBox", false);
@@ -21,7 +22,7 @@ public partial class MainWindow
     }
     private void RefreshDeckSearchOptions()
     {
-        if (_settingSearchOptions) return;
+        if (_settingSearchOptions || !_deckSearchOptionsDirty) return;
         _settingSearchOptions = true;
         try
         {
@@ -30,6 +31,7 @@ public partial class MainWindow
             var patches = _cachedDecks.SelectMany(d => d.Patches ?? []).Concat(_deckIndexEntries.SelectMany(d => d.Patches ?? []))
                 .Select(p => p.Label).ToArray();
             LibrarySearch.SetOptions(leaders, patches); ReferenceSearch.SetOptions(leaders, patches);
+            _deckSearchOptionsDirty = false;
         }
         finally { _settingSearchOptions = false; }
     }

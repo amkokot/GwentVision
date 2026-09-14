@@ -14,6 +14,38 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        if (e.Args.Contains("--stream-mode-smoke"))
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            try { Shutdown(StreamModeWindow.RunSmoke()); }
+            catch (Exception error) { Console.Error.WriteLine(error.Message); Shutdown(1); }
+            return;
+        }
+        if (e.Args.Contains("--match-analysis-smoke"))
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            Shutdown(await GwentCompanion.App.MainWindow.RunMatchAnalysisSmokeAsync()); return;
+        }
+        if (e.Args.Contains("--match-storage-smoke"))
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            Shutdown(await GwentCompanion.App.MainWindow.RunMatchStorageSmokeAsync()); return;
+        }
+        if (e.Args.Length > 0 && e.Args[0] == "--export-match")
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            try
+            {
+                if (e.Args.Length != 3) throw new ArgumentException("Usage: GwentVision --export-match input.gvm output.json");
+                var match = LocalMatchStore.Read(e.Args[1]);
+                var options = new System.Text.Json.JsonSerializerOptions(GameStateJournal.Json) { WriteIndented = true };
+                using (var output = new FileStream(e.Args[2], FileMode.CreateNew, FileAccess.Write))
+                    System.Text.Json.JsonSerializer.Serialize(output, match, options);
+                Shutdown(0);
+            }
+            catch (Exception error) { Console.Error.WriteLine(error.Message); Shutdown(1); }
+            return;
+        }
         if (e.Args.Contains("--export-browser-smoke"))
         {
             ShutdownMode = ShutdownMode.OnExplicitShutdown;

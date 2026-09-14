@@ -6,6 +6,7 @@ using System.Windows.Media.Imaging;
 using GwentCompanion.Platform.Windows.Capture;
 using OpenCvSharp;
 using GwentCompanion.Core.GameState;
+using GwentCompanion.Core.Inference;
 
 namespace GwentCompanion.Platform.Windows.Vision;
 
@@ -32,6 +33,8 @@ public sealed record PreparedVisionFrame(PixelFrame Frame, DateTimeOffset Sample
 public interface ICardVisionPipeline
 {
     Task<PreparedVisionFrame> PrepareAsync(PixelFrame frame, DateTimeOffset sampledAt);
+    Task<PreparedVisionFrame> PrepareResultsAsync(PixelFrame frame, DateTimeOffset sampledAt) =>
+        PrepareAsync(frame, sampledAt);
     CardVisionResult RecognizePrepared(PreparedVisionFrame prepared, bool includeBoard);
     CardVisionResult Commit(CardVisionResult result);
 }
@@ -39,15 +42,17 @@ public interface ICardVisionPipeline
 /// <summary>The same pixel-to-evidence pipeline is used in the app and session replay.</summary>
 public sealed class CardVisionPipeline(IEnumerable<(CardDefinition Card, string Path)> references,
     IEnumerable<CardDefinition>? catalog = null, string? featureCacheDirectory = null,
-    VisionReferenceScope referenceScope = VisionReferenceScope.FullCatalog) : IDisposable, ICardVisionPipeline
+    VisionReferenceScope referenceScope = VisionReferenceScope.FullCatalog, ScreenStateRecognizer? screen = null,
+    bool allowStreamResolution = false) : IDisposable, ICardVisionPipeline
 {
-    private readonly ScreenStateRecognizer _screen = new();
+    private readonly ScreenStateRecognizer _screen = screen ?? new();
     private readonly FeatureCardRecognizer _cards = new(references, featureCacheDirectory, scope: referenceScope);
     private CardFrameRecognizer? _fallback;
     private int _fallbackGeneration = -1;
     private readonly MatchVisionLedger _ledger = new();
     private readonly OpponentHudRecognizer _hud = new();
     private readonly PostMatchMmrRecognizer _postMatchMmr = new();
+    private readonly PostMatchScoreRecognizer _postMatchScores = new();
     private readonly OakcrittersEffectRecognizer _oakcritters = new();
     private readonly BoardPowerReader _boardPower = new();
     private DateTimeOffset _lastInspectionAt;
@@ -58,6 +63,7 @@ public sealed class CardVisionPipeline(IEnumerable<(CardDefinition Card, string 
     private DeckPlayResolutionTracker? _deckResolutions;
     private readonly PreviewTitleRecognizer _titles = new(catalog ?? references.Select(item => item.Card));
     private readonly CardAppearanceFamilies _families = new(catalog ?? references.Select(item => item.Card));
+    private string[] _knownPlayerDeck = [];
     public Action<string>? Trace { set => _cards.Trace = value; }
     public Action<string>? HoverTrace { set => _hover.Trace = value; }
     public int CachedReferenceImages => _cards.CachedImages;
@@ -74,10 +80,34 @@ public sealed class CardVisionPipeline(IEnumerable<(CardDefinition Card, string 
     public async Task<CardVisionResult> AnalyzeAsync(PixelFrame frame, DateTimeOffset sampledAt, bool includeBoard = true)
         => Commit(RecognizePrepared(await PrepareAsync(frame, sampledAt).ConfigureAwait(false), includeBoard));
 
+    /// <summary>
+    /// Result panels need the screen, round-score and rank/MMR readers only. This
+    /// path deliberately skips HUD, leader, title, hover, choice and artwork work
+    /// so several independent numeric votes can catch up before a short panel ends.
+    /// </summary>
+    public async Task<PreparedVisionFrame> PrepareResultsAsync(PixelFrame frame, DateTimeOffset sampledAt)
+    {
+        var preparedFrame = VisionFrameNormalizer.Prepare(frame, allowStreamResolution);
+        if (!preparedFrame.Supported)
+        {
+            var unsupported = new GwentVisualObservation(GwentViewKind.Board, false, 0, 0, null,
+                MatchHudVisible: false, FrameGeometrySupported: false, FrameGeometryWarning: preparedFrame.Warning);
+            return new PreparedVisionFrame(frame, sampledAt, unsupported, []);
+        }
+        frame = preparedFrame.Frame;
+        var clock = System.Diagnostics.Stopwatch.GetTimestamp();
+        var screen = await _screen.AnalyzeAsync(frame).ConfigureAwait(false);
+        clock = Timings.Record("Screen", clock);
+        screen = await _postMatchScores.ReadAsync(frame, screen, sampledAt, _screen).ConfigureAwait(false);
+        screen = await _postMatchMmr.ReadAsync(frame, screen, sampledAt, _screen).ConfigureAwait(false);
+        Timings.Record("LeaderAndResults", clock);
+        return new PreparedVisionFrame(frame, sampledAt, screen, []);
+    }
+
     // Only the fast worker calls this; OCR engine instances are never shared concurrently.
     public async Task<PreparedVisionFrame> PrepareAsync(PixelFrame frame, DateTimeOffset sampledAt)
     {
-        var preparedFrame = VisionFrameNormalizer.Prepare(frame);
+        var preparedFrame = VisionFrameNormalizer.Prepare(frame, allowStreamResolution);
         if (!preparedFrame.Supported)
         {
             var unsupported = new GwentVisualObservation(GwentViewKind.Board, false, 0, 0, null,
@@ -93,6 +123,7 @@ public sealed class CardVisionPipeline(IEnumerable<(CardDefinition Card, string 
         clock = Timings.Record("Screen", clock);
         screen = await _hud.ReadAsync(frame, screen, sampledAt, _screen).ConfigureAwait(false);
         clock = Timings.Record("Hud", clock);
+        screen = await _postMatchScores.ReadAsync(frame, screen, sampledAt, _screen).ConfigureAwait(false);
         screen = await _postMatchMmr.ReadAsync(frame, screen, sampledAt, _screen).ConfigureAwait(false);
         _leaders ??= new LeaderAbilityRecognizer(_catalog);
         var opponentLeader = _leaders.Observe(frame, screen, sampledAt);
@@ -152,9 +183,12 @@ public sealed class CardVisionPipeline(IEnumerable<(CardDefinition Card, string 
         var artReferences = _cards.ArtReferences;
         RefreshFallback(artReferences, sampledAt);
         _fallback?.Expire(sampledAt);
-        var artwork = _fallback is null ? features.ToArray() : features.Concat(_fallback.Recognize(frame, screen, scanBoard, features)).ToArray();
+        var fallback = _fallback?.Recognize(frame, screen, scanBoard, features)
+            .Where(sighting => _cards.CanUseFallback(sighting.Card.Id, sighting.Side)) ?? [];
+        var artwork = features.Concat(fallback).ToArray();
         Timings.Record(scanBoard ? "BoardFallback" : "PreviewFallback", clock);
-        var sightings = SuppressBoardTooltipPreviews(MergePreviewEvidence(artwork, titles), screen, prepared.HoveredCard);
+        var sightings = SuppressImpossibleBoardZones(
+            SuppressBoardTooltipPreviews(MergePreviewEvidence(artwork, titles), screen, prepared.HoveredCard));
         screen = BoardOcclusionVerifier.Refine(screen, sightings, prepared.HoveredCard);
         return new CardVisionResult(sampledAt, screen, sightings, [], scanBoard, Description: description,
             GraveyardInspection: prepared.GraveyardInspection, DevotionCue: prepared.DevotionCue, HoveredCard: prepared.HoveredCard, HoverInPlayerHand: prepared.HoverInPlayerHand,
@@ -201,17 +235,54 @@ public sealed class CardVisionPipeline(IEnumerable<(CardDefinition Card, string 
                 board.Side==sighting.Side && board.Card.Id==sighting.Card.Id && board.Distance<=.45)).ToArray();
     }
 
+    /// <summary>
+    /// Artwork matching establishes identity, but it cannot make a non-permanent
+    /// special into a settled board object. Low-resolution compression can make a
+    /// special in the hand or transition lane align weakly with a board crop; keep
+    /// genuine preview evidence while rejecting the impossible zone assignment.
+    /// </summary>
+    public static IReadOnlyList<CardSighting> SuppressImpossibleBoardZones(IReadOnlyList<CardSighting> sightings) =>
+        sightings.Where(sighting => sighting.Source != CardSightSource.Board || sighting.Card.Kind != CardKind.Special).ToArray();
+
     public CardVisionResult Commit(CardVisionResult result)
     {
+        _cards.ObserveRoundBoundary(result.Screen);
+        // Preserve a short-lived exact settled seed so a later scheduled board
+        // scan can run the known-player self-thinning pair search even if the
+        // ordinary feature pass no longer sees the small animated card.
+        _fallback?.ObserveKnownPlayerBoardCandidates(result.SampledAt, result.Sightings);
+        // An exact non-overlay hover title is safe to use as a bounded search
+        // candidate even when its controller/zone is unresolved. It is not an
+        // event or origin claim; subsequent artwork still has to pass every visual
+        // and side-geometry gate. This helps cards first exposed by a brief summon.
+        if (!result.Screen.IsCardSelectionOverlay && result.HoveredCard is { } hovered)
+        {
+            // Board hover geometry does not identify the controller. With a
+            // pinned player deck, admitting every opponent hover into both
+            // candidate indices can later relabel similar player-side art. A
+            // confirmed player-hand hover is controller-specific; otherwise
+            // preserve only known or independently established player identities.
+            if (result.HoverInPlayerHand || result.PointerInPlayerHand == true ||
+                _cards.CanSeedPlayerCandidateFromAmbiguousHover(hovered.Id))
+                _cards.ObservePlayerCards([hovered.Id]);
+            _cards.ObserveOpponentCards([hovered.Id]);
+        }
         var events = _ledger.Observe(result.SampledAt, result.Screen, result.Sightings, result.BoardWasScanned, result.HoveredCard,
             result.ArtworkWasScanned, result.HoverInPlayerHand, result.PointerInPlayerHand);
         var resolved = (_deckResolutions ??= new(_catalog)).Observe(result.SampledAt, result.Screen, events, result.DeckPlayChoices);
         var committed = events.Concat(resolved).ToArray();
-        var playerCandidates = PlayerCandidateIds(committed).Distinct(StringComparer.Ordinal).ToArray();
+        _leaders?.ObserveEvents(committed);
+        var playerCandidates = CandidateIds(committed, PlayerSide.User).Distinct(StringComparer.Ordinal).ToArray();
         _cards.ObservePlayerCards(playerCandidates);
-        _cards.ObserveOpponentCards(committed.Where(item => item.Sighting.Side == PlayerSide.Opponent &&
-            item.Sighting.Source is CardSightSource.PlayPreview or CardSightSource.DeckReveal)
-            .Select(item => item.Sighting.Card.Id));
+        foreach (var source in committed.Where(item => item.Sighting.Side == PlayerSide.Opponent &&
+                     item.Sighting.Source == CardSightSource.PlayPreview).Select(item => item.Sighting.Card))
+        {
+            var recurring = CompanionCardRules.RecurringSummonPool(source, _catalog,
+                result.OpponentLeader?.Card.Faction);
+            var named = CompanionCardRules.NamedDeckSummonTargets(source, _catalog);
+            _cards.ObserveOpponentSummonSource(source, recurring, named);
+        }
+        _cards.ObserveOpponentCards(CandidateIds(committed, PlayerSide.Opponent).Distinct(StringComparer.Ordinal));
         // Loading the newly measured identity can advance the reference generation.
         // Refresh the fallback before handing it the committed action.
         var artReferences = _cards.ArtReferences;
@@ -230,20 +301,32 @@ public sealed class CardVisionPipeline(IEnumerable<(CardDefinition Card, string 
         // not require an unrelated second reference.
         _fallback = artReferences.Count > 0 ? new(new CardArtMatcher(artReferences)) : null;
         _fallbackGeneration = _cards.ReferenceGeneration;
-        if (_fallback is not null && previous is not null) _fallback.CopyRecentFrom(previous, at);
-    }
-
-    private IEnumerable<string> PlayerCandidateIds(IEnumerable<VisionEvidenceEvent> events)
-    {
-        foreach (var evidence in events.Where(item => item.Sighting.Side == PlayerSide.User &&
-                     item.Sighting.Source is CardSightSource.PlayPreview or CardSightSource.DeckReveal))
+        if (_fallback is not null)
         {
-            yield return evidence.Sighting.Card.Id;
-            foreach (var target in NamedPlayerOutputs(evidence.Sighting.Card)) yield return target;
+            _fallback.SetKnownPlayerDeck(_knownPlayerDeck);
+            if (previous is not null) _fallback.CopyRecentFrom(previous, at);
         }
     }
 
-    private IEnumerable<string> NamedPlayerOutputs(CardDefinition source)
+    private IEnumerable<string> CandidateIds(IEnumerable<VisionEvidenceEvent> events, PlayerSide side)
+    {
+        foreach (var evidence in events.Where(item => item.Sighting.Side == side &&
+                     item.Sighting.Source is CardSightSource.PlayPreview or CardSightSource.DeckReveal))
+        {
+            yield return evidence.Sighting.Card.Id;
+            // Merely revealing a card does not trigger its Deploy/Order outputs.
+            // A committed play, however, should arm explicitly named Spawn,
+            // Summon and Transform results on either side. Candidate-scoped live
+            // recognition otherwise cannot see tokens such as Savolla's Frightener.
+            if (evidence.Sighting.Source == CardSightSource.PlayPreview)
+            {
+                foreach (var target in CompanionCardRules.TriggeredAutomaticPairTargets(evidence.Sighting.Card)) yield return target;
+                foreach (var target in NamedOutputs(evidence.Sighting.Card)) yield return target;
+            }
+        }
+    }
+
+    private IEnumerable<string> NamedOutputs(CardDefinition source)
     {
         var text = source.AbilityText ?? "";
         if (!Regex.IsMatch(text, @"\b(?:Spawn|Summon|Transform(?:\s+self)?\s+into)\b", RegexOptions.IgnoreCase)) yield break;
@@ -252,8 +335,13 @@ public sealed class CardVisionPipeline(IEnumerable<(CardDefinition Card, string 
             yield return target.Id;
     }
 
-    public void Reset() { _ledger.Reset(); _deckResolutions?.Reset(); _hud.Reset(); _postMatchMmr.Reset(); _oakcritters.Reset(); _boardPower.Reset(); _leaders?.Reset(); _lastInspectionAt = default; _hover.Reset(); _hover.ReadCultistInfusions = false; Timings.Reset(); _cards.Timings.Reset(); _cards.ResetObservedPlayerCards(); _cards.ResetObservedOpponentCards(); _fallback?.Reset(); }
-    public void SetKnownPlayerDeck(IEnumerable<string> cardIds) => _cards.SetKnownPlayerDeck(cardIds);
+    public void Reset() { _ledger.Reset(); _deckResolutions?.Reset(); _hud.Reset(); _postMatchMmr.Reset(); _postMatchScores.Reset(); _oakcritters.Reset(); _boardPower.Reset(); _leaders?.Reset(); _lastInspectionAt = default; _hover.Reset(); _hover.ReadCultistInfusions = false; Timings.Reset(); _cards.Timings.Reset(); _cards.ResetObservedPlayerCards(); _cards.ResetObservedOpponentCards(); _cards.ResetTransientCandidates(); _fallback?.Reset(); }
+    public void SetKnownPlayerDeck(IEnumerable<string> cardIds)
+    {
+        _knownPlayerDeck = cardIds.Distinct(StringComparer.Ordinal).ToArray();
+        _cards.SetKnownPlayerDeck(_knownPlayerDeck);
+        _fallback?.SetKnownPlayerDeck(_knownPlayerDeck);
+    }
     public void SetLikelyOpponentCards(IEnumerable<string> cardIds) => _cards.SetLikelyOpponentCards(cardIds);
     public static bool IsGeometricPlayerHandHover(CardDefinition? card, GwentVisualObservation screen,
         NormalizedRegion? titleRegion = null) => card is not null && !screen.IsCardSelectionOverlay && screen.MatchHudVisible == true &&

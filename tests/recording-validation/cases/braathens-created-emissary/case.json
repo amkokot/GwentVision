@@ -1,0 +1,43 @@
+{
+  "SchemaVersion": 1,
+  "Id": "braathens-created-emissary",
+  "Summary": "Braathens and its created Emissary were corroborated in one detector batch; Emissary must remain visible evidence without spending a starting-deck slot or four provisions.",
+  "AddedIn": "0.2.76",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 1866067,
+      "Sha256": "74F068C35AD41763FBA52D8EC8D7FAF021A5EF9A5E77D07144910521E7EB8E5B",
+      "Tags": [
+        "regression",
+        "braathens-created-emissary"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 1826586,
+      "Sha256": "AA7DF7D005543EA14D00979B8CEECC8FFDF16DEC76079920F341DDF062060AA1",
+      "Tags": [
+        "regression",
+        "braathens-created-emissary"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 1824574,
+      "Sha256": "5400AA08579976E993C6EAD7785613858A4D4B4F1C49D8616C962C6A28DB5E90",
+      "Tags": [
+        "regression",
+        "braathens-created-emissary"
+      ]
+    }
+  ]
+}

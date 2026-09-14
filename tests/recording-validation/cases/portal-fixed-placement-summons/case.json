@@ -1,0 +1,52 @@
+{
+  "SchemaVersion": 1,
+  "Id": "portal-fixed-placement-summons",
+  "Summary": "Portal summons one legal four-provision unit immediately to each fixed side: recover the left Deploy arrival and the delayed right Timer arrival without requiring adjacency in time or treating either as a hand play.",
+  "AddedIn": "0.2.79",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 1949635,
+      "Sha256": "BD36AD6027437A7C961D8CB7662E15F82CDEA05621FCBCA824C439E3E76BCED4",
+      "Tags": [
+        "regression",
+        "portal-fixed-placement-summons"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 1972926,
+      "Sha256": "C8673198010B55D0A10071AFCAD7B452100E1E4877453AF7C9C2521B7BBFA857",
+      "Tags": [
+        "regression",
+        "portal-fixed-placement-summons"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 1980988,
+      "Sha256": "15E1E8D4640FD31900D615C56F6E4CD30ACAC8398765D6ED052D5BA12E5B0780",
+      "Tags": [
+        "regression",
+        "portal-fixed-placement-summons"
+      ]
+    },
+    {
+      "File": "evidence-04.png",
+      "Bytes": 1963637,
+      "Sha256": "F9488BE3531BE8B1461D1111320547500622CBFC638479E118B64A4DF720B4D5",
+      "Tags": [
+        "regression",
+        "portal-fixed-placement-summons"
+      ]
+    }
+  ]
+}

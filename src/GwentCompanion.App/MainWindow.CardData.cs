@@ -11,6 +11,7 @@ public partial class MainWindow
     private bool _cardDataBusy, _cardReloadRequired;
     private int _deckLoads;
     private CurrentCardValues? _currentCardValues;
+    private CardBalanceChanges _cardBalanceChanges = CardBalanceChanges.Empty;
     private static string CardDataPath => Path.Combine(FindDataRoot(), "cache", "gwent-one-cards.json");
     private CurrentCardValues CurrentValues => _currentCardValues ??= new(GwentOneCardCatalog.Load(CardDataPath));
     private DeckDefinition CurrentDeck(DeckDefinition deck) => _reviewEvidencePath is null ? CurrentValues.Deck(deck) : deck;
@@ -21,17 +22,22 @@ public partial class MainWindow
         try
         {
             var updater = new CardDataUpdater(CardDataPath); var current = updater.Current();
-            CardDataStatus.Text = current is null ? "No public catalogue installed." : $"{current.Source} · {current.Version} · {current.Cards.Count:N0} cards & abilities";
-            RestoreCardDataButton.IsEnabled = File.Exists(updater.BackupPath);
-            var changes = CardBalanceChanges.Load(CardDataPath);
-            if (changes.Available)
-            {
-                CardDataChanges.Text = string.Join(Environment.NewLine, changes.Cards.Select(c => c.Summary));
-                CardDataChangesPanel.Visibility = Visibility.Visible;
-                CardDataChangesPanel.Header = $"{changes.Cards.Count} changes · {changes.FromVersion} → {changes.ToVersion}";
-            }
+            var changes = current is null ? CardBalanceChanges.Empty : CardBalanceChanges.Load(CardDataPath, current);
+            ApplyCardDataStatus(current, changes, File.Exists(updater.BackupPath));
         }
         catch (Exception error) { CardDataStatus.Text = "Catalogue unavailable: " + error.Message; }
+    }
+
+    private void ApplyCardDataStatus(CardDataSnapshot? current, CardBalanceChanges changes, bool canRestore)
+    {
+        _cardBalanceChanges = changes;
+        CardDataStatus.Text = current is null ? "No public catalogue installed." : $"{current.Source} · {current.Version} · {current.Cards.Count:N0} cards & abilities";
+        RestoreCardDataButton.IsEnabled = canRestore;
+        CardDataChangesPanel.Visibility = changes.Available ? Visibility.Visible : Visibility.Collapsed;
+        CardDataChanges.Text = changes.Available ? string.Join(Environment.NewLine, changes.Cards.Select(c => c.Summary)) : string.Empty;
+        CardDataChangesPanel.Header = changes.Available
+            ? $"{changes.Cards.Count} changes · {changes.FromVersion} → {changes.ToVersion}"
+            : "No comparison history";
     }
 
     private string? CardUpdateBlockReason() => _reviewEvidencePath is not null ? "Card updates are disabled in offline review." :

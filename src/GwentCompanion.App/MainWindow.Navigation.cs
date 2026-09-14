@@ -19,6 +19,7 @@ public partial class MainWindow
     {
         if (page == UiPage.Plays && !ExperimentalOverviewEnabled && !_analysisControlTest && _reviewEvidencePath is null)
             page = UiPage.Deck;
+        if (page == UiPage.Points && _pointCatalogDirty) RebuildPointCatalog();
         if (page != UiPage.Library) CancelLibraryPreview();
         _page = page;
         if (page == UiPage.Library) RefreshLibraryPreview();
@@ -61,16 +62,16 @@ public partial class MainWindow
     {
         AnalysisIcon.Data = Geometry.Parse(running ? "M 1,1 L 15,1 L 15,15 L 1,15 Z" : "M 2,1 L 14,8 L 2,15 Z");
         AnalysisIcon.Fill = new SolidColorBrush((Color)ColorConverter.ConvertFromString(running ? "#F2AF60" : "#8BDCAB"));
-        var label = running ? "Stop analysis" : "Start analysis";
+        var label = running ? "Stop tracking" : "Start tracking";
         AutomationProperties.SetName(DiagnosticButton, label);
         DiagnosticButton.ToolTip = label + " (records diagnostics)";
     }
     private void RenderDeckRuleBadges()
     {
         if (DeckConstraintBadges is null) return;
-        var rules = _opponentKnowledge.Assess(_opponentTracker.DeckBuildingObservations);
+        var rules = _opponentKnowledge.Assess(EffectiveOpponentDeckEvidence());
         var entries = new[] { ("Devotion", rules.Devotion), ("Musicians", rules.Musicians!),
-            ("Nekker", rules.GoldenNekker), ("Renfri", rules.Renfri), ("Shupe", rules.Shupe) };
+            ("Nekker", rules.GoldenNekker), ("Renfri", _lastProjection?.Renfri ?? rules.Renfri), ("Shupe", rules.Shupe) };
         DeckConstraintBadges.Children.Clear();
         foreach (var (name, rule) in entries)
         {
@@ -84,6 +85,8 @@ public partial class MainWindow
             };
             var pairHint = name == "Shupe" && rule.State == ConstraintState.Possible ? _lastProjection?.SingletonPairHypothesis : null;
             if (pairHint is not null) { color = "#FF9990"; state = "unlikely, inferred pair"; }
+            if (name == "Renfri" && rule.State == ConstraintState.RuledOut && rules.Renfri.State != ConstraintState.RuledOut)
+                state = "excluded from current working projection";
             var detail = pairHint ?? name + ": " + state + ". " + rule.Reason;
             var button = new Button { Content = new TextBlock { Text = name, Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(color)), FontSize = 10 },
                 Padding = new Thickness(5, 3, 5, 3), Margin = new Thickness(0, 0, 4, 4) };

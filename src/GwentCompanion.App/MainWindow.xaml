@@ -38,22 +38,30 @@
 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
 <Button x:Name="WorkspaceDisplayButton" Visibility="Collapsed" Style="{StaticResource IconButton}" Click="WorkspaceDisplay_OnClick" Content="▤" ToolTip="Full screen, monitor and text size" AutomationProperties.Name="Workspace display options"/>
 <Button x:Name="WorkspaceToggle" Style="{StaticResource IconButton}" Click="WorkspaceToggle_OnClick" ToolTip="Expanded workspace · F11 for full screen" AutomationProperties.Name="Expand workspace"><Path x:Name="WorkspaceToggleIcon" Data="M 6,1 L 1,1 L 1,6 M 10,1 L 15,1 L 15,6 M 1,10 L 1,15 L 6,15 M 10,15 L 15,15 L 15,10" Stroke="#DCC58D" StrokeThickness="1.5" Width="16" Height="16" Stretch="Uniform"/></Button>
-<Button x:Name="DiagnosticButton" Style="{StaticResource IconButton}" Click="DiagnosticButton_OnClick" ToolTip="Start or stop live analysis" AutomationProperties.Name="Start analysis"><Path x:Name="AnalysisIcon" Data="M 2,1 L 14,8 L 2,15 Z" Fill="#8BDCAB" Stretch="Uniform" Width="14" Height="16"/></Button>
+<Button x:Name="StreamModeButton" Style="{StaticResource IconButton}" Click="StreamMode_OnClick" ToolTip="Stream mode · watch or scan video links" AutomationProperties.Name="Open Stream mode">
+<Grid Width="18" Height="18"><Ellipse Width="4" Height="4" Fill="#8BDCAB"/>
+<Path Data="M 6,5 A 6,6 0 0 0 6,13 M 12,5 A 6,6 0 0 1 12,13 M 3,2 A 10,10 0 0 0 3,16 M 15,2 A 10,10 0 0 1 15,16" Stroke="#DCC58D" StrokeThickness="1.4" StrokeStartLineCap="Round"/></Grid></Button>
+<Button x:Name="DiagnosticButton" Style="{StaticResource IconButton}" Click="DiagnosticButton_OnClick" ToolTip="Start or stop live tracking" AutomationProperties.Name="Start tracking"><Path x:Name="AnalysisIcon" Data="M 2,1 L 14,8 L 2,15 Z" Fill="#8BDCAB" Stretch="Uniform" Width="14" Height="16"/></Button>
 <Button x:Name="SnapshotButton" Style="{StaticResource IconButton}" Click="Camera_OnClick" IsEnabled="False" ToolTip="Capture and pin game view" AutomationProperties.Name="Capture and pin"><Path Data="M 1,4 L 4,4 L 6,1 L 12,1 L 14,4 L 17,4 L 17,14 L 1,14 Z M 12,9 A 3,3 0 1 1 6,9 A 3,3 0 1 1 12,9" Stroke="#DCC58D" StrokeThickness="1.5" Stretch="Uniform" Width="16" Height="16"/></Button>
 <Button x:Name="PinnedButton" Style="{StaticResource IconButton}" Tag="Pinned" Click="Navigate_OnClick" ToolTip="Pinned views" AutomationProperties.Name="Pinned views"><Path Data="M 4,1 L 12,1 L 10,4 L 10,8 L 13,11 L 8,11 L 8,17 L 7,17 L 7,11 L 2,11 L 5,8 L 5,4 Z" Fill="#DCC58D" Stretch="Uniform" Width="16" Height="16"/></Button>
+<Button x:Name="MatchAnalysisButton" Style="{StaticResource IconButton}" Click="OpenMatchData_OnClick" ToolTip="Match Data · history, factions and rating progress" AutomationProperties.Name="Open Match Data">
+<Grid Width="18" Height="18">
+<Path Data="M 1,1 L 1,17 L 18,17" Stroke="#DCC58D" StrokeThickness="1.4" StrokeLineJoin="Round"/>
+<Path Data="M 4,13 L 8,9 L 11,11 L 17,3" Stroke="#DCC58D" StrokeThickness="1.5" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+</Grid></Button>
 <Button x:Name="SettingsButton" Style="{StaticResource IconButton}" Tag="Settings" Click="Navigate_OnClick" ToolTip="Settings" AutomationProperties.Name="Settings"><TextBlock Text="⚙" Foreground="#DCC58D" FontSize="19" VerticalAlignment="Center"/></Button>
 </StackPanel>
-<TextBlock x:Name="BrandTitle" Text="GWENT VISION" FontFamily="Georgia" FontSize="16" FontWeight="Bold" Foreground="#E5C77E" VerticalAlignment="Center"/>
+<Viewbox Stretch="Uniform" StretchDirection="DownOnly" HorizontalAlignment="Left" VerticalAlignment="Center"><TextBlock x:Name="BrandTitle" Text="GWENT VISION" FontFamily="Georgia" FontSize="16" FontWeight="Bold" Foreground="#E5C77E" VerticalAlignment="Center"/></Viewbox>
 </DockPanel>
 <Border x:Name="GameStatusPanel" Grid.Row="1" Padding="1,2" Margin="0,0,0,8">
-<StackPanel><DockPanel><StackPanel DockPanel.Dock="Right" Orientation="Horizontal"><CheckBox x:Name="RecordTrainingChoice" Content="REC" IsChecked="False" Checked="RecordingChoice_OnChanged" Unchecked="RecordingChoice_OnChanged" FontSize="10" Foreground="#E8867B" Margin="8,0,0,0" ToolTip="Save training screenshots." AutomationProperties.Name="Record training footage"/><CheckBox x:Name="DetailedReachChoice" Visibility="Collapsed" Content="Detailed Reach" IsChecked="False" Checked="DetailedReach_OnChanged" Unchecked="DetailedReach_OnChanged" FontSize="10" Foreground="#DCC58D" Margin="8,0,0,0" AutomationProperties.Name="Detailed Reach"/></StackPanel><Ellipse x:Name="ConnectionDot" Width="7" Height="7" Fill="#77808A" Margin="0,0,6,0"/><TextBlock x:Name="GameStatusText" Text="Looking for GWENT…" FontSize="10" TextTrimming="CharacterEllipsis"/></DockPanel>
+<StackPanel><DockPanel><StackPanel DockPanel.Dock="Right" Orientation="Horizontal"><CheckBox x:Name="RecordTrainingChoice" Content="REC" IsChecked="False" Checked="RecordingChoice_OnChanged" Unchecked="RecordingChoice_OnChanged" FontSize="10" Foreground="#E8867B" Margin="8,0,0,0" ToolTip="Save training screenshots at the frame rate selected in Settings." AutomationProperties.Name="Record training footage"/><CheckBox x:Name="DetailedReachChoice" Visibility="Collapsed" Content="Detailed Reach" IsChecked="False" Checked="DetailedReach_OnChanged" Unchecked="DetailedReach_OnChanged" FontSize="10" Foreground="#DCC58D" Margin="8,0,0,0" AutomationProperties.Name="Detailed Reach"/></StackPanel><Ellipse x:Name="ConnectionDot" Width="7" Height="7" Fill="#77808A" Margin="0,0,6,0"/><TextBlock x:Name="GameStatusText" Text="Looking for GWENT…" FontSize="10" TextTrimming="CharacterEllipsis"/></DockPanel>
 <TextBlock x:Name="AnalysisStatusText" Visibility="Collapsed" Margin="0,3,0,0" FontSize="10" Foreground="#DCC58D" TextWrapping="Wrap"/></StackPanel>
 </Border>
 <RadioButton x:Name="LibraryNavigation" Grid.Row="2" GroupName="MainNavigation" Style="{StaticResource NavigationButton}" Tag="Library" Checked="Navigate_OnClick" Margin="0,0,0,8" AutomationProperties.Name="Library">
 <StackPanel Orientation="Horizontal"><Path Data="M 8,3 Q 4,0 0,2 L 0,14 Q 4,12 8,15 Q 12,12 16,14 L 16,2 Q 12,0 8,3 L 8,15" Stroke="#DCC58D" StrokeThickness="1.5" Stretch="Uniform" Width="16" Height="16"/><TextBlock Text="  LIBRARY" FontFamily="Georgia" Foreground="#DCC58D" FontSize="13"/></StackPanel>
 </RadioButton>
 <UniformGrid x:Name="GameplayNavigation" Grid.Row="3" Columns="2" Margin="0,0,0,7">
-<RadioButton x:Name="AnalysisNavigation" GroupName="MainNavigation" Style="{StaticResource NavigationButton}" Content="Analysis" Tag="Deck" Checked="Navigate_OnClick" AutomationProperties.Name="Analysis workspace"/>
+<RadioButton x:Name="AnalysisNavigation" GroupName="MainNavigation" Style="{StaticResource NavigationButton}" Content="Tracking" Tag="Deck" Checked="Navigate_OnClick" AutomationProperties.Name="Tracking workspace"/>
 <RadioButton x:Name="ReferenceNavigation" GroupName="MainNavigation" Style="{StaticResource NavigationButton}" Content="Reference" Tag="Reference" Checked="Navigate_OnClick" AutomationProperties.Name="Reference"/>
 </UniformGrid>
 <Grid x:Name="WorkspaceBody" Grid.Row="4">
@@ -220,6 +228,23 @@
                     <StackPanel Margin="8">
 <TextBlock Text="SETTINGS" FontFamily="Georgia" FontSize="18" Foreground="{StaticResource AccentBrush}" Margin="0,0,0,10"/>
 <Border Background="#11151A" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="10" Margin="0,0,0,14"><StackPanel>
+    <TextBlock Text="LOCAL MATCH DATA" Foreground="{StaticResource AccentBrush}" FontFamily="Georgia" FontSize="14"/>
+    <TextBlock Text="Games are saved locally with their date, patch, result, rating and deck information. Contributions support Balance Council recommendations. When the service is configured, one click registers this installation and sends completed games from the active patch." TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource MutedTextBrush}" Margin="0,5,0,9"/>
+    <WrapPanel>
+        <Button x:Name="PushToDatabaseButton" Content="Push to database" IsEnabled="False" Opacity="0.5" Background="#242A2C" BorderBrush="#52605A" Foreground="{StaticResource TextBrush}" Click="PushToDatabase_OnClick" AutomationProperties.Name="Push to database (service not configured)" ToolTip="This build has no configured database address yet." ToolTipService.ShowOnDisabled="True"/>
+        <CheckBox x:Name="PublishAnonymousCurveChoice" Content="Display my MMR curve anonymously" IsChecked="True" VerticalAlignment="Center" Foreground="{StaticResource TextBrush}" Margin="3,0,0,8" Checked="DataContributionChoice_OnChanged" Unchecked="DataContributionChoice_OnChanged" AutomationProperties.Name="Display my monthly MMR curve anonymously"/>
+    </WrapPanel>
+    <CheckBox x:Name="AutomaticMonthlyUploadChoice" IsChecked="False" Foreground="{StaticResource TextBrush}" Margin="0,1,0,5" Checked="DataContributionChoice_OnChanged" Unchecked="DataContributionChoice_OnChanged" AutomationProperties.Name="Automatically share monthly match data"><TextBlock Text="Share once monthly on my first played match after the 18th" TextWrapping="Wrap"/></CheckBox>
+    <TextBlock Text="Your player name and Gwent account are not collected. A random installation identity is retained privately to reject duplicate uploads. Public curves use a separate code, rounded times, and no deck or opponent details. Turning monthly sharing on opts you in; you can change either choice at any time." TextWrapping="Wrap" FontSize="10" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,0,5"/>
+    <TextBlock x:Name="DataContributionConsentStatus" Text="Choose whether to contribute when prompted. Nothing has been uploaded." TextWrapping="Wrap" FontSize="10" Foreground="#91B9A7" Margin="0,0,0,3"/>
+    <WrapPanel x:Name="SeasonCodePanel" Visibility="Collapsed" Margin="0,4,0,2">
+        <TextBlock Text="Season code" VerticalAlignment="Center" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,6,0"/>
+        <TextBox x:Name="SeasonCodeText" IsReadOnly="True" MinWidth="112" Background="#0B0E12" Foreground="#D5E7DF" BorderBrush="#52605A" Padding="5,2"/>
+        <Button Content="Copy" Click="CopySeasonCode_OnClick" Padding="8,2" Margin="5,0,0,0" AutomationProperties.Name="Copy season code"/>
+    </WrapPanel>
+    <TextBlock x:Name="MatchStorageStatus" Text="Stored only on this computer. No uploads. Interrupted captures and uncertain readings remain marked." TextWrapping="Wrap" FontSize="10" Foreground="{StaticResource MutedTextBrush}" Margin="0,2,0,0"/>
+</StackPanel></Border>
+<Border Background="#11151A" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="10" Margin="0,0,0,14"><StackPanel>
     <TextBlock Text="CARD DATA" Foreground="{StaticResource AccentBrush}" FontFamily="Georgia" FontSize="14"/>
     <TextBlock x:Name="CardDataStatus" Text="Loading card data…" TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource MutedTextBrush}" Margin="0,5,0,9"/>
     <Button Content="Update card data" Tag="Update" Click="CardData_OnClick" HorizontalAlignment="Left" BorderBrush="{StaticResource AccentBrush}" ToolTip="Latest published gwent.one data; may lag a new balance patch."/>
@@ -239,8 +264,8 @@
 <CheckBox x:Name="ShowHoverThreats" Visibility="Collapsed" Content="Show hover Reach at the top of the companion" IsChecked="False" Checked="HoverThreatSetting_OnChanged" Unchecked="HoverThreatSetting_OnChanged" Foreground="{StaticResource TextBrush}" Margin="0,0,0,10"/>
 <CheckBox x:Name="ReviewNewDecksChoice" Content="Review new opponent decks after matches" IsChecked="True" Checked="ReviewNewDecks_OnChanged" Unchecked="ReviewNewDecks_OnChanged" Foreground="{StaticResource TextBrush}" Margin="0,0,0,6"/>
 <TextBlock Text="Off: save quietly with a default name and marked guesses. Edit later from Library." TextWrapping="Wrap" FontSize="10" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,0,10"/>
-<CheckBox x:Name="AutoStopOnMmrChoice" Content="Stop recording and analysis after confirmed rating result" IsChecked="False" Checked="AutoStopOnMmr_OnChanged" Unchecked="AutoStopOnMmr_OnChanged" Foreground="{StaticResource TextBrush}" Margin="0,0,0,6"/>
-<TextBlock Text="Waits for repeated result-screen faction MMR or standard-rank reads, then stops capture and finishes queued analysis and saves. Off by default; manual Stop remains available." TextWrapping="Wrap" FontSize="10" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,0,10"/>
+<CheckBox x:Name="AutoStopOnMmrChoice" Content="Stop recording and analysis after confirmed rating or match exit" IsChecked="False" Checked="AutoStopOnMmr_OnChanged" Unchecked="AutoStopOnMmr_OnChanged" Foreground="{StaticResource TextBrush}" Margin="0,0,0,6"/>
+<TextBlock Text="Stop after confirming the final faction MMR or rank, using the Standard Mode menu if needed. Starting tracking in a menu waits for a game. A new game always closes the previous capture with its best available rating. Off by default; manual Stop remains available." TextWrapping="Wrap" FontSize="10" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,0,10"/>
 <TextBlock x:Name="WindowDetailText" TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,0,8"/>
 <Expander Header="Advanced information" Margin="0,0,0,12"><StackPanel Margin="8">
 <Button Content="Match rules, origins and statistics" Tag="Advanced" Click="Navigate_OnClick"/>
@@ -265,6 +290,16 @@
                                    Foreground="{StaticResource MutedTextBrush}"
                                    TextWrapping="Wrap"
                                    Text="This build samples the visible GWENT window using ordinary Windows desktop pixels. It does not open the process or generate input." />
+                        <TextBlock Text="Training recording frame rate" FontWeight="SemiBold" FontSize="11"/>
+                        <ComboBox x:Name="RecordingFrameRateChoice" SelectedIndex="1" SelectionChanged="RecordingFrameRate_OnChanged"
+                                  Margin="0,5,0,4" HorizontalAlignment="Stretch" Foreground="#E8E0CC"
+                                  AutomationProperties.Name="Training recording frame rate">
+                            <ComboBoxItem Tag="1" Content="1 FPS · Low storage"/>
+                            <ComboBoxItem Tag="2" Content="2 FPS · Balanced (recommended)"/>
+                            <ComboBoxItem Tag="10" Content="10 FPS · Contributor / validation"/>
+                        </ComboBox>
+                        <TextBlock Margin="0,0,0,10" Foreground="{StaticResource MutedTextBrush}" FontSize="10" TextWrapping="Wrap"
+                                   Text="This changes saved training screenshots only; live detection keeps its full capture cadence. Use 10 FPS when contributing difficult animation sequences."/>
                         <WrapPanel>
                             
                             <Button x:Name="PinCurrentButton" Click="PinCurrentButton_OnClick" Content="Pin current view" IsEnabled="False" />
@@ -502,7 +537,7 @@
                                 <Button x:Name="SaveLearnedButton" DockPanel.Dock="Right" Padding="7,5" Margin="4,0,0,0" Content="Save learned…" Click="OpenOpponentMemory_OnClick"/>
                                 <Button DockPanel.Dock="Right" Padding="8,5" Margin="6,0,0,0" Content="Pin a deck…" Click="ChooseOpponentReference_OnClick"/>
                                 <TextBlock x:Name="DeckInteractionHint" FontSize="9" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" VerticalAlignment="Center"
-                                           Text="SEEN = observed · % ? = tentative sample estimate, not certainty · PICK ? = your choice. Guesses update automatically; click to return below."/>
+                                           Text="SEEN = observed starting-deck evidence. Click a sighting to correct a false detection; the raw audit entry is retained."/>
                             </DockPanel>
                         </Grid></Grid>
 <Grid x:Name="CandidatesPage" Visibility="Collapsed" Margin="5,8,5,0">

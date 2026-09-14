@@ -1,0 +1,6 @@
+{
+  "Schema": 1,
+  "Enabled": true,
+  "ServiceId": "78b03f60-6ca1-424e-aa24-b4a09939aabb",
+  "ApiBaseUrl": "https://tgqprdgszcmxodstgdmj.supabase.co/functions/v1/gw-api"
+}

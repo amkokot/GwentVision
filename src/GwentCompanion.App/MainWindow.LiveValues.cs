@@ -56,8 +56,11 @@ public partial class MainWindow
         }
         var pending = _liveValues.Pending;
         string Carry(PlayerSide side) => _liveValues.CarryoverReadout(side);
-        var own = LiveValueLedger.Provisions(_userTracker.Observations, _selectedUserDeck, null, _liveValues.Spent(PlayerSide.User), _liveValues.SpentCopies(PlayerSide.User));
-        var opponent = LiveValueLedger.Provisions(_opponentTracker.DeckBuildingObservations, null, CurrentOpponentBudget().Capacity, _liveValues.Spent(PlayerSide.Opponent), _liveValues.SpentCopies(PlayerSide.Opponent), _opponentKnowledge.StartingSize, _opponentKnowledge.MinimumSize(_opponentTracker.DeckBuildingObservations));
+        var own = LiveValueLedger.Provisions(_userTracker.Observations, _selectedUserDeck,
+            _selectedUserDeck is { } selected ? 150 + selected.LeaderProvisionBonus : null,
+            _liveValues.Spent(PlayerSide.User), _liveValues.SpentCopies(PlayerSide.User));
+        var opponentEvidence = EffectiveOpponentDeckEvidence();
+        var opponent = LiveValueLedger.Provisions(opponentEvidence, null, CurrentOpponentBudget().Capacity, _liveValues.Spent(PlayerSide.Opponent), _liveValues.SpentCopies(PlayerSide.Opponent), _opponentKnowledge.StartingSize, _opponentKnowledge.MinimumSize(opponentEvidence));
         string Spend(ProvisionUsage usage) => usage.Total is { } total ? $"Spent {usage.SpentFloor} / {total}p" : $"Spent {usage.SpentFloor}p";
         UserSpentText.Text = Spend(own);
         UserRemainingText.Text = own.RemainingReadout;
@@ -91,7 +94,7 @@ public partial class MainWindow
             _liveValuesKey = key; CarryoverList.ItemsSource = rows; GrowingCardList.ItemsSource = values;
             RenderSynergies();
             GrowingValuesExpander.Visibility = values.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
-            if (_lastProjection is { } projection) OpponentDeckCards.Rows = projection.Slots.Select(Strip).ToArray();
+            if (_lastProjection is { } projection) OpponentDeckCards.Rows = PresentedOpponentSlots(projection).Select(Strip).ToArray();
             var session = _diagnosticSession?.CurrentSessionDirectory;
             // CurrentSessionDirectory deliberately remains available after Stop so
             // post-match review can find the recording. Do not let the tracker reset

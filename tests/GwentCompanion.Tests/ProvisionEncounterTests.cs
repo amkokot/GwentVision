@@ -78,6 +78,14 @@ internal static class ProvisionEncounterTests
             new HashSet<string> { reference.Cards[0].Card.Id }, new Dictionary<string, int> { [reference.Cards[0].Card.Id] = 1 });
         Check(committedWithoutTracker.SpentFloor == reference.Cards[0].Card.Provision && committedWithoutTracker.CommittedCards == 1,
             "Known player reference failed to bridge a commitment that arrived ahead of provenance tracking");
+        var staleReferenceCard = Card("Griffin");
+        var staleReferenceUsage = LiveValueLedger.Provisions(
+            [new(staleReferenceCard, CardProvenance.ProbableStartingDeck, .99, at, ObservedCopies: 1)],
+            reference, 165, new HashSet<string> { staleReferenceCard.Id },
+            new Dictionary<string, int> { [staleReferenceCard.Id] = 1 });
+        Check(staleReferenceUsage.SpentFloor == staleReferenceCard.Provision && staleReferenceUsage.CommittedCards == 1 &&
+              staleReferenceUsage.Total == 165 && staleReferenceUsage.AssumedSize,
+            "An independently paid off-reference original was omitted from the player provision floor");
         var tyr = Card("Tyr: Slayer of Yngvar"); var evolvedTyr = Card("Tyr: Master of An Skellig");
         Check(EvolvingCardCatalog.StartingId(evolvedTyr.Id) == tyr.Id, "Tyr's transformed artwork lost its starting identity");
         var evolutionLedger = new LiveValueLedger(); var beforeEvolution = new GameStateTracker().Current;

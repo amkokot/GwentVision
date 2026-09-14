@@ -18,6 +18,22 @@ public partial class MainWindow
     private readonly DeckProjectionEdits _opponentEdits = new();
     private IReadOnlyList<CardDefinition>? _candidateCatalog;
     private bool _compactPanel;
+    private bool _useOpponentModel;
+
+    private IReadOnlyList<ProjectedDeckSlot> PresentedOpponentSlots(OpponentDeckProjection projection)
+    {
+        if (_useOpponentModel) return projection.Slots;
+        return projection.Slots.Where(slot => slot.Card is not null && slot.State == DeckSlotState.Observed)
+            .OrderBy(slot => slot.Card!, DeckBuilderOrder.Comparer).ThenBy(slot => slot.Copy)
+            .Select((slot, index) => slot with
+            {
+                Position = index + 1,
+                ModelShare = null,
+                Meta = null,
+                DeviatesFromPin = false,
+                PackageHint = null
+            }).ToArray();
+    }
 
     private void Window_OnSizeChanged(object sender, SizeChangedEventArgs e)
     {
@@ -50,23 +66,27 @@ public partial class MainWindow
     private void RenderCompletedProjection()
     {
         if (_lastProjection is not { } projection) return;
-        OpponentDeckCards.Rows = projection.Slots.Select(Strip).ToArray();
-        OpponentDeckSummary.Text = projection.Summary.Split(". ")[0] + "." +
-            (projection.Meta.ObservedIdentities > 0 && projection.Meta.BestObservedCoverage < .5 ?
-                $" Weak cache fit ({projection.Meta.BestMatchedIdentities}/{projection.Meta.ObservedIdentities})." : "");
+        OpponentDeckCards.Rows = PresentedOpponentSlots(projection).Select(Strip).ToArray();
+        OpponentDeckSummary.Text = _useOpponentModel
+            ? projection.Summary.Split(". ")[0] + "." +
+              (projection.Meta.ObservedIdentities > 0 && projection.Meta.BestObservedCoverage < .5
+                  ? $" Weak cache fit ({projection.Meta.BestMatchedIdentities}/{projection.Meta.ObservedIdentities})."
+                  : "")
+            : $"{projection.ObservedCopies} observed starting-deck cop{(projection.ObservedCopies == 1 ? "y" : "ies")} · provision order, not play order.";
         OpponentDeckSummary.ToolTip = "Observed copies are lower bounds, not cards remaining.";
-        AutomationProperties.SetHelpText(OpponentDeckSummary, projection.Summary);
+        AutomationProperties.SetHelpText(OpponentDeckSummary, _useOpponentModel ? projection.Summary :
+            "Only observed cards that can belong to the starting deck are shown. Copy counts are lower bounds.");
         OpponentFactionText.Text = _opponentTracker.HasStableFaction ? _opponentTracker.Faction : "Faction unresolved";
         OpponentDevotionText.Text = "DEVOTION · " + ShortState(projection.Devotion.State).ToUpperInvariant();
         OpponentDevotionText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(
             projection.Devotion.State == ConstraintState.RuledOut ? "#F2AF60" : "#85D7B1"));
         OpponentDevotionText.ToolTip = "Starting deck has no Neutral cards.";
         AutomationProperties.SetHelpText(OpponentDevotionText, projection.Devotion.Reason);
-        var rules = _opponentKnowledge.Assess(_opponentTracker.DeckBuildingObservations);
+        var rules = _opponentKnowledge.Assess(EffectiveOpponentDeckEvidence());
         OpponentProvisionText.Text = $"{rules.ProvisionLowerBound}p likely starting-deck floor" + (_compactPanel ? "" :
-            $" · GN {ShortState(rules.GoldenNekker.State)} · Renfri {ShortState(rules.Renfri.State)} · Singleton {ShortState(rules.Shupe.State)}");
+            $" · GN {ShortState(rules.GoldenNekker.State)} · Renfri {ShortState(projection.Renfri.State)} · Singleton {ShortState(rules.Shupe.State)}");
         OpponentProvisionText.ToolTip = "GN · Renfri · Singleton checks";
-        AutomationProperties.SetHelpText(OpponentProvisionText, rules.GoldenNekker.Reason + "\n" + rules.Renfri.Reason + "\n" + rules.Shupe.Reason);
+        AutomationProperties.SetHelpText(OpponentProvisionText, rules.GoldenNekker.Reason + "\n" + projection.Renfri.Reason + "\n" + rules.Shupe.Reason);
         if (_confirmedOpponentDeck is not null)
         {
             var remaining = 150 + _confirmedOpponentDeck.LeaderProvisionBonus - rules.ProvisionLowerBound;
@@ -77,28 +97,42 @@ public partial class MainWindow
         OpponentPinSummary.Visibility = _confirmedOpponentDeck is null ? Visibility.Collapsed : Visibility.Visible;
         DevotionAssumptionText.Text = projection.DevotionAssumption;
         var meta = projection.Meta;
-        // Feed the vision worker a bounded soft prior after each meaningful deck-model
-        // update. This is especially valuable for small summoned cards; it does not turn
-        // a prediction into evidence because the recognizer still checks pixels and side.
-        var likelyOpponentIds = projection.Slots.Where(slot => slot.Card is not null).Select(slot => slot.Card!.Id)
-            .Concat(meta.Cards.OrderByDescending(card => card.CopyRecommendations?.FirstOrDefault()?.Significance?.Value ?? card.RecentPrevalence)
-                .Take(50).Select(card => card.Card.Id))
-            .Distinct(StringComparer.Ordinal).Take(70).ToArray();
-        _visionPipeline?.SetLikelyOpponentCards(likelyOpponentIds);
-        MetaSampleText.Text = $"Patch {meta.TargetPatch}: {meta.CorpusDecks} unique complete faction lists; {meta.RecentDecks} this patch vs {meta.OlderDecks} in the previous three. " +
+        MetaSampleText.Text = _useOpponentModel ? $"Patch {meta.TargetPatch}: {meta.CorpusDecks} unique complete faction lists; {meta.RecentDecks} this patch vs {meta.OlderDecks} in the previous three. " +
             $"{meta.PatchDatedDecks} patch-tagged; {meta.DateFallbackDecks} date fallbacks. Weight halves every {meta.HalfLifePatches:0.#} patches. " +
             (meta.ObservedIdentities > 0 ? $"Best list explains {meta.BestMatchedIdentities}/{meta.ObservedIdentities} observed identities. " : "") +
-            "Estimates use observed overlap, your explicit card picks, known original leader/stratagem, reference variants, patch proximity and reviewed encounter history (optional faction MMR). Auto-filled guesses never reinforce themselves. Significance is a 0–1 recommendation index, not probability or a p-value. PKG hints are separate curated fallbacks. These are curated examples, not ladder usage. Rising does not prove a balance-change effect.";
-        UnseenForecastText.Text = UnseenForecast(projection);
-        StrategySignalList.ItemsSource = meta.Cards.Where(item => item.StrategyLinked).Take(10).Select(Signal).ToArray();
-        StrategyEmptyText.Visibility = meta.Cards.Any(item => item.StrategyLinked) ? Visibility.Collapsed : Visibility.Visible;
-        PopularSignalList.ItemsSource = meta.Cards.OrderByDescending(item => item.RecentPrevalence).ThenByDescending(item => item.SupportingDecks).Take(12).Select(Signal).ToArray();
+            "Estimates use observed overlap, your explicit card picks, known original leader/stratagem, reference variants, patch proximity and reviewed encounter history (optional faction MMR). Auto-filled guesses never reinforce themselves. Significance is a 0–1 recommendation index, not probability or a p-value. PKG hints are separate curated fallbacks. These are curated examples, not ladder usage. Rising does not prove a balance-change effect."
+            : "The live opponent list contains observed starting-deck evidence only.";
+        UnseenForecastText.Text = _useOpponentModel ? UnseenForecast(projection) : "Unseen-card estimates are not included in live tracking.";
+        StrategySignalList.ItemsSource = _useOpponentModel ? meta.Cards.Where(item => item.StrategyLinked).Take(10).Select(Signal).ToArray() : [];
+        StrategyEmptyText.Visibility = _useOpponentModel && meta.Cards.Any(item => item.StrategyLinked) ? Visibility.Collapsed : Visibility.Visible;
+        PopularSignalList.ItemsSource = _useOpponentModel ? meta.Cards.OrderByDescending(item => item.RecentPrevalence).ThenByDescending(item => item.SupportingDecks).Take(12).Select(Signal).ToArray() : [];
         UpdateReferenceCandidates();
         RenderCandidateTray();
-        OpponentCandidatesText.Text = $"{meta.CorpusDecks} cached examples considered. Generated, uncertain and off-faction evidence stays outside starting-deck slots.";
+        OpponentCandidatesText.Text = _useOpponentModel
+            ? $"{meta.CorpusDecks} cached examples considered. Generated, uncertain and off-faction evidence stays outside starting-deck slots."
+            : "Candidate cards use deck-builder order. Generated, token-only and off-faction cards are excluded.";
         RenderPlayerReferenceAndAudit();
         RenderOpponentKnowledge();
         RefreshHypothesisWindow();
+    }
+
+    private static string[] LikelyOpponentReferenceIds(OpponentDeckProjection projection, string? faction,
+        bool hasEvidence, DeckDefinition? pin, IReadOnlyList<CardDefinition>? catalog)
+    {
+        // Without any opponent context, loading dozens of global-popularity images
+        // delays the first live frame without providing a meaningful side prior.
+        if (string.IsNullOrWhiteSpace(faction) && !hasEvidence && pin is null) return [];
+        // Reserve a few slots for faction-compatible cards whose own text can bring
+        // them from deck. This is only a visual-search prior; pixels and provenance
+        // gates still decide whether an event exists.
+        var automaticArrivals = string.IsNullOrWhiteSpace(faction) ? [] : (catalog ?? [])
+            .Where(card => card.CanBeInStartingDeck && FactionCompatibility.IsPlayableBy(card, faction) &&
+                CompanionCardRules.IsInherentDeckArrival(card)).Select(card => card.Id).ToArray();
+        return projection.Slots.Where(slot => slot.Card is not null).Select(slot => slot.Card!.Id).Concat(automaticArrivals)
+            .Concat(projection.Meta.Cards.OrderByDescending(card =>
+                    card.CopyRecommendations?.FirstOrDefault()?.Significance?.Value ?? card.RecentPrevalence)
+                .Take(50).Select(card => card.Card.Id))
+            .Distinct(StringComparer.Ordinal).Take(70).ToArray();
     }
 
     private DeckDefinition? _renderedPlayerReference;
@@ -129,7 +163,7 @@ public partial class MainWindow
         RefreshReferenceFilters(source);
         var candidates = ReferenceDeckSearch.Search(source, OpponentDeckSearchBox.Text,
                 ReferenceFactionFilter?.SelectedIndex > 0 ? ReferenceFactionFilter.SelectedItem as string : null,
-                ReferenceLeaderFilter?.SelectedIndex > 0 ? ReferenceLeaderFilter.SelectedItem as string : null, _opponentTracker.DeckBuildingObservations)
+                ReferenceLeaderFilter?.SelectedIndex > 0 ? ReferenceLeaderFilter.SelectedItem as string : null, EffectiveOpponentDeckEvidence())
             .Where(deck => ReferenceSearch.Filters.Matches(deck) && DeckSearchCatalog.ContainsCards(deck, ReferenceSearch.CardNames.Text) && DeckSearchCatalog.ExcludesCards(deck, ReferenceSearch.ExcludedCards))
             .Select(deck => new LiveDeckCandidateItem(deck.Name, $"{deck.Faction} · {deck.Leader} · {deck.CardCount} cards · {deck.ProvisionTotal}p" +
                 (scores.TryGetValue(deck.Id, out var ranked) ? $" · {ranked.Contradictions.Count} missing observations" : " · other faction") +
@@ -150,7 +184,7 @@ public partial class MainWindow
         if (_confirmedOpponentDeck is not null && projection.PinInfluence > 0) weights.Add((_confirmedOpponentDeck, projection.PinInfluence));
         var total = weights.Sum(item => item.Weight);
         if (total <= 0) return "No supported unseen provision forecast.";
-        var observed = _opponentTracker.DeckBuildingObservations.ToDictionary(item => item.Card.Id, item => item.ObservedCopies);
+        var observed = EffectiveOpponentDeckEvidence().ToDictionary(item => item.Card.Id, item => item.ObservedCopies);
         var provisions = weights.Sum(item => item.Weight * item.Deck.Cards.Sum(card => card.Card.Provision * Math.Max(0, card.Count - observed.GetValueOrDefault(card.Card.Id)))) / total;
         var big = weights.Sum(item => item.Weight * item.Deck.Cards.Where(card => card.Card.Provision >= 10).Sum(card => Math.Max(0, card.Count - observed.GetValueOrDefault(card.Card.Id)))) / total;
         return $"Cached/reference forecast: ~{provisions:F0} listed provisions unseen; ~{big:F1} unseen 10+p cards. Not a hand/draw-pile count; manual picks are excluded.";
@@ -188,12 +222,14 @@ public partial class MainWindow
         var meta = slot.Meta;
         var copySignal = meta?.CopyRecommendations?.ElementAtOrDefault(slot.Copy - 1);
         var significance = copySignal?.Significance;
-        var color = slot.DeviatesFromPin ? "#F2AF60" : slot.State switch
+        var catalogCandidate = !_useOpponentModel && slot.Position == 0;
+        var color = catalogCandidate ? "#AEB7C0" : slot.DeviatesFromPin ? "#F2AF60" : slot.State switch
         { DeckSlotState.Observed => "#7DD9AE", DeckSlotState.Selected => "#E5C77E", DeckSlotState.Pinned => "#C5A5F7", DeckSlotState.Predicted => "#89BFFF", DeckSlotState.Reference => "#C5CED6", _ => "#7E8B97" };
-        var badge = slot.DeviatesFromPin ? "SEEN +" : slot.State switch
+        var badge = catalogCandidate ? "" : slot.DeviatesFromPin ? "SEEN +" : slot.State switch
         { DeckSlotState.Observed => "SEEN", DeckSlotState.Selected => "PICK ?", DeckSlotState.Pinned => "PIN ?",
             DeckSlotState.Predicted => slot.PackageHint is not null ? "PKG ?" : significance is not null ? significance.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "—", DeckSlotState.Reference => "LISTED", _ => "?" };
-        var detail = slot.State == DeckSlotState.Reference && card is not null ? string.Join(" · ", card.Categories.Take(2)) :
+        var detail = catalogCandidate && card is not null ? string.Join(" · ", card.Categories.Take(2)) :
+            slot.State == DeckSlotState.Reference && card is not null ? string.Join(" · ", card.Categories.Take(2)) :
             slot.State == DeckSlotState.Observed ? (slot.Copy > 1 ? $"copy {slot.Copy} · " : "") + "observed identity" :
             slot.State == DeckSlotState.Selected ? "your assumption · click to remove" :
             slot.PackageHint is { } hint ? hint.Package + " · " + (hint.FromUserPick ? "from your pick" : "unseen partner") :
@@ -213,7 +249,7 @@ public partial class MainWindow
             (card.AbilityText is { Length: > 0 } ability ? "\n\n" + ability : "");
         return new(slot.Position == 0 ? "+" : slot.Position.ToString("00"), card?.Name ?? "Unknown card", card is null ? "?" : card.Provision.ToString(), badge,
             detail, color, card?.IsGold == true ? "#9C834D" : "#485767", CardArt(card), tooltip,
-            slot.Position == 0 ? $"Add {card?.Name}, copy {slot.Copy}, to opponent deck; significance {(significance is null ? "unavailable" : significance.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))}" :
+            slot.Position == 0 ? catalogCandidate ? $"Candidate card: {card?.Name}, copy {slot.Copy}" : $"Add {card?.Name}, copy {slot.Copy}, to opponent deck; significance {(significance is null ? "unavailable" : significance.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))}" :
             $"Slot {slot.Position}: {card?.Name ?? "Unknown"}, {(slot.State == DeckSlotState.Predicted ? "GUESS " : "")}{badge}, {card?.Provision.ToString() ?? "unknown"} provisions", slot,
             slot.State != DeckSlotState.Reference && card is not null && _liveValues.Growth(PlayerSide.Opponent, card.Id) is { } growth ?
                 ValueRange(growth.Minimum, growth.Maximum) + (growth.Unit switch { "damage" => " dmg", "power" => " pw", _ => " " + growth.Unit }) : null);

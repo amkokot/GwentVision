@@ -23,7 +23,9 @@ public sealed record GwentVisualObservation(
     int? UserCoins = null,
     int? OpponentCoins = null,
     PostMatchMmr? PostMatchMmr = null, PostMatchRank? PostMatchRank = null, bool? MatchHudVisible = null, int? UserDeckCount = null,
-    bool UnresolvedHandSelection = false, bool FrameGeometrySupported = true, string? FrameGeometryWarning = null);
+    bool UnresolvedHandSelection = false, bool FrameGeometrySupported = true, string? FrameGeometryWarning = null,
+    bool PostMatchExitCue = false, PostMatchRoundScore[]? PostMatchRoundScores = null,
+    PostMatchMmr? PostMatchMmrCandidate = null, bool PostMatchCaptureEnded = false);
 
 public sealed class GwentVisualStateDetector
 {

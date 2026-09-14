@@ -1,0 +1,43 @@
+{
+  "SchemaVersion": 1,
+  "Id": "repeated-automatic-summon-conservation",
+  "Summary": "A weak printed self-summon plus localized persistence commits only after a same-hand deck decrement, while either signal and a pre-arrival negative frame abstain.",
+  "AddedIn": "0.2.66",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 2156710,
+      "Sha256": "811CBE01EE34111646E85F8183E09812A50C56C99D4EC42C83813F53CDF4BE12",
+      "Tags": [
+        "regression",
+        "repeated-automatic-summon-conservation"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 2144848,
+      "Sha256": "49CFBCBBD8E368FE132327681EA46EEF79072A061B5C67A1B9FF17910942352F",
+      "Tags": [
+        "regression",
+        "repeated-automatic-summon-conservation"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 2158092,
+      "Sha256": "D0D0998EA2543B0FA05DD37F55B3F7DD017B40704EB59CD565E85D66D1BFA939",
+      "Tags": [
+        "regression",
+        "repeated-automatic-summon-conservation"
+      ]
+    }
+  ]
+}

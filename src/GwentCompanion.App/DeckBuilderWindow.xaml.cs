@@ -36,7 +36,8 @@ public partial class DeckBuilderWindow : Window
 
     public DeckBuilderWindow(DeckLibrary library, string path, IEnumerable<CardDefinition> catalog,
         DeckDefinition? template, Action changed, Func<CardDefinition, ImageSource?>? art = null,
-        string? observedSourceKey = null, Action<DeckEditorDraft>? saveObservedDraft = null, OpponentReviewOptions? opponentReview = null)
+        string? observedSourceKey = null, Action<DeckEditorDraft>? saveObservedDraft = null, OpponentReviewOptions? opponentReview = null,
+        CardBalanceChanges? balanceChanges = null)
     {
         _library = library; _libraryDecks = library.Decks; _path = path; _catalog = catalog.ToArray(); _changed = changed; _art = art ?? (_ => null);
         _saveObservedDraft = saveObservedDraft;
@@ -44,10 +45,14 @@ public partial class DeckBuilderWindow : Window
         InitializeComponent();
         if (opponentReview is not null) ReviewLaterChoice.IsChecked = opponentReview.Record.NeedsReview;
         Width = Math.Min(1320, SystemParameters.WorkArea.Width - 30); Height = Math.Min(900, SystemParameters.WorkArea.Height - 40);
-        ConfigureCollectionFilters();
+        ConfigureCollectionFilters(balanceChanges);
         FactionChoice.ItemsSource = new[] { new Choice("Choose / infer faction", null) }.Concat(GwentOneCardCatalog.StartingLeaders(_catalog)
             .Select(c => c.Faction).Distinct().Order().Select(f => new Choice(f, f))).ToArray();
-        FactionChoice.SelectedIndex = 0; RefreshTemplates(); RefreshHeaders();
+        FactionChoice.SelectedIndex = 0;
+        TemplateChoice.ItemsSource = Array.Empty<DeckTemplate>();
+        TemplateResultsText.Text = "Search the library when you need a starting template.";
+        UseTemplateButton.IsEnabled = false;
+        RefreshHeaders();
         _rendering = false;
         if (template is not null) LoadTemplateCore(template, observedSourceKey); else { AutoFill.IsChecked = true; Rebuild(); }
         Closing += ClosingBuilder;
@@ -324,7 +329,9 @@ public partial class DeckBuilderWindow : Window
         else if (prior is null) { _library.Merge([deck]); deck = _library.Rename(deck.Id, deck.Name); }
         else deck = _library.Rename(prior.Deck.Id, deck.Name);
         if (_details is not null && _library.Find(deck.Id)?.Details is null) _library.SetDetails(deck.Id, _details);
-        _library.Save(_path); _libraryDecks = _library.Decks; _dirty = false; _baseline = deck; _changed(); RefreshTemplates(); RenderDraftStatistics(); RefreshDraftState();
+        _library.Save(_path); _libraryDecks = _library.Decks; _dirty = false; _baseline = deck; _changed();
+        if (TemplatePopup.IsOpen) RefreshTemplates();
+        RenderDraftStatistics(); RefreshDraftState();
         BuilderStatus.Text = overwrite ? "Overwrote the selected library deck. The previous library file is retained as .bak." :
             prior is null ? "Saved as a new library version. The original deck is unchanged." : "Saved to the library/cache. This exact composition already existed; its name was updated.";
         return deck;

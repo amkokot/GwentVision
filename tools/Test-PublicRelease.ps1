@@ -49,9 +49,21 @@ foreach ($relative in $forbidden) {
 $unexpectedSessionFiles = @(Get-ChildItem -LiteralPath (Join-Path $root 'sessions') -Recurse -File | Where-Object Extension -notin '.jpg', '.png')
 if ($unexpectedSessionFiles.Count -gt 0) { throw 'Session journals or non-media files are present in the public corpus.' }
 
-$textExtensions = @('.cs', '.xaml', '.csproj', '.props', '.targets', '.ps1', '.md', '.json', '.yml', '.yaml', '.config', '.sln')
+$textExtensions = @('.cs', '.xaml', '.csproj', '.props', '.targets', '.ps1', '.md', '.json', '.yml', '.yaml',
+    '.config', '.sln', '.sql', '.ts', '.toml', '.env', '.html', '.css', '.js')
 $personalPaths = Get-ChildItem -LiteralPath $root -Recurse -File | Where-Object {
     $_.FullName -notmatch '[\\/](bin|obj|sessions)[\\/]' -and $textExtensions -contains $_.Extension.ToLowerInvariant()
 } | Select-String -Pattern '(?i)[A-Z]:\\(?:Users|Program Files|Windows)\\[A-Za-z0-9 ._()-]+|/Users/[A-Za-z0-9._-]+/|/home/[A-Za-z0-9._-]+/'
 if ($personalPaths) { throw "A local user path remains in public text: $($personalPaths[0].Path):$($personalPaths[0].LineNumber)" }
+$secretPatterns = @(
+    'sb_secret_(?!REPLACE(?:_|\b))[A-Za-z0-9_-]{20,}',
+    'sbp_[A-Za-z0-9_-]{20,}',
+    'postgres(?:ql)?://[^\s''"]+:[^\s''"]+@'
+)
+foreach ($pattern in $secretPatterns) {
+    $secret = Get-ChildItem -LiteralPath $root -Recurse -File | Where-Object {
+        $_.FullName -notmatch '[\\/](bin|obj|sessions)[\\/]' -and $textExtensions -contains $_.Extension.ToLowerInvariant()
+    } | Select-String -Pattern $pattern
+    if ($secret) { throw "A plausible secret remains in public text: $($secret[0].Path):$($secret[0].LineNumber)" }
+}
 Write-Host "PASS public release privacy: schema-2 corpus, $($library.Records.Count) public decks, no runtime-private paths."

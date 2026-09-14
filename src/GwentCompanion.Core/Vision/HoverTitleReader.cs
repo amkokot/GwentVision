@@ -13,15 +13,15 @@ public static class HoverTitleReader
 public sealed class HoverTitleIndex
 {
     private readonly Dictionary<string, CardDefinition> _names;
-    private readonly Dictionary<string, CardDefinition> _uvNames;
+    private readonly Dictionary<string, CardDefinition> _fontNames;
     private readonly Dictionary<string, CardDefinition> _choiceUvNames;
     private static string Key(string value) => Regex.Replace(value.ToUpperInvariant(), @"[^\p{L}\p{N}]", "");
     public HoverTitleIndex(IEnumerable<CardDefinition> catalog)
     {
         _names = catalog.DistinctBy(card => card.Id).Where(card => card.Kind is CardKind.Unit or CardKind.Special or CardKind.Artifact)
             .GroupBy(card => Key(card.Name)).Where(group => group.Count() == 1).ToDictionary(group => group.Key, group => group.Single());
-        _uvNames=_names.Values.GroupBy(card=>Key(card.Name).Replace('U','V'))
-            .Where(group=>group.Count()==1 && group.Key.Length>=8 && group.Single().Name.Contains(' '))
+        _fontNames=_names.Values.GroupBy(card=>FontKey(card.Name))
+            .Where(group=>group.Count()==1 && group.Key.Length>=8)
             .ToDictionary(group=>group.Key,group=>group.Single());
         _choiceUvNames=_names.Values.GroupBy(card=>Key(card.Name).Replace('U','V'))
             .Where(group=>group.Count()==1 && group.Key.Length>=7)
@@ -29,13 +29,19 @@ public sealed class HoverTitleIndex
     }
     // Only for a separately validated full bright title line; caller must require
     // temporal confirmation. A font equivalence is not general edit-distance OCR.
-    public CardDefinition? ReadGlyphEquivalent(string title) => title.Trim().Contains(' ') &&
-        _uvNames.TryGetValue(Key(title).Replace('U','V'),out var card) ? card : null;
+    public CardDefinition? ReadGlyphEquivalent(string title) =>
+        _fontNames.TryGetValue(FontKey(title),out var card) ? card : null;
     // Selection pop-ups provide a separately located, complete title line. The
     // GWENT capital V is routinely read as U (for example UEREENA). Permit only
     // that font-specific equivalence, only for a unique title of useful length.
     public CardDefinition? ReadChoiceGlyphEquivalent(string title) =>
         _choiceUvNames.TryGetValue(Key(title).Replace('U','V'),out var card) ? card : null;
+
+    // These are recurring ambiguities of GWENT's all-cap display face, not an
+    // edit-distance allowance. The caller has already isolated a complete bright
+    // title line and requires a second frame before publishing the identity.
+    private static string FontKey(string value) => Key(value)
+        .Replace('U','V').Replace('L','I').Replace('H','X');
     public CardDefinition? Read(string text)
     {
         // Exact standalone title near the top only. Never detect names embedded in ability prose.

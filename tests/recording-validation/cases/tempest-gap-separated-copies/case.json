@@ -1,0 +1,70 @@
+{
+  "SchemaVersion": 1,
+  "Id": "tempest-gap-separated-copies",
+  "Summary": "Tempest plays two identical Fog copies separated by a sustained blank animation interval; repeated GWENT-font returns must establish both copies without global duplicate inflation.",
+  "AddedIn": "0.2.80",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 2002087,
+      "Sha256": "C39D635B4E39CB7CBA6B0FCC8B5A846BEBB656F26CE5D70EC246935FC488C927",
+      "Tags": [
+        "regression",
+        "tempest-gap-separated-copies"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 2012572,
+      "Sha256": "2046439A590E3CF5D1970CB0FB52B5E80FA0BD9C313EC3C632B5F9E42A857E7C",
+      "Tags": [
+        "regression",
+        "tempest-gap-separated-copies"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 2013502,
+      "Sha256": "5AFEA9EBB69374DD6DE9E95C039FA75AEB64AF1C7E18C9E871533D6ECA62AF64",
+      "Tags": [
+        "regression",
+        "tempest-gap-separated-copies"
+      ]
+    },
+    {
+      "File": "evidence-04.png",
+      "Bytes": 2017749,
+      "Sha256": "E6F38A15554782305F104928AF5E5DCBD61BD0BE9A80FC262467980908B86A83",
+      "Tags": [
+        "regression",
+        "tempest-gap-separated-copies"
+      ]
+    },
+    {
+      "File": "evidence-05.png",
+      "Bytes": 1988068,
+      "Sha256": "C96CDBCCFFD5CFA25C1E6713D62C81A8374424B0B1EB22F48522CE14893167E8",
+      "Tags": [
+        "regression",
+        "tempest-gap-separated-copies"
+      ]
+    },
+    {
+      "File": "evidence-06.png",
+      "Bytes": 1985325,
+      "Sha256": "28F0C4EEE337C62A900EEB7DD92F1EDF266ED223A0C8BA38035BC5F910CF6BAE",
+      "Tags": [
+        "regression",
+        "tempest-gap-separated-copies"
+      ]
+    }
+  ]
+}

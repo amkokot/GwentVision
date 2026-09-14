@@ -1,0 +1,34 @@
+{
+  "SchemaVersion": 1,
+  "Id": "separated-thinning-pair",
+  "Summary": "A played self-thinning bronze and its summon settle on the same row with intervening cards; the far-right copy must establish the two-copy floor without a fixed gap limit.",
+  "AddedIn": "0.2.73",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 1944839,
+      "Sha256": "3B28D8F1E9BE0FBED713DDC279F26BD8E8BE09C42A43E6ADE6D22EF5DFB599ED",
+      "Tags": [
+        "regression",
+        "separated-thinning-pair"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 1913020,
+      "Sha256": "FA19B4AE1209398F43F47EEFED728E444630EE484AEC85194478C3BBDF6F66BA",
+      "Tags": [
+        "regression",
+        "separated-thinning-pair"
+      ]
+    }
+  ]
+}

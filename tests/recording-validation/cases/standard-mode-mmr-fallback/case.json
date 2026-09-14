@@ -1,0 +1,44 @@
+{
+  "SchemaVersion": 1,
+  "Id": "standard-mode-mmr-fallback",
+  "Summary": "When the result progression screen is skipped, three stable Standard Mode menu frames recover current and season-peak MMR and provide a post-match exit cue only for an already armed match session.",
+  "AddedIn": "0.2.79",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity",
+      "menu notification identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 1716562,
+      "Sha256": "01E55211CD3DE383DCEDA390DD92F61182D143E632DCA5651CE41840AD9D5627",
+      "Tags": [
+        "regression",
+        "standard-mode-mmr-fallback"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 1720183,
+      "Sha256": "24619B346038020B7F4A38D0A4FF5E47641AE5E7515E356CC3AE863CED21E4CC",
+      "Tags": [
+        "regression",
+        "standard-mode-mmr-fallback"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 1711034,
+      "Sha256": "1486923B2126A34D3C783B160E1E58A7514900D9A4CA6539305537133C9F2640",
+      "Tags": [
+        "regression",
+        "standard-mode-mmr-fallback"
+      ]
+    }
+  ]
+}

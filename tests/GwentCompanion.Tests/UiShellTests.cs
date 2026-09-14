@@ -1,6 +1,7 @@
 using System.IO;
 using System.Xml.Linq;
 using GwentCompanion.Core.Data;
+using GwentCompanion.Platform.Windows.Capture;
 
 internal static class UiShellTests
 {
@@ -94,6 +95,18 @@ internal static class UiShellTests
         Check(int.Parse(Named("LoadingShell").Attribute("Grid.RowSpan")!.Value) == Named("WindowLayout").Elements().Single(e => e.Name.LocalName == "Grid.RowDefinitions").Elements().Count() && Named("LoadingProgress").Attribute("IsIndeterminate")?.Value == "True",
             "Startup must show a full themed loading shell rather than an unresponsive partial UI.");
         Check(Named("RecordTrainingChoice").Attribute("IsChecked")?.Value == "False", "Training recording must be an explicit lightweight-mode toggle.");
+        var recordingRate = Named("RecordingFrameRateChoice");
+        Check(recordingRate.Attribute("SelectedIndex")?.Value == "1" &&
+            recordingRate.Elements().Select(item => (string?)item.Attribute("Tag")).SequenceEqual(new[] { "1", "2", "10" }) &&
+            recordingRate.Elements().ElementAt(1).Attribute("Content")?.Value.Contains("recommended", StringComparison.OrdinalIgnoreCase) == true &&
+            recordingRate.Elements().ElementAt(2).Attribute("Content")?.Value.Contains("Contributor", StringComparison.OrdinalIgnoreCase) == true,
+            "Training recording rates must offer low-storage, recommended, and contributor presets.");
+        Check(TrainingRecordingFrameRate.Interval(TrainingRecordingFrameRate.LowStorage) == TimeSpan.FromSeconds(1) &&
+            TrainingRecordingFrameRate.Interval(TrainingRecordingFrameRate.Recommended) == TimeSpan.FromMilliseconds(500) &&
+            TrainingRecordingFrameRate.Interval(TrainingRecordingFrameRate.Contributor) == TimeSpan.FromMilliseconds(100) &&
+            TrainingRecordingFrameRate.Normalize(5) == TrainingRecordingFrameRate.Contributor &&
+            TrainingRecordingFrameRate.Normalize(30) == TrainingRecordingFrameRate.Recommended,
+            "Training recording frame-rate normalization or cadence changed unexpectedly.");
         Check(Named("UserSynergyButtons").Name.LocalName == "WrapPanel" && Named("SynergyButtons").Name.LocalName == "WrapPanel",
             "Player and opponent synergy meters must both remain glanceable in Live.");
         Check(!elements.Any(item => (string?)item.Attribute(x + "Name") == "SynergyDetailPanel"),

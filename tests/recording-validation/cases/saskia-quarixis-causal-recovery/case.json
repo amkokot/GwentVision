@@ -1,0 +1,79 @@
+{
+  "SchemaVersion": 1,
+  "Id": "saskia-quarixis-causal-recovery",
+  "Summary": "Retains Saskia Commander deploy, its far-right Abandoned Girl deck summon, a misleading Miner feature match on that body, and the two-frame QUARIHIS tooltip followed by the Quarixis hand cost.",
+  "AddedIn": "0.2.78",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 2035944,
+      "Sha256": "AAD4847557854BBA1B6C18249403CBECF924AF88E96AE2CA65513E629A1C8950",
+      "Tags": [
+        "regression",
+        "saskia-quarixis-causal-recovery"
+      ]
+    },
+    {
+      "File": "evidence-02.png",
+      "Bytes": 2033621,
+      "Sha256": "FD5EF72651FD1C72B8BB413ADD8F4B595F44946F6752412F6B1220CA3B2ABD35",
+      "Tags": [
+        "regression",
+        "saskia-quarixis-causal-recovery"
+      ]
+    },
+    {
+      "File": "evidence-03.png",
+      "Bytes": 1997005,
+      "Sha256": "EF3990B3F4C389AB8059A224F49222D2525B4EA5CF9EF5B82A39DDF71C3F5059",
+      "Tags": [
+        "regression",
+        "saskia-quarixis-causal-recovery"
+      ]
+    },
+    {
+      "File": "evidence-04.png",
+      "Bytes": 2006164,
+      "Sha256": "83CAEE750D5B3D84597C2316AF5F8E94BFBA7D8893F19488C49FB53733D3A513",
+      "Tags": [
+        "regression",
+        "saskia-quarixis-causal-recovery"
+      ]
+    },
+    {
+      "File": "evidence-05.png",
+      "Bytes": 1991192,
+      "Sha256": "5D15BBCEDD0CAB5330F1E43B41E93E1F042EAA12AAA2C75F79145C9924D737C2",
+      "Tags": [
+        "regression",
+        "saskia-quarixis-causal-recovery"
+      ]
+    },
+    {
+      "File": "evidence-06.png",
+      "Bytes": 1992338,
+      "Sha256": "F7453D130DAA9DBAE496BB2B8730521183B3FEE5DF629D41D6EE579699F84E34",
+      "Tags": [
+        "regression",
+        "saskia-quarixis-causal-recovery"
+      ]
+    },
+    {
+      "File": "evidence-07.png",
+      "Bytes": 1998014,
+      "Sha256": "8816EB424BC02F1C866AFDF8D753E3D06B68B46FC7EA5F5182D575855355F583",
+      "Tags": [
+        "regression",
+        "saskia-quarixis-causal-recovery"
+      ]
+    }
+  ]
+}

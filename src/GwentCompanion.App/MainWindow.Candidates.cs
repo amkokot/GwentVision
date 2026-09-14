@@ -11,7 +11,7 @@ public partial class MainWindow
     private void RenderCandidateTray()
     {
         if (CandidateCardTray is null || _lastProjection is null) return;
-        if (_confirmedOpponentDeck is not null)
+        if (_useOpponentModel && _confirmedOpponentDeck is not null)
         {
             CandidateCardTray.Rows = null;
             CandidateTrayStatus.Text = "A full reference is pinned. Clear the pin to edit individual assumptions.";
@@ -29,35 +29,55 @@ public partial class MainWindow
         var terms = DeckSearchCatalog.Terms(CandidateCardSearch.Text);
         var meta = _lastProjection.Meta.Cards.ToDictionary(item => item.Card.Id);
         var packages = (_lastProjection.PackageHints ?? []).ToDictionary(item => item.Card.Id);
-        var rows = _lastProjection.Slots.Where(row => row.Card is not null).ToArray();
-        var renfriRuledOut = _opponentKnowledge.Assess(_opponentTracker.DeckBuildingObservations).Renfri.State == ConstraintState.RuledOut;
+        var rows = (_useOpponentModel ? _lastProjection.Slots : PresentedOpponentSlots(_lastProjection))
+            .Where(row => row.Card is not null).ToArray();
+        var renfriRuledOut = _lastProjection.Renfri.State == ConstraintState.RuledOut;
         var candidates = _candidateCatalog.Where(card => card.CanBeInStartingDeck && card.Kind is CardKind.Unit or CardKind.Special or CardKind.Artifact)
             .Where(card => !renfriRuledOut || card.Name != "Renfri")
             .Where(card => !_opponentTracker.HasStableFaction || FactionCompatibility.IsPlayableBy(card, _opponentTracker.Faction!))
             .Where(card => DeckSearchCatalog.Matches(DeckSearchCatalog.Normalize(card.Name + " " + card.Kind + " " + string.Join(' ', card.Categories) + " " + card.AbilityText), terms))
             .Select(card => new { Card = card, Copy = Enumerable.Range(1, card.IsGold ? 1 : 2).FirstOrDefault(copy => !rows.Any(row => row.Card!.Id == card.Id && row.Copy == copy)), Meta = meta.GetValueOrDefault(card.Id), Package = packages.GetValueOrDefault(card.Id) })
-            .Where(item => item.Copy > 0)
-            .OrderByDescending(item => item.Copy == 1 && item.Package is not null)
-            .ThenByDescending(item => item.Meta?.CopyRecommendations?.ElementAtOrDefault(item.Copy - 1)?.Significance?.Value ?? 0)
-            .ThenByDescending(item => item.Meta?.CopyRecommendations?.ElementAtOrDefault(item.Copy - 1)?.Score ?? 0)
-            .ThenByDescending(item => item.Meta?.RecentPrevalence ?? 0).ThenBy(item => item.Card.Name)
-            .ToArray();
+            .Where(item => item.Copy > 0).ToArray();
+        candidates = (_useOpponentModel
+            ? candidates.OrderByDescending(item => item.Copy == 1 && item.Package is not null)
+                .ThenByDescending(item => item.Meta?.CopyRecommendations?.ElementAtOrDefault(item.Copy - 1)?.Significance?.Value ?? 0)
+                .ThenByDescending(item => item.Meta?.CopyRecommendations?.ElementAtOrDefault(item.Copy - 1)?.Score ?? 0)
+                .ThenByDescending(item => item.Meta?.RecentPrevalence ?? 0).ThenBy(item => item.Card.Name)
+            : candidates.OrderBy(item => item.Card, DeckBuilderOrder.Comparer).ThenBy(item => item.Copy)).ToArray();
         CandidateCardTray.Rows = candidates.Select(item => Strip(new ProjectedDeckSlot(0, item.Card, item.Copy,
-            DeckSlotState.Predicted, item.Meta?.CopyPresence.ElementAtOrDefault(item.Copy - 1), item.Meta, false,
-            $"Candidate copy {item.Copy}, not a sighting. Click to assume it in the deck and reweight related suggestions. " +
-            (item.Copy == 1 && item.Package is not null ? item.Package.Explanation + " " : "") +
-            item.Meta?.CopyRecommendations?.ElementAtOrDefault(item.Copy - 1)?.Evidence +
-            (_opponentEdits.Excluded.Contains(new(item.Card.Id, item.Copy)) ? " You dismissed this suggestion; it will not auto-fill again this match." : ""),
-            item.Copy == 1 ? item.Package : null))).ToArray();
+            DeckSlotState.Predicted,
+            _useOpponentModel ? item.Meta?.CopyPresence.ElementAtOrDefault(item.Copy - 1) : null,
+            _useOpponentModel ? item.Meta : null, false,
+            _useOpponentModel
+                ? $"Candidate copy {item.Copy}, not a sighting. Click to assume it in the deck and reweight related suggestions. " +
+                  (item.Copy == 1 && item.Package is not null ? item.Package.Explanation + " " : "") +
+                  item.Meta?.CopyRecommendations?.ElementAtOrDefault(item.Copy - 1)?.Evidence +
+                  (_opponentEdits.CorrectedEvidence.Contains(new(item.Card.Id, item.Copy)) ? " You removed this detected copy from the hypothesis; click to restore it." :
+                   _opponentEdits.Excluded.Contains(new(item.Card.Id, item.Copy)) ? " You dismissed this suggestion; it will not auto-fill again this match." : "")
+                : $"Eligible starting-deck card · copy {item.Copy} · deck-builder order.",
+            _useOpponentModel && item.Copy == 1 ? item.Package : null))).ToArray();
         CandidateTrayStatus.Text = candidates.Length == 0 ? "No matching candidates. Try another card name." :
-            $"{candidates.Length} cards · patch {_lastProjection.Meta.TargetPatch} · significance 0–1, not probability";
+            _useOpponentModel
+                ? $"{candidates.Length} cards · patch {_lastProjection.Meta.TargetPatch} · significance 0–1, not probability"
+                : $"{candidates.Length} eligible cards · deck-builder order";
     }
 
     private void CandidateCardSearch_OnChanged(object sender, TextChangedEventArgs e) => RenderCandidateTray();
 
     private void CandidateCard_OnActivated(object? sender, object row)
     {
+        if (!_useOpponentModel)
+        {
+            CandidateTrayStatus.Text = "Candidate catalog · deck-builder order.";
+            return;
+        }
         if (_confirmedOpponentDeck is not null || row is not DeckStripRow { Slot.Card: { } card } item || _lastProjection is null) return;
+        if (_opponentEdits.RestoreEvidence(card, item.Slot.Copy))
+        {
+            RenderLiveInference(); PersistCurrentMatch();
+            FooterStatusText.Text = $"Restored the detected {card.Name} copy to the working hypothesis.";
+            return;
+        }
         if (_lastProjection.Slots.All(slot => slot.State is DeckSlotState.Observed or DeckSlotState.Selected))
         {
             CandidateTrayStatus.Text = "All slots are occupied by evidence or your choices. Return an unseen choice first.";
@@ -73,7 +93,13 @@ public partial class MainWindow
         if (row is not DeckStripRow item) return;
         if (item.Slot.State == DeckSlotState.Observed)
         {
-            FooterStatusText.Text = "Observed plays are evidence and cannot be dismissed as suggestions.";
+            var observedCopies = _opponentTracker.DeckBuildingObservations.FirstOrDefault(observation =>
+                observation.Card.Id == item.Slot.Card?.Id)?.ObservedCopies ?? 0;
+            if (item.Slot.Card is { } observedCard && _opponentEdits.RejectEvidence(observedCard, observedCopies))
+            {
+                RenderLiveInference(); PersistCurrentMatch();
+                FooterStatusText.Text = $"Removed one detected {observedCard.Name} copy from the working hypothesis. The raw sighting remains in the audit journal; click it in candidates to restore it.";
+            }
             return;
         }
         if (_confirmedOpponentDeck is not null)

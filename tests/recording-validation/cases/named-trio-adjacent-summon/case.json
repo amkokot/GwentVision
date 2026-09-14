@@ -1,0 +1,25 @@
+{
+  "SchemaVersion": 1,
+  "Id": "named-trio-adjacent-summon",
+  "Summary": "Lambert is played, then Vesemir and Eskel appear in the two adjacent source-relative slots without play previews.",
+  "AddedIn": "0.2.81",
+  "Anonymization": {
+    "Status": "anonymized",
+    "Version": "identity-mask-v1",
+    "ProtectedRegions": [
+      "top-left player identity",
+      "bottom-left player identity"
+    ]
+  },
+  "Files": [
+    {
+      "File": "evidence-01.png",
+      "Bytes": 1834631,
+      "Sha256": "86CAC36B114686BB648E9E0C321D7EBA548ADFBBEF84B576AC44700D090F1E33",
+      "Tags": [
+        "regression",
+        "named-trio-adjacent-summon"
+      ]
+    }
+  ]
+}

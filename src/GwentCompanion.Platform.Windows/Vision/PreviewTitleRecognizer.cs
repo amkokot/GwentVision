@@ -21,8 +21,12 @@ public sealed class PreviewTitleRecognizer(IEnumerable<CardDefinition> cards)
     private readonly Dictionary<string, CardDefinition> _glyphNames = cards.DistinctBy(card => card.Id)
         .Where(card => card.Kind is CardKind.Unit or CardKind.Special or CardKind.Artifact)
         .GroupBy(card => NormalizeGlyphs(card.Name))
-        .Where(group => group.Count() == 1 && group.Key.Length >= 12)
+        .Where(group => group.Count() == 1 && group.Key.Length >= 8)
         .ToDictionary(group => group.Key, group => group.Single());
+    private readonly CardDefinition[] _uniqueNames = cards.DistinctBy(card => card.Id)
+        .Where(card => card.Kind is CardKind.Unit or CardKind.Special or CardKind.Artifact)
+        .GroupBy(card => Normalize(card.Name)).Where(group => group.Count() == 1)
+        .Select(group => group.Single()).ToArray();
     private readonly HashSet<string> _categories = cards.SelectMany(card => card.Categories)
         .Select(Normalize).ToHashSet(StringComparer.Ordinal);
 
@@ -57,12 +61,14 @@ public sealed class PreviewTitleRecognizer(IEnumerable<CardDefinition> cards)
                     .MaxBy(candidate => candidate.Score);
             Trace?.Invoke($"{side} preview boundary: {boundary}");
             if (boundary is null) continue;
-            bool EligibleHeader(NormalizedRegion region) => IsPreviewHeader(frame, region) && HasAdjacentTooltip(frame, region, boundary.Region) &&
-                !HasHeaderAbove(frame, region, boundary.Region) &&
+            bool EligibleGeometry(NormalizedRegion region,bool shiftedPanel=false) => IsPreviewHeader(frame, region) &&
+                (shiftedPanel ? HasParchmentBelowTitle(frame,region) : HasAdjacentTooltip(frame,region,boundary.Region)) &&
                 (!weakBorder || region.Top >= art.Top && region.Top - art.Top < .045);
+            bool EligibleHeader(NormalizedRegion region) => EligibleGeometry(region) && !HasHeaderAbove(frame,region,boundary.Region);
             CardDefinition[] names = [];
             var glyphConfusion = false;
             var styledTitle = false;
+            var truncatedTitleEdge = false;
             var sawHeader = false;
             var windows = new[] { title with { Left = .645, Right = side == PlayerSide.User ? .82 : .81,
                 Bottom = side == PlayerSide.User ? .47 : .19 }, title };
@@ -71,7 +77,7 @@ public sealed class PreviewTitleRecognizer(IEnumerable<CardDefinition> cards)
                 var lines = await reader.ReadLinesAsync(frame, window).ConfigureAwait(false);
                 if (lines.Count == 0 && window == title)
                     lines = await reader.ReadLinesAsync(frame, window, 4, enhance: false).ConfigureAwait(false);
-                foreach (var line in lines) Trace?.Invoke($"{side} text: {line.Text} header={IsPreviewHeader(frame, line.Region)} {line.Region}");
+                foreach (var line in lines) Trace?.Invoke($"{side} text: {line.Text} header={IsPreviewHeader(frame, line.Region)} adjacent={HasAdjacentTooltip(frame, line.Region, boundary.Region)} shifted={HasParchmentBelowTitle(frame,line.Region)} above={HasHeaderAbove(frame,line.Region,boundary.Region)} category={IsCategoryLine(line.Text)} {line.Region}");
                 sawHeader |= lines.Any(line => IsPreviewHeader(frame, line.Region));
                 // Category text is white on the same dark header as the title.
                 // In particular, "Machine, Siege Engine" must never become Siege
@@ -83,6 +89,20 @@ public sealed class PreviewTitleRecognizer(IEnumerable<CardDefinition> cards)
                 names = headerLines
                     .Select(line => Normalize(line.Text)).Distinct().Where(_names.ContainsKey)
                     .Select(name => _names[name]).DistinctBy(card => card.Id).ToArray();
+                if (names.Length == 0)
+                {
+                    // A long clipped title may belong to a narrow panel shifted
+                    // away from the enlarged art. This relaxed geometry is only
+                    // allowed through a unique partial-name edge and therefore
+                    // cannot accept a complete board-hover title.
+                    var edgeLines=lines.Where(line=>EligibleGeometry(line.Region,shiftedPanel:true) && !IsCategoryLine(line.Text))
+                        .OrderBy(line=>line.Region.Top).ToArray();
+                    var edgeTop=edgeLines.FirstOrDefault()?.Region.Top;
+                    names = edgeLines.Where(line=>edgeTop is not null && line.Region.Top-edgeTop<.009)
+                        .Select(line => ResolveUniqueLongEdge(line.Text))
+                        .Where(card => card is not null).Cast<CardDefinition>().DistinctBy(card => card.Id).ToArray();
+                    truncatedTitleEdge = names.Length == 1;
+                }
                 if (names.Length > 0) break;
                 // Stylized capitals can be misread at one raster scale. Re-read the
                 // actual header pixels; do not turn a fuzzy nearest name into evidence.
@@ -119,7 +139,7 @@ public sealed class PreviewTitleRecognizer(IEnumerable<CardDefinition> cards)
                     }
                     if (names.Length == 0)
                     {
-                        names = retryTexts.Where(text => text.Trim().Contains(' '))
+                        names = retryTexts
                             .Select(NormalizeGlyphs).Where(_glyphNames.ContainsKey)
                             .Select(key => _glyphNames[key]).DistinctBy(card => card.Id).ToArray();
                         glyphConfusion = names.Length == 1;
@@ -155,11 +175,11 @@ public sealed class PreviewTitleRecognizer(IEnumerable<CardDefinition> cards)
             // A supplemental read must not cancel the artwork worker's opportunity
             // to supply its existing, independently accepted evidence.
             HasUnresolvedHeader |= styledTitle;
-            var needsConfirmation = weakBorder || glyphConfusion || styledTitle;
+            var needsConfirmation = weakBorder || glyphConfusion || styledTitle || truncatedTitleEdge;
             result.Add(new CardSighting(names[0], side, CardSightSource.PlayPreview, boundary.Region, needsConfirmation ? .16 : .10, 1,
-                (styledTitle ? "Exact visible preview title (adaptive title style): " : glyphConfusion ? "Complete visible preview title (U/V glyph equivalence): " : "Exact visible preview title: ") + names[0].Name + "; " +
+                 (truncatedTitleEdge ? "Unique long visible preview-title edge: " : styledTitle ? "Exact visible preview title (adaptive title style): " : glyphConfusion ? "Complete visible preview title (GWENT font-glyph equivalence): " : "Exact visible preview title: ") + names[0].Name + "; " +
                 (needsConfirmation ? "repeated frames required" : "card-frame boundary also present"),
-                NeedsTemporalConfirmation: needsConfirmation, IsSupplementalTitle: styledTitle));
+                NeedsTemporalConfirmation: needsConfirmation, IsSupplementalTitle: styledTitle || truncatedTitleEdge));
         }
         return result;
     }
@@ -169,7 +189,7 @@ public sealed class PreviewTitleRecognizer(IEnumerable<CardDefinition> cards)
         // A nearby board hover can overlap the preview tooltip. Only the adjacent title
         // column qualifies; names mentioned in black ability text are not play evidence.
         var center = (region.Left + region.Right) / 2;
-        if (center is < .705 or > .805 || region.Bottom - region.Top < .012) return false;
+        if (center is < .680 or > .805 || region.Bottom - region.Top < .012) return false;
         var light = 0; var total = 0;
         for (var y = region.PixelTop(frame.Height); y < region.PixelBottom(frame.Height); y++)
         for (var x = region.PixelLeft(frame.Width); x < region.PixelRight(frame.Width); x++)
@@ -195,6 +215,18 @@ public sealed class PreviewTitleRecognizer(IEnumerable<CardDefinition> cards)
         }
         return parchment >= samples * .50;
     }
+    private static bool HasParchmentBelowTitle(PixelFrame frame,NormalizedRegion header)
+    {
+        var parchment=0; var samples=0;
+        for(var y=header.Bottom+.06;y<=Math.Min(.97,header.Bottom+.115);y+=.009)
+        foreach(var x in new[]{header.Right-.010,header.Right-.030,header.Left+.020})
+        {
+            var p=frame.GetPixel(Math.Clamp((int)(x*frame.Width),0,frame.Width-1),(int)(y*frame.Height));
+            if(p.Red>=105&&p.Green>=85&&p.Blue>=60&&p.Red>p.Blue*1.10&&p.Green>p.Blue*1.04) parchment++;
+            samples++;
+        }
+        return parchment>=samples*.40;
+    }
     private static string Normalize(string value) => string.Concat(value.Normalize(NormalizationForm.FormD)
         .Where(character => CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark &&
                             char.IsLetterOrDigit(character)))
@@ -202,7 +234,25 @@ public sealed class PreviewTitleRecognizer(IEnumerable<CardDefinition> cards)
     // Complete long titles may use only these recurring capital-font OCR
     // equivalences. The normalized title must remain unique and is confirmed
     // on a second frame, so this does not introduce nearest-name guessing.
-    private static string NormalizeGlyphs(string value) => Normalize(value).Replace('U', 'V').Replace('L', 'I');
+    private static string NormalizeGlyphs(string value) => Normalize(value)
+        .Replace('U', 'V').Replace('L', 'I').Replace('H', 'X');
+    private CardDefinition? ResolveUniqueLongEdge(string visible)
+    {
+        var edge = Normalize(visible);
+        if (edge.Length < 10) return null;
+        var glyphEdge = NormalizeGlyphs(visible);
+        var matches = _uniqueNames.Where(card =>
+        {
+            var full = Normalize(card.Name);
+            var glyphFull = NormalizeGlyphs(card.Name);
+            var normalCoverage = edge.Length < full.Length && edge.Length >= Math.Ceiling(full.Length * .60);
+            var glyphCoverage = glyphEdge.Length < glyphFull.Length && glyphEdge.Length >= Math.Ceiling(glyphFull.Length * .60);
+            return normalCoverage && (full.StartsWith(edge, StringComparison.Ordinal) || full.EndsWith(edge, StringComparison.Ordinal)) ||
+                   glyphCoverage && (glyphFull.StartsWith(glyphEdge, StringComparison.Ordinal) || glyphFull.EndsWith(glyphEdge, StringComparison.Ordinal));
+        }).Take(2).ToArray();
+        Trace?.Invoke($"Title edge {edge}: {string.Join(", ", matches.Select(card => card.Name))}");
+        return matches.Length == 1 ? matches[0] : null;
+    }
     private static bool HasHeaderAbove(PixelFrame frame, NormalizedRegion line, NormalizedRegion art)
     {
         // Category rows share the header colour. Reject them when another line of

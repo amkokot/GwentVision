@@ -45,7 +45,7 @@ internal static class LatestFixesTests
         var late=new OpponentKnowledge(); late.SetRound(3); late.ObserveScreen(opening,at);
         Check(late.StartingSize is null,"Late pile inferred starting size");
         using var ocr=new ScreenStateRecognizer();
-        var full=Load(root,"20260828-175744","175831112");
+        var full=Load(root,"20260828-175744","175811204");
         var empty=Load(root,"20260828-175744","175748211");
         var top=await OpponentHudRecognizer.ReadHandCandidateAsync(full,new(.925,0,.995,.065),ocr);
         var bottom=await OpponentHudRecognizer.ReadHandCandidateAsync(full,new(.925,.94,.995,1),ocr);
@@ -61,10 +61,9 @@ internal static class LatestFixesTests
             var screen=row.Screen;
             if(row.SampledAt.ToString("HHmmssfff")=="175831510")
             {
-                var counterFrame=Load(root,"20260828-175744","175831510");
                 screen=screen with {
-                    OpponentHandCount=await OpponentHudRecognizer.ReadHandCandidateAsync(counterFrame,new(.925,0,.995,.065),ocr),
-                    UserHandCount=await OpponentHudRecognizer.ReadHandCandidateAsync(counterFrame,new(.925,.94,.995,1),ocr)};
+                    OpponentHandCount=await OpponentHudRecognizer.ReadHandCandidateAsync(full,new(.925,0,.995,.065),ocr),
+                    UserHandCount=await OpponentHudRecognizer.ReadHandCandidateAsync(full,new(.925,.94,.995,1),ocr)};
             }
             knowledge.ObserveScreen(screen,row.SampledAt);
             foreach(var e in row.Events)
@@ -106,41 +105,23 @@ internal static class LatestFixesTests
     }
     public static void Pixels(string root)
     {
-        var cache=Path.Combine(root,"GwentCompanion/cache"); var catalog=GwentOneCardCatalog.Load(Path.Combine(cache,"gwent-one-cards.json"));
-        var refs=VisionReferenceLibrary.Load(catalog,cache);
-        using var detector=new FeatureCardRecognizer(refs,Path.Combine(cache,"recognition-features"));
-        var reference=JsonSerializer.Deserialize<GameStateSnapshot>(File.ReadAllText(Path.Combine(root,"GwentCompanion/sessions/20260828-181243/game-state-final.json")),GameStateJournal.Json)!.User.StartingDeckReference!;
-        detector.SetKnownPlayerDeck(reference.Cards.Select(c=>c.Card.Id));
-        var fallback=new CardFrameRecognizer(new CardArtMatcher(detector.ArtReferences));
-        var rows=new List<object>();
-        foreach(var (session,stamp,expected,wrong) in new[] {
-            ("20260828-175744","180034097","Lamp Djinn","Vypper"),
-            ("20260828-181243","182225702","Golyat","Vypper"),
-            ("20260828-175744","180524102","Wild Hunt Rider","Vypper") })
+        var project=Path.Combine(root,"GwentCompanion");
+        foreach(var runner in new IRecordingValidationCase[] {
+            new TruncatedLongTitlePrefixRegressionCase(),
+            new SeparatedThinningPairRegressionCase(),
+            new WinterQueenLongPersistenceRegressionCase(),
+            new SirScratchTitleRegressionCase(),
+            new MissedSelfSpawnOriginalRegressionCase(),
+            new BoardSpawnThenHandOriginalRegressionCase() })
         {
-            var frame=Load(root,session,stamp); var screen=new GwentVisualObservation(GwentViewKind.Board,false,0,0,null);
-            var features=detector.Recognize(frame,screen);
-            var sights=features.Concat(fallback.Recognize(frame,screen,true,features)).ToArray();
-            Console.WriteLine(stamp+": "+string.Join(", ",sights.Select(s=>s.Card.Name+" "+s.Side)));
-            rows.Add(new {session,stamp,sights});
-            Check(sights.Any(s=>s.Card.Name==expected),"Missing held-out identity: "+expected);
-            Check(!sights.Any(s=>s.Card.Name==wrong),"False held-out identity: "+wrong);
+            var folder=Path.Combine(project,"tests","recording-validation","cases",runner.Id);
+            var definition=JsonSerializer.Deserialize<RecordingValidationCaseDefinition>(
+                File.ReadAllText(Path.Combine(folder,"case.json")),GameStateJournal.Json)
+                ?? throw new InvalidDataException("Missing validation definition: "+runner.Id);
+            definition.Directory=folder;
+            runner.RunAsync(project,definition).GetAwaiter().GetResult();
         }
-        using(var recentDetector=new FeatureCardRecognizer(refs,Path.Combine(cache,"recognition-features"),scope:VisionReferenceScope.CandidateDecks))
-        {
-            var gang=catalog.Single(card=>card.Id=="203089");
-            recentDetector.SetLikelyOpponentCards([]);
-            recentDetector.ObserveOpponentCards([gang.Id]);
-            var frame=Load(root,"20260901-162121","162558544");
-            var screen=new GwentVisualObservation(GwentViewKind.Board,false,0,0,null) { MatchHudVisible=true };
-            var features=recentDetector.Recognize(frame,screen);
-            var recentFallback=new CardFrameRecognizer(new CardArtMatcher(recentDetector.ArtReferences));
-            var sights=features.Concat(recentFallback.Recognize(frame,screen,true,features)).Where(s=>s.Source==CardSightSource.Board&&s.Card.Id==gang.Id).ToArray();
-            Console.WriteLine("162558544 recent Gang board copies: "+string.Join(", ",sights.Select(s=>$"{s.Region.Left:F3}-{s.Region.Right:F3}")));
-            Check(sights.Length==2,"A just-observed self-thinning identity did not recover both clearly visible adjacent Gang bodies.");
-        }
-        File.WriteAllText(Path.Combine(root,"GwentCompanion/diagnostics/v0.1.31-corrected-label-pixels.json"),JsonSerializer.Serialize(rows,GameStateJournal.Json));
-        Console.WriteLine("PASS fresh full-catalog pixels, no training-frame reuse.");
+        Console.WriteLine("PASS current title, automatic-arrival, and separated self-thinning pixel cases.");
     }
     public static void LabelProbe(string root)
     {

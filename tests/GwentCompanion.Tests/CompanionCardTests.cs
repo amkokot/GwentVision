@@ -107,6 +107,25 @@ internal static class CompanionCardTests
         var ordinary = cards["112210"];
         var unrelatedPair = pair.Select(s => s with { Card=ordinary }).ToArray();
         Reset(); Frame(31,unrelatedPair); Check(!Frame(32,unrelatedPair), "Ordinary board pair bypassed the self-thinning identity gate.");
+        var brigade = cards["162310"];
+        CardSighting Brigade(double x, double y) => new(brigade, PlayerSide.Opponent, CardSightSource.Board,
+            new(x, y, x + .05, y + .12), .40, 1, "bounded automatic-arrival board fallback");
+        var firstBrigades = new[] { Brigade(.477, .16), Brigade(.541, .32) };
+        var secondBrigades = new[] { Brigade(.508, .16), Brigade(.545, .317) };
+        var brigadeScreen = screen with { MatchHudVisible = true };
+        var brigadeTracker = new LiveDeckTracker(PlayerSide.Opponent); brigadeTracker.SetFactionPrior("Nilfgaard");
+        var brigadeCopies = new ThinningCopyTracker();
+        Check(!brigadeCopies.ObserveFrame(At.AddSeconds(40), brigadeScreen, firstBrigades, true,
+                  [brigadeTracker], _ => false) &&
+              brigadeCopies.ObserveFrame(At.AddSeconds(57), brigadeScreen, secondBrigades, true,
+                  [brigadeTracker], _ => false) &&
+              brigadeTracker.DeckBuildingObservations.Single(item => item.Card.Id == brigade.Id).ObservedCopies == 2,
+            "Two recurring physical Nauzicaa Brigade bodies collapsed to one automatic-arrival identity.");
+        brigadeTracker.Reset(); brigadeTracker.SetFactionPrior("Nilfgaard"); brigadeCopies.Reset();
+        brigadeCopies.ObserveFrame(At.AddSeconds(40), brigadeScreen, firstBrigades, true, [brigadeTracker], _ => false);
+        Check(!brigadeCopies.ObserveFrame(At.AddSeconds(57), brigadeScreen, secondBrigades, true,
+                  [brigadeTracker], _ => true) && brigadeTracker.DeckBuildingObservations.Count == 0,
+            "An inherent-arrival pair bypassed observed create/copy risk.");
         Reset(); Frame(1); Check(!Frame(2, scanned: false), "Unscanned board promoted a copy.");
         Reset(CardProvenance.Created); Frame(1); Check(!Frame(2,risk:true), "Created Rider became two original cards.");
         Reset(); Frame(1); copies.ObserveEvent(preview with { ObservedAt = At.AddSeconds(1), Sighting = preview.Sighting with { Card = cards["112210"] } }, CardProvenance.ProbableStartingDeck);
@@ -138,7 +157,7 @@ internal static class CompanionCardTests
         Check(!copies.ObserveEvent(firstWarlord with { ObservedAt = At.AddMinutes(1).AddSeconds(12) },
             CardProvenance.ProbableStartingDeck, warlordTracker, graveReplayRisk: true) && warlordTracker.Observations.Single().ObservedCopies == 1,
             "A graveyard replay was charged as a second starting Warlord.");
-        Console.WriteLine("  Rider: 1 observed + 1 inferred → 2 observed; repeated frames, origins, separate sides and copy ceiling verified.");
+        Console.WriteLine("  Rider and explicit self-arrival bronzes: repeated physical pairs, origins, separate sides and copy ceiling verified.");
     }
 
     private static void Recordings(string root)

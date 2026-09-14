@@ -39,6 +39,17 @@ internal static class PostMatchMmrTests
             PostMatchMmrRecognizer.ParseRankedPanel("VICTORY", "RANKED", [ranked[0] with { Text="2400" },ranked[1]]) is null &&
             PostMatchMmrRecognizer.ParseRankedPanel("VICTORY", "RANKED", [ranked[0], ranked[1] with { Text="240S" }]) is null,
             "Wrong context or repaired ranked numerals accepted");
+        var menuLabel = "STANDARD MODE SEPTEMBER SEASON";
+        Check(PostMatchMmrRecognizer.ParseMainMenu(menuLabel,
+            [new("2393", new(.46,.50,.50,.54)), new("2400", new(.52,.50,.56,.54)), new("3209", new(.59,.50,.64,.54))])
+            is { RatingAfter: 2393, SeasonPeak: 2400 },
+            "Standard Mode leaderboard position replaced the middle season-peak value.");
+        Check(PostMatchMmrRecognizer.ParseMainMenu(menuLabel,
+            [new("2393", new(.46,.50,.50,.54)), new("3209", new(.59,.50,.64,.54))]) is null,
+            "A missed middle MMR value allowed the rightmost leaderboard position to become season peak.");
+        Check(PostMatchMmrRecognizer.ParseMainMenu(menuLabel,
+            [new("2434 2441 3017", new(.45,.50,.64,.54))]) is { RatingAfter: 2434, SeasonPeak: 2441 },
+            "A single OCR line containing all three Standard Mode values did not retain the first MMR pair.");
         var rankLine = new VisibleTextLine("3", new(.493,.378,.509,.415));
         var rank = PostMatchMmrRecognizer.ParseRankPanel("VICTORY", "RANKED", [rankLine]);
         Check(rank is { Rank:3, IsProRank:false }, "Standard-ladder rank shield did not parse.");
@@ -53,6 +64,15 @@ internal static class PostMatchMmrTests
             Check(invalid is null, "Wrong context/progress/conflicting number was accepted as ladder rank.");
         Check(reader.Confirm(full, At) is null && reader.Confirm(full, At) is null && reader.Confirm(full, At.AddSeconds(1)) is null &&
             reader.Confirm(full, At.AddSeconds(2)) == full, "Rating not confirmed from three distinct spaced frames.");
+        reader.Reset();
+        Check(reader.Confirm(full,At,200) is null && reader.Confirm(full,At.AddMilliseconds(200),200) is null &&
+            reader.Confirm(full,At.AddMilliseconds(400),200)==full,
+            "Fast result-only cadence could not confirm an early MMR before the main menu.");
+        reader.Reset();
+        Check(reader.Confirm(full, At) is null && reader.Confirm(full, At.AddMilliseconds(599)) is null &&
+            reader.Confirm(full! with { Label = "FMMR" }, At.AddMilliseconds(600)) is null &&
+            reader.Confirm(full, At.AddMilliseconds(1200)) == full,
+            "Three 600-ms OCR reads failed to confirm the same rating when label spelling changed.");
         reader.Reset(); reader.Confirm(full, At); reader.Confirm(full, At.AddSeconds(1)); reader.Confirm(null, At.AddSeconds(2));
         Check(reader.Confirm(full, At.AddSeconds(3)) is null, "An unread frame did not break consensus.");
         Check(reader.Confirm(full, At.AddSeconds(9)) is null, "Stale consensus carried across long gap.");
@@ -60,8 +80,8 @@ internal static class PostMatchMmrTests
         Check(reader.ConfirmRank(rank, At) is null && reader.ConfirmRank(rank, At.AddSeconds(1)) == rank,
             "Rank was not confirmed from two distinct spaced, result-layout-gated frames.");
         reader.Reset(); var unreadRank=new PostMatchRank(null,"Ranked ladder result screen");
-        Check(reader.ConfirmRank(unreadRank,At) is null && reader.ConfirmRank(unreadRank,At.AddSeconds(1)) is {Rank:null},
-            "Confirmed ranked-screen layout depended on reading its shield number.");
+        Check(reader.ConfirmRank(unreadRank,At) is null && reader.ConfirmRank(unreadRank,At.AddSeconds(1)) is null,
+            "Ranked label without a number confirmed a false ladder result.");
         var cards = new[] { new ObservedCard(new CardDefinition("test", "Test", "Monsters", CardKind.Unit, 4), CardProvenance.ConfirmedStartingDeck, 1, At) };
         var encounter = new LearnedOpponentEncounter("mmr-fixture", At, "Monsters", null, null, null, null, 25, cards, [],
             OpponentProvisionCalculator.Calculate(cards, 165), MatchMmr: full!.MatchContext, PostMatchMmr: full);
@@ -138,9 +158,13 @@ internal static class PostMatchMmrTests
             var observed=await quickRankReader.ReadAsync(pixels,baseScreen,sampledAt,quickRankOcr);
             quickRank=observed.PostMatchRank??quickRank;
         }
-        // Exact rank OCR is intentionally optional: screen confirmation must stop
-        // recording even when the ornate shield digit cannot be read safely.
-        Check(quickRank is not null,"Short rank-2 result animation did not confirm before its transition.");
+        // A short/unreadable shield must never fabricate a result that would stop
+        // capture on the shared RANKED label before a faction diamond appears.
+        Check(quickRank is null or { Rank: 2 }, "Short rank-2 animation emitted an unconfirmed or incorrect rank.");
+        quickRankReader.Reset();
+        Check(quickRankReader.ConfirmRank(new(null, "RANKED"), At) is null &&
+            quickRankReader.ConfirmRank(new(null, "RANKED"), At.AddMilliseconds(600)) is null,
+            "Shared RANKED label was accepted without a numeric rank.");
 
         // The newest recording stops on the victory score screen, before rating progression.
         // Negative pixel validation only: no claim of successful positive OCR from this match.

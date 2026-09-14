@@ -193,7 +193,7 @@ public partial class MainWindow
         var slots = _lastProjection?.Slots.Where(slot => slot.Card is not null).ToArray() ?? [];
         var deck = slots.GroupBy(slot => slot.Card!.Id).Select(group => new DeckCard(group.First().Card!, group.Count())).ToArray();
         var position = ThreatPositionBuilder.Build(board, definitions, card, _selectedUserDeck, deck, _zoneInventory.Entries,
-            _userTracker.DeckBuildingObservations, _opponentTracker.DeckBuildingObservations);
+            _userTracker.DeckBuildingObservations, EffectiveOpponentDeckEvidence());
         if (!exactBoard) position = position with { Assumptions = position.Assumptions.Append(
             "No fresh complete board was available; bounded card ranges and readable board reactions remain available.").ToArray() };
         position = position with { Statistics = new(_selectedUserDeck?.Faction, _opponentTracker.Faction,

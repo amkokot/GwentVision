@@ -31,8 +31,15 @@ internal static class PostMatchWorkflowTests
         Check(gate.TryRequest("rank",rankScreen,true,true,false)&&!gate.TryRequest("rank",rankScreen,true,true,false),
             "Confirmed standard rank did not trigger exactly one stop.");
         gate.Reset(); var unreadRankScreen=rankScreen with {PostMatchRank=new(null,"confirmed RANKED result")};
-        Check(gate.TryRequest("rank-unread",unreadRankScreen,true,true,false),
-            "A confirmed ranked-results layout did not stop when its shield number was unreadable.");
+        Check(!gate.TryRequest("rank-unread",unreadRankScreen,true,true,false),
+            "A RANKED label without a number stopped capture before MMR could be acquired.");
+        gate.Reset(); var menuScreen=screen with {ScreenHeader="STANDARD MODE",PostMatchMmr=null,PostMatchRank=null,PostMatchExitCue=true,MatchHudVisible=false};
+        Check(!gate.TryRequest("menu",menuScreen,true,true,false),"Starting analysis on the main menu triggered a stale match stop.");
+        gate.TryRequest("menu",screen with {ScreenHeader=null,PostMatchMmr=null,MatchHudVisible=true},true,true,false);
+        Check(!gate.TryRequest("menu",menuScreen,true,true,false),"Unread menu rating stopped capture prematurely.");
+        menuScreen = menuScreen with { PostMatchMmr = screen.PostMatchMmr };
+        Check(gate.TryRequest("menu",menuScreen,true,true,false)&&!gate.TryRequest("menu",menuScreen,true,true,false),
+            "An armed, confirmed post-match Standard Mode cue did not stop exactly once.");
 
         // Fresh OCR on distinct retained result frames, not the cached MMR journal.
         var folder=Path.Combine(root,"GwentCompanion/sessions/20260831-122341");
@@ -48,6 +55,31 @@ internal static class PostMatchWorkflowTests
             if(gate.TryRequest("latest",reading,true,true,false)) stops++;
         }
         Check(stops==1,"Latest result pixels did not produce exactly one confirmed MMR stop.");
+
+        // The latest recording deliberately skips the progression animation. The
+        // fixed Standard Mode panel must recover current/peak MMR and provide an
+        // exit cue, but only after this same session showed a real match HUD.
+        var menuFolder=Path.Combine(root,"GwentCompanion/tests/recording-validation/cases/standard-mode-mmr-fallback");
+        var menuFiles=new[]{"evidence-01.png","evidence-02.png","evidence-03.png"};
+        using var menuOcr=new ScreenStateRecognizer(); var menuReader=new PostMatchMmrRecognizer(); var menuGate=new PostMatchAutoStopGate();
+        menuGate.TryRequest("menu-pixels",new(GwentViewKind.Board,false,0,0,null,MatchHudVisible:true),true,true,false);
+        GwentVisualObservation? finalMenu=null; var menuStops=0; var menuDiagnostics=new List<string>();
+        foreach(var name in menuFiles)
+        {
+            var file=Path.Combine(menuFolder,name);
+            var sampledAt=at.AddMilliseconds(200 * Array.IndexOf(menuFiles,name));
+            var pixels=OakEffectProbe.Load(file);
+            var labels=await menuOcr.ReadLinesAsync(pixels,new(.35,.29,.72,.43),scale:2,enhance:false,whiteLetterMask:true,smooth:true);
+            var numbers=await menuOcr.ReadLinesAsync(pixels,new(.44,.49,.67,.55),scale:3,enhance:false,whiteLetterMask:true,smooth:true);
+            finalMenu=await menuReader.ReadAsync(pixels,await menuOcr.AnalyzeAsync(pixels),sampledAt,menuOcr);
+            menuDiagnostics.Add(name+" labels="+string.Join('|',labels.Select(line=>line.Text))+" numbers="+string.Join('|',numbers.Select(line=>line.Text)));
+            if(menuGate.TryRequest("menu-pixels",finalMenu,true,true,false)) menuStops++;
+        }
+        Check(finalMenu is {PostMatchExitCue:true,ScreenHeader:"STANDARD MODE"},
+            "Latest Standard Mode pixels did not confirm the post-match exit cue. "+string.Join("; ",menuDiagnostics));
+        Check(finalMenu?.PostMatchMmr is {RatingAfter:2434,SeasonPeak:2441,IsFactionRating:true},
+            "Latest Standard Mode pixels did not recover current 2434 / peak 2441. "+string.Join("; ",menuDiagnostics));
+        Check(menuStops==1,"Latest main-menu fallback did not stop exactly once after an authenticated match HUD.");
 
         var alba=catalog.Single(c=>c.Name=="Alba Armored Cavalry"); var knight=catalog.Single(c=>c.Name=="Nilfgaardian Knight");
         var known=new[]{new ObservedCard(alba,CardProvenance.ProbableStartingDeck,1,at,"raw",1)};

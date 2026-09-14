@@ -64,6 +64,30 @@ internal static class GameStateTests
             thinning.NextIncludesBoard(At.AddSeconds(4), artworkBacklogged: true) &&
             !thinning.NextIncludesBoard(At.AddSeconds(5), artworkBacklogged: true),
             "Matching-copy preview did not receive exactly four bounded board confirmations.");
+        var recurring = new VisionScanSchedule();
+        var saskia = new CardDefinition("203090", "Saskia: Commander", "Scoia'tael", CardKind.Unit, 14, IsGold: true,
+            AbilityText: "Deploy: Summon a random bronze non-Neutral unit from your deck. Timer 3: Repeat the Deploy ability and reset the Timer.");
+        Check(recurring.NextIncludesBoard(At), "Recurring summon schedule initial scan missing.");
+        recurring.ObservePreview(At, [Sight(card: saskia, source: CardSightSource.PlayPreview)]);
+        Check(!recurring.NextIncludesBoard(At.AddSeconds(1), artworkBacklogged: true) &&
+            !recurring.NextIncludesBoard(At.AddSeconds(2), artworkBacklogged: true) &&
+            recurring.NextIncludesBoard(At.AddSeconds(3), artworkBacklogged: true) &&
+            recurring.NextIncludesBoard(At.AddSeconds(6), artworkBacklogged: true) &&
+            recurring.NextIncludesBoard(At.AddSeconds(9), artworkBacklogged: true) &&
+            recurring.NextIncludesBoard(At.AddSeconds(12), artworkBacklogged: true) &&
+            !recurring.NextIncludesBoard(At.AddSeconds(15), artworkBacklogged: true),
+            "A printed deck summon did not reserve four bounded 3/6/9/12-second settled-board looks.");
+        // Generated cards and tutor chains can expose several previews during one
+        // turn. The conserved pile transition, not guessed turn count, re-arms the
+        // common summon recovery window.
+        Check(!recurring.NextIncludesBoard(At.AddSeconds(16), opponentHand: 4, opponentDeck: 12),
+            "Establishing a later pile baseline forced an unnecessary board pass.");
+        foreach (var second in new[] { 17, 18, 19 })
+            recurring.ObservePreview(At.AddSeconds(second), [Sight(card: Unit with { Id = "chain" + second, Name = "Chain " + second }, source: CardSightSource.PlayPreview)]);
+        Check(!recurring.NextIncludesBoard(At.AddSeconds(19.5), opponentHand: 4, opponentDeck: 12, artworkBacklogged: true) &&
+            recurring.NextIncludesBoard(At.AddSeconds(20), opponentHand: 4, opponentDeck: 11, artworkBacklogged: true) &&
+            recurring.NextIncludesBoard(At.AddSeconds(23), opponentHand: 4, opponentDeck: 11, artworkBacklogged: true),
+            "A same-hand deck departure did not re-arm prompt and settled-board summon scans.");
     }
 
     private static void Contacts()

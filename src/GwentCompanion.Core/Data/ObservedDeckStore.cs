@@ -35,6 +35,7 @@ public sealed record ObservedDeckRecord(
     bool TrainingOnly = false,
     IReadOnlyList<StoredDeckAssumption>? ManualPicks = null,
     IReadOnlyList<StoredDeckAssumption>? DismissedSuggestions = null,
+    IReadOnlyList<StoredDeckAssumption>? DismissedObservations = null,
     LearnedOpponentEncounter? LearnedEvidence = null)
 {
     public bool IsUnlistedOrVariant => CompatibleCachedDecks == 0;
@@ -43,11 +44,12 @@ public sealed record ObservedDeckRecord(
 public sealed class ObservedDeckStore
 {
     /// <summary>Starting-list view of a sighting journal. Raw spawned/created sightings remain stored.</summary>
-    public static StoredObservedCard[] StartingCards(IEnumerable<StoredObservedCard> observations, IEnumerable<CardDefinition> catalog)
+    public static StoredObservedCard[] StartingCards(IEnumerable<StoredObservedCard> observations, IEnumerable<CardDefinition> catalog,
+        string? faction = null)
     {
         var definitions = catalog.DistinctBy(c => c.Id).ToDictionary(c => c.Id);
         return observations.Where(item => StartingDeckRules.CountsAgainstStartingDeck(item.Provenance) &&
-                definitions.TryGetValue(item.Id, out var card) && StartingDeckRules.IsStartingCard(card))
+                definitions.TryGetValue(item.Id, out var card) && StartingDeckRules.IsLegalStartingCard(card, faction))
             .GroupBy(item => item.Id).Select(g => g.MaxBy(item => item.ObservedCopies)!)
             .Select(item => item with { Name = definitions[item.Id].Name, Provision = definitions[item.Id].Provision }).ToArray();
     }
@@ -62,6 +64,7 @@ public sealed class ObservedDeckStore
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(rootDirectory);
         ArgumentNullException.ThrowIfNull(record);
+        record = record with { RecordedAt = record.RecordedAt.ToUniversalTime() };
         var sideDirectory = Path.Combine(rootDirectory, record.Side.ToString().ToLowerInvariant());
         Directory.CreateDirectory(sideDirectory);
         var safeSession = string.Concat(record.SessionId.Where(character =>

@@ -9,7 +9,8 @@ public sealed record VisionFramePreparation(
     bool Supported,
     string? Warning = null,
     bool CroppedLetterbox = false,
-    bool Downscaled = false);
+    bool Downscaled = false,
+    bool Upscaled = false);
 
 /// <summary>
 /// Keeps live recognition inside its validated 16:9 coordinate system. Ordinary
@@ -28,7 +29,7 @@ public static class VisionFrameNormalizer
     private const double MinimumBarFraction = .02;
     private const double RequiredDarkBarRatio = .90;
 
-    public static VisionFramePreparation Prepare(PixelFrame frame)
+    public static VisionFramePreparation Prepare(PixelFrame frame, bool allowStreamResolution = false)
     {
         ArgumentNullException.ThrowIfNull(frame);
         var viewport = new Viewport(0, 0, frame.Width, frame.Height);
@@ -47,31 +48,41 @@ public static class VisionFrameNormalizer
             cropped = true;
         }
 
-        if (viewport.Width < MinimumWidth || viewport.Height < MinimumHeight)
+        var streamMinimumWidth = allowStreamResolution ? 640 : MinimumWidth;
+        var streamMinimumHeight = allowStreamResolution ? 360 : MinimumHeight;
+        if (viewport.Width < streamMinimumWidth || viewport.Height < streamMinimumHeight)
         {
             return new(frame, false,
                 $"Recognition paused: the usable GWENT image is {viewport.Width}×{viewport.Height}. " +
-                $"Use at least {MinimumWidth}×{MinimumHeight}.");
+                $"Use at least {streamMinimumWidth}×{streamMinimumHeight}.");
         }
 
-        var scale = Math.Min(1d, Math.Min(MaximumWidth / (double)viewport.Width, MaximumHeight / (double)viewport.Height));
+        // Recorded streams are often 360p/480p. Upscale only that explicit
+        // profile to the detector's calibrated 540p coordinate density; live
+        // capture keeps its stricter minimum and never hides a poor setup.
+        var minimumScale = allowStreamResolution
+            ? Math.Max(1d, Math.Max(MinimumWidth / (double)viewport.Width, MinimumHeight / (double)viewport.Height)) : 1d;
+        var maximumScale = Math.Min(MaximumWidth / (double)viewport.Width, MaximumHeight / (double)viewport.Height);
+        var scale = Math.Min(minimumScale, maximumScale);
         var outputWidth = Math.Max(1, (int)Math.Round(viewport.Width * scale));
         var outputHeight = Math.Max(1, (int)Math.Round(viewport.Height * scale));
-        var downscaled = outputWidth != viewport.Width || outputHeight != viewport.Height;
-        if (!cropped && !downscaled) return new(frame, true);
+        var downscaled = scale < 1;
+        var upscaled = scale > 1;
+        if (!cropped && !downscaled && !upscaled) return new(frame, true);
 
         using var source = Mat.FromPixelData(frame.Height, frame.Width, MatType.CV_8UC4, frame.BgraPixels);
         using var region = new Mat(source, new Rect(viewport.Left, viewport.Top, viewport.Width, viewport.Height));
         using var normalized = new Mat();
-        if (downscaled)
-            Cv2.Resize(region, normalized, new Size(outputWidth, outputHeight), 0, 0, InterpolationFlags.Area);
+        if (downscaled || upscaled)
+            Cv2.Resize(region, normalized, new Size(outputWidth, outputHeight), 0, 0,
+                downscaled ? InterpolationFlags.Area : InterpolationFlags.Cubic);
         else
             region.CopyTo(normalized);
 
         var pixels = new byte[checked(normalized.Width * normalized.Height * 4)];
         Marshal.Copy(normalized.Data, pixels, 0, pixels.Length);
         return new(new PixelFrame(normalized.Width, normalized.Height, pixels), true, CroppedLetterbox: cropped,
-            Downscaled: downscaled);
+            Downscaled: downscaled, Upscaled: upscaled);
     }
 
     private static bool TryFindLetterboxedViewport(PixelFrame frame, out Viewport viewport)

@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows.Media.Imaging;
 using System.Windows.Media;
 using GwentCompanion.Core.Data;
+using GwentCompanion.Core.Domain;
 using GwentCompanion.Core.Inference;
 using GwentCompanion.Core.Vision;
 using GwentCompanion.Platform.Windows.Capture;
@@ -42,7 +43,10 @@ internal static class LeaderAbilityRecognizerTests
         var recordings = new (string Session, string? Start, int Take, string Leader)[]
         {
             ("20260901-112058", null, 200, "Hidden Cache"),
-            ("20260901-090553", null, 80, "Guerilla Tactics"),
+            // The three-charge hand emblem in this opponent plaque is Invigorate.
+            // A single sparse frame can resemble Guerilla Tactics, so the retained
+            // sequence specifically verifies that temporal agreement wins.
+            ("20260901-090553", null, 80, "Invigorate"),
             ("20260829-211713", null, 80, "Fruits of Ysgith"),
             ("20260829-211223", null, 80, "Patricidal Fury"),
             ("20260829-191618", null, 80, "Enslave"),
@@ -67,6 +71,23 @@ internal static class LeaderAbilityRecognizerTests
             }
             if (reading?.Card.Name != recording.Leader)
                 throw new InvalidOperationException($"Recorded session {recording.Session} should repeatedly read {recording.Leader}; got {reading?.Card.Name ?? "nothing"}.");
+            if (recording.Session == "20260901-090553")
+            {
+                // A previously confirmed starting leader must not throttle the
+                // brief Renfri replacement window. Arm only after the source
+                // play, then require three distinct retained Sloth frames.
+                var renfri = catalog.Single(card => card.Id == "203088");
+                var replacementAt = reading.At.AddSeconds(20);
+                recognizer.ObserveEvents([new(replacementAt,
+                    new(renfri, PlayerSide.Opponent, CardSightSource.PlayPreview,
+                        new(.815, .136, .915, .399), .08, 1, "Retained Renfri source"), "Retained Renfri source")]);
+                var replacementRoot = Path.Combine(project, "tests", "recording-validation", "cases", "renfri-curse-of-sloth");
+                foreach (var (file, index) in new[] { "evidence-02.png", "evidence-03.png", "evidence-04.png" }.Select((file, index) => (file, index)))
+                    reading = recognizer.Observe(Load(Path.Combine(replacementRoot, file)), Board,
+                        replacementAt.AddMilliseconds(index * 250)) ?? reading;
+                if (reading?.Card.Id != "203175")
+                    throw new InvalidOperationException("A confirmed starting leader throttled the retained Curse of Sloth replacement transition.");
+            }
         }
 
         using (var recognizer = new LeaderAbilityRecognizer(catalog, assets))

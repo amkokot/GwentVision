@@ -21,11 +21,12 @@ public partial class MainWindow
     {
         if (_windowClosing) return;
         var evidence = _opponentTracker.DeckBuildingObservations.ToArray();
-        var rules = _opponentKnowledge.Assess(evidence);
+        var effectiveEvidence = EffectiveOpponentDeckEvidence();
+        var rules = _opponentKnowledge.Assess(effectiveEvidence);
         var edits = _opponentEdits.Snapshot();
         var input = new ProjectionInput(_cachedDecks, evidence,
             _opponentTracker.HasStableFaction ? _opponentTracker.Faction : null, _confirmedOpponentDeck, edits, rules,
-            _opponentKnowledge.MinimumSize(evidence), _opponentKnowledge.StartingLeader, _candidateCatalog,
+            _opponentKnowledge.MinimumSize(effectiveEvidence), _opponentKnowledge.StartingLeader, _candidateCatalog,
             _opponentKnowledge.StartingStratagemId, _opponentMemory?.Records, MatchMmr(), CurrentEncounterId,_opponentKnowledge.SummonAbsence.Evidence,
             _deckCompositionClues.Where(item => item.Key.Side == PlayerSide.Opponent).Select(item => item.Value).ToArray(),
             _opponentKnowledge.Sequences.Evidence);
@@ -38,12 +39,13 @@ public partial class MainWindow
             input.SummonEvidence,
             input.CompositionClues,
             input.SequenceEvidence,
-            Cards = evidence.OrderBy(o => o.Card.Id, StringComparer.Ordinal).Select(o => new {
+            Cards = effectiveEvidence.OrderBy(o => o.Card.Id, StringComparer.Ordinal).Select(o => new {
                 o.Card.Id, o.ObservedCopies, o.Provenance, o.Confidence }),
             Rules = new[] { rules.Shupe.State, rules.Radeyah.State, rules.GoldenNekker.State,
                 rules.Renfri.State, rules.Devotion.State, rules.Musicians?.State },
             Picks = edits.Included.Keys.OrderBy(k => k.CardId, StringComparer.Ordinal).ThenBy(k => k.Copy),
-            Exclusions = edits.Excluded.OrderBy(k => k.CardId, StringComparer.Ordinal).ThenBy(k => k.Copy)
+            Exclusions = edits.Excluded.OrderBy(k => k.CardId, StringComparer.Ordinal).ThenBy(k => k.Copy),
+            EvidenceCorrections = edits.CorrectedEvidence.OrderBy(k => k.CardId, StringComparer.Ordinal).ThenBy(k => k.Copy)
         });
         if (_projectionEncounter != input.Encounter)
         {
@@ -56,14 +58,21 @@ public partial class MainWindow
         _projectionQueue ??= new(
             request => {
                 using var tracking = _gameplayPriority.EnterRecognition();
-                return new OpponentDeckProjector().Build(request.Decks, request.Evidence, request.Faction,
+                var projection = new OpponentDeckProjector().Build(request.Decks, request.Evidence, request.Faction,
                 request.Pin, request.Edits, request.Rules, request.MinimumSize, request.Leader, request.Catalog,
                 request.Stratagem, request.Memory is null ? null : new OpponentEncounterPrior(request.Memory, request.Mmr, request.Encounter, request.Decks), request.SummonEvidence,
                 request.CompositionClues, request.SequenceEvidence);
+                // Decoding cached SIFT descriptors and training the candidate matcher
+                // can take seconds. Keep it on this worker rather than freezing the UI
+                // when a projection is applied.
+                _visionPipeline?.SetLikelyOpponentCards(LikelyOpponentReferenceIds(projection, request.Faction,
+                    request.Evidence.Length > 0, request.Pin, request.Catalog));
+                return projection;
             },
             projection => {
                 if (_windowClosing) return;
                 _lastProjection = projection;
+                QueueMatchCheckpoint(force: _matchCaptureStopped);
                 RenderCompletedProjection();
                 RenderDeckRuleBadges();
                 if (_lastGameStateUpdate is not null) RefreshThreats(_gameState.Current.At ?? DateTimeOffset.Now);
