@@ -24,7 +24,8 @@ foreach ($record in $library.Records) {
     }
     $record.Aliases = @($record.Deck.Id)
     $record.OriginalNames = @($record.Deck.Name)
-    $record.Sources = if ($isPlayGwent) { @($uri) } else { @() }
+    if ($isPlayGwent) { $record.Sources = [string[]]@($uri) }
+    else { $record.Sources = [string[]]@() }
     $record.CustomName = $isCreated
     $record.Details = $null
     $record.Export = $null

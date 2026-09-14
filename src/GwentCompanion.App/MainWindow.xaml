@@ -365,6 +365,11 @@
                              Background="#11151A"
                              BorderBrush="{StaticResource BorderBrush}"
                              Foreground="{StaticResource TextBrush}"
+                             VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling"
+                             VirtualizingPanel.CacheLength="1"
+                             VirtualizingPanel.CacheLengthUnit="Page"
+                             ScrollViewer.CanContentScroll="True"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         <ListBox.ItemTemplate>
                             <DataTemplate>

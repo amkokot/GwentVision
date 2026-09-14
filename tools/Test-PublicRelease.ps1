@@ -31,6 +31,8 @@ foreach ($caseManifestPath in @(Get-ChildItem -LiteralPath $caseRoot -Filter cas
 
 $libraryPath = Join-Path $root 'cache/deck-library.json'
 $library = Get-Content -LiteralPath $libraryPath -Raw | ConvertFrom-Json
+$invalidSourceShapes = @($library.Records | Where-Object { $_.Sources -isnot [System.Array] })
+if ($invalidSourceShapes.Count -gt 0) { throw "Deck library contains $($invalidSourceShapes.Count) record(s) whose Sources field is not a JSON array." }
 $privateDeck = @($library.Records | Where-Object {
     $uri = [string]$_.Deck.SourceUri
     $occurrences = if ($null -eq $_.Deck.Occurrences) { @() } else { @($_.Deck.Occurrences) }

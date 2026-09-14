@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using GwentCompanion.Core.Data;
 
 namespace GwentCompanion.App.Controls;
@@ -23,6 +24,7 @@ public sealed class DeckHeading : UserControl
     private readonly Image _icon = new() { Width = 35, Height = 42, Stretch = Stretch.Uniform, Margin = new Thickness(0, 0, 8, 0) };
     private readonly TextBlock _title = new() { Foreground = FactionPalette.Brush("#F1F3F5"), FontWeight = FontWeights.SemiBold, FontSize = 12, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _subtitle = new() { Foreground = FactionPalette.Brush("#CAD0D7"), FontSize = 10, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0) };
+    private bool _refreshQueued;
     private static readonly Dictionary<string, ImageSource?> Images = new();
     private static readonly Lazy<(string? Root, Dictionary<string, string> Leaders)> ArtIndex = new(() =>
     {
@@ -42,9 +44,20 @@ public sealed class DeckHeading : UserControl
         var grid = new Grid(); grid.ColumnDefinitions.Add(new() { Width = GridLength.Auto }); grid.ColumnDefinitions.Add(new());
         var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center }; text.Children.Add(_title); text.Children.Add(_subtitle);
         Grid.SetColumn(text, 1); grid.Children.Add(_icon); grid.Children.Add(text); _surface.Child = grid; Content = _surface;
-        SizeChanged += (_, _) => UpdateIconVisibility(); Refresh();
+        Loaded += (_, _) => QueueRefresh();
+        SizeChanged += (_, _) => UpdateIconVisibility();
     }
-    private static void Changed(DependencyObject target, DependencyPropertyChangedEventArgs e) => ((DeckHeading)target).Refresh();
+    private static void Changed(DependencyObject target, DependencyPropertyChangedEventArgs e) => ((DeckHeading)target).QueueRefresh();
+    private void QueueRefresh()
+    {
+        if (!IsLoaded || _refreshQueued) return;
+        _refreshQueued = true;
+        Dispatcher.BeginInvoke(DispatcherPriority.DataBind, new Action(() =>
+        {
+            _refreshQueued = false;
+            if (IsLoaded) Refresh();
+        }));
+    }
     private void Refresh()
     {
         var palette = FactionPalette.For(Faction); _surface.Background = FactionPalette.Brush(palette.Surface); _surface.BorderBrush = FactionPalette.Brush(palette.Accent);

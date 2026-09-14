@@ -118,6 +118,9 @@ public partial class MainWindow
             Render("analysis-1280", 1280, 720, UiPage.Deck);
             window._selectedUserDeck = deck; window.UpdateSelectedUserDeckDisplay();
             Render("library-1440", 1440, 900, UiPage.Library);
+            if (window.DeckList.Items.Count > 200)
+                Check(window.DeckList.ItemContainerGenerator.ContainerFromIndex(window.DeckList.Items.Count - 1) is null,
+                    "Library opening materialized off-screen deck rows instead of virtualizing the collection.");
             Render("deck-library", 1440, 900, UiPage.Library);
             Check(Grid.GetColumn(window.LibraryDeckCards) == 2 && window.LibraryDeckCards.ActualWidth > 400, "Wide library preview was not laid out beside its list.");
             Check(window.FindName("WorkspaceHeading") is null && !window.LibraryDeckMetadata.IsExpanded &&
