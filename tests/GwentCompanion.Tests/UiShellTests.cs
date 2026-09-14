@@ -40,7 +40,7 @@ internal static class UiShellTests
             Check(Named(name).Ancestors().Contains(Named("CandidatesPage")), "Candidates have a dedicated expandable workspace lane: " + name);
         Check(Named("LiveModeBar").Elements().Select(item => (string?)item.Attribute("Tag")).SequenceEqual(new[] { "Deck", "Candidates", "Pinned" }), "Compact live navigation must contain seen cards, candidates and snapshots only.");
         Check(Named("LiveOpponentNavigation").Attribute("Content")?.Value == "Opponent Cards", "Observed opponent cards need an unambiguous label.");
-        Check(Named("PublicMmrSiteButton").Attribute("Content")?.Value == "View public MMR curves ↗", "Settings need a direct link to the public season charts.");
+        Check(Named("PublicMmrSiteButton").Attribute("Content")?.Value == "View public MMR website ↗", "Settings need a direct link to the public season charts.");
         Check(!elements.Any(item => (string?)item.Attribute(x + "Name") is "LiveOverviewNavigation" or "EnableExperimentalAnalysisChoice" or
             "TopmostCheckBox" or "PinCurrentButton" or "OpenSessionButton"), "Retired experimental, window and duplicate capture controls returned.");
         Check(!elements.Any(item => item.Attribute("Header")?.Value == "Advanced information" ||

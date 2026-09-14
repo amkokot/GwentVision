@@ -2,7 +2,7 @@
   "SchemaVersion": 1,
   "Id": "magic-compass-delirium-provenance",
   "Summary": "Magic Compass and Delirium outputs detected in round three must remain visible while generated or generation-ambiguous cards stay outside opponent starting-deck copy and provision accounting.",
-  "AddedIn": "next",
+  "AddedIn": "v0.3.0",
   "Anonymization": {
     "Status": "anonymized",
     "Version": "identity-mask-v1",

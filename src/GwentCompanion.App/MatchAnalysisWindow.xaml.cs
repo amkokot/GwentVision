@@ -206,7 +206,7 @@ public partial class MatchAnalysisWindow : Window
     private DeckVm Deck(string label, MatchPlayer player, bool mine) => new(label, Identity(player.Faction, player.Leader),
         mine && player.Reference.Length > 0
         ? [Group("Saved player deck", "#B4C9E2", $"{player.Reference.Sum(c => c.Copies)} cards · exact copies of the selected list, preserved with this match.", player.Reference)]
-        : [Group("Deck composition", "#9AD1B3", (mine ? "No reference deck was selected. " : "") +
+        : [Group("Deck composition", "#9AD1B3", (mine ? "No trusted reference deck is available for this match. " : "") +
                 "SEEN = observed · % ? = tentative estimate · PICK ? = your choice. Guesses are faded. Tokens and generated cards are excluded from this starting-deck view.",
                 StartingDeckCards(player))]);
 

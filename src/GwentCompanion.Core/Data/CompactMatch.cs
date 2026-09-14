@@ -29,10 +29,15 @@ public sealed record CompactMatch(Guid InstallationId, Guid MatchId, DateOnly Ga
 /// <summary>Consumes accepted detector deltas, not the bounded RecentEvents snapshot.</summary>
 public sealed class MatchAcquisition
 {
+    private const int UserReferenceMismatchThreshold = 3;
     private readonly Dictionary<int, MatchRound> _rounds = [];
     private readonly HashSet<(PlayerSide Side, string Card)> _visibleIds = [];
+    private readonly HashSet<string> _selectedUserCardIds = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _offReferenceUserCards = new(StringComparer.Ordinal);
     private MatchCard[] _trackerHypotheses = [];
     private MatchCard[] _projectionHypotheses = [];
+    private MatchCard[] _userTrackerHypotheses = [];
+    private MatchCard[] _userProjectionHypotheses = [];
     private MatchPlayer? _selectedUserReference;
     private readonly string _version;
     private readonly Guid _installationId;
@@ -48,12 +53,17 @@ public sealed class MatchAcquisition
     private long _revision;
     public Guid MatchId { get; } = Guid.NewGuid();
     public DateOnly? GameDateUtc { get; private set; }
+    public bool UserReferenceRejected { get; private set; }
 
     public MatchAcquisition(string detectorVersion, Guid installationId, DeckDefinition? selectedUserDeck = null)
     {
         if (installationId == Guid.Empty) throw new ArgumentException("Installation ID is required.", nameof(installationId));
         _version = detectorVersion; _installationId = installationId;
-        if (selectedUserDeck is not null) _selectedUserReference = Reference(selectedUserDeck);
+        if (selectedUserDeck is not null)
+        {
+            _selectedUserReference = Reference(selectedUserDeck);
+            _selectedUserCardIds.UnionWith(selectedUserDeck.Cards.Select(card => card.Card.Id));
+        }
     }
 
     public void Observe(GameStateUpdate update, GwentCompanion.Core.Vision.GwentVisualObservation screen,
@@ -96,9 +106,13 @@ public sealed class MatchAcquisition
         bool Seen(PlayerSide side, MatchCard card) => _visibleIds.Contains((side, card.CardId));
         _trackerHypotheses = opponentObservations.Where(c => !Seen(PlayerSide.Opponent, c))
             .Select(c => c with { Evidence = MatchCardEvidence.Inferred }).ToArray();
+        ReviewSelectedUserReference(userObservations.Where(card => Seen(PlayerSide.User, card)));
+        _userTrackerHypotheses = userObservations.Where(c => !Seen(PlayerSide.User, c))
+            .Select(c => c with { Evidence = MatchCardEvidence.Inferred }).ToArray();
         _user = Player(_state.User, userObservations.Where(c => Seen(PlayerSide.User, c)).ToArray(),
-            userObservations.Where(c => !Seen(PlayerSide.User, c)).Select(c => c with { Evidence = MatchCardEvidence.Inferred }).ToArray());
-        if (_selectedUserReference is { } reference)
+            CombinedUserHypotheses(),
+            includeReference: !UserReferenceRejected);
+        if (!UserReferenceRejected && _selectedUserReference is { } reference)
             _user = reference with { Observations = _user.Observations, Hypothesis = _user.Hypothesis };
         _opponent = Player(_state.Opponent, opponentObservations.Where(c => Seen(PlayerSide.Opponent, c)).ToArray(), CombinedHypotheses());
         if (screen.PostMatchMmr is { } mmr && !(_mmr is { Confirmed: true } && !mmr.Confirmed))
@@ -126,8 +140,35 @@ public sealed class MatchAcquisition
         _opponent = _opponent with { Hypothesis = CombinedHypotheses() }; _revision++;
     }
 
+    public void SetUserHypothesis(MatchCard[] cards)
+    {
+        if (cards.Any(c => c.Evidence is not MatchCardEvidence.Inferred and not MatchCardEvidence.ManualHypothesis))
+            throw new ArgumentException("Hypotheses cannot contain observed/reference claims.", nameof(cards));
+        if (_userProjectionHypotheses.SequenceEqual(cards)) return;
+        _userProjectionHypotheses = cards.ToArray();
+        _user = _user with { Hypothesis = CombinedUserHypotheses() }; _revision++;
+    }
+
     private MatchCard[] CombinedHypotheses() => _projectionHypotheses.Concat(_trackerHypotheses)
         .GroupBy(c => (c.CardId, c.Evidence)).Select(g => g.MaxBy(c => c.Copies)!).ToArray();
+
+    private MatchCard[] CombinedUserHypotheses() => _userProjectionHypotheses.Concat(_userTrackerHypotheses)
+        .GroupBy(c => (c.CardId, c.Evidence)).Select(g => g.MaxBy(c => c.Copies)!).ToArray();
+
+    private void ReviewSelectedUserReference(IEnumerable<MatchCard> observations)
+    {
+        if (UserReferenceRejected || _selectedUserReference is null) return;
+        foreach (var card in observations.Where(card =>
+                     StartingDeckRules.CountsAgainstStartingDeck(card.Origin) &&
+                     !_selectedUserCardIds.Contains(card.CardId)))
+            _offReferenceUserCards.Add(card.CardId);
+        // One substituted card or one uncertain generated card should not discard a
+        // complete selected list. Three distinct, independently classified starting
+        // cards outside that list establish a broad mismatch.
+        if (_offReferenceUserCards.Count < UserReferenceMismatchThreshold) return;
+        UserReferenceRejected = true;
+        _selectedUserReference = null;
+    }
 
     public CompactMatch? Snapshot(bool stopped = false)
     {
@@ -150,9 +191,10 @@ public sealed class MatchAcquisition
         [], deck.Cards.Select(c => new MatchCard(c.Card.Id, c.Count, MatchCardEvidence.SelectedReference,
             CardProvenance.Unknown, byte.MaxValue)).ToArray(), []);
 
-    private static MatchPlayer Player(PlayerGameState state, MatchCard[] observed, MatchCard[] hypothesis) =>
+    private static MatchPlayer Player(PlayerGameState state, MatchCard[] observed, MatchCard[] hypothesis,
+        bool includeReference = true) =>
         new(state.Faction?.Value, state.StartingLeader?.Value, state.OpeningStratagemId?.Value,
-            observed.ToArray(), state.StartingDeckReference?.Cards.Select(c => new MatchCard(c.Card.Id,
+            observed.ToArray(), (includeReference ? state.StartingDeckReference?.Cards : null)?.Select(c => new MatchCard(c.Card.Id,
                 c.Count, MatchCardEvidence.SelectedReference, CardProvenance.Unknown, byte.MaxValue)).ToArray() ?? [],
             hypothesis.ToArray());
 }

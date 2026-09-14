@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using GwentCompanion.Core.Data;
+using GwentCompanion.Core.Domain;
 using GwentCompanion.Core.Inference;
 using GwentCompanion.Platform.Windows.Data;
 using GwentCompanion.Platform.Windows.Security;
@@ -21,6 +22,7 @@ public partial class MainWindow
     private int _newMatchRoundVotes;
     private string? _matchStorageError;
     private bool _matchCaptureStopped;
+    private Guid? _completedUserHypothesisMatch;
     private string? _matchStorageDirectoryOverride;
     private DataContributionPreferences _dataContributionPreferences = DataContributionPreferences.Initial;
     private DataContributionSyncState _dataContributionSyncState = DataContributionSyncState.Empty;
@@ -68,7 +70,7 @@ public partial class MainWindow
         if (_reviewEvidencePath is not null || _analysisControlTest) { _matchAcquisition = null; return; }
         if (_matchIdentity is null) { _matchAcquisition = null; return; }
         _matchAcquisition = new(typeof(MainWindow).Assembly.GetName().Version?.ToString() ?? "unknown", _matchIdentity.Id, _selectedUserDeck);
-        _matchCaptureStopped = false; _lastMatchCheckpoint = default; _newMatchRoundVotes = 0;
+        _matchCaptureStopped = false; _completedUserHypothesisMatch = null; _lastMatchCheckpoint = default; _newMatchRoundVotes = 0;
     }
 
     private void PrepareMatchAcquisition(CardVisionResult result)
@@ -97,9 +99,18 @@ public partial class MainWindow
     {
         if (_matchAcquisition is null || _lastGameStateUpdate is null) return;
         var hadStarted = _matchAcquisition.GameDateUtc is not null;
+        var trustedSelectedDeck = !_matchAcquisition.UserReferenceRejected;
         _matchAcquisition.Observe(_lastGameStateUpdate, result.Screen,
             MatchAcquisition.Observations(_userTracker.Observations),
             MatchAcquisition.Observations(_opponentTracker.Observations));
+        if (trustedSelectedDeck && _matchAcquisition.UserReferenceRejected)
+        {
+            // Remove the stale player-deck search restriction without adding a new
+            // scan. Opponent matchers continue to run first; player recognition uses
+            // the same accepted frames and only fills the saved player observation list.
+            _visionPipeline?.SetKnownPlayerDeck([]);
+            ShowAnalysisStatus("Selected player deck differs from detected cards · saving detected player cards for this match.");
+        }
         if (!hadStarted && _matchAcquisition.GameDateUtc is not null)
             ObserveMonthlyDataShareWindow(DateOnly.FromDateTime(result.SampledAt.ToLocalTime().DateTime));
         QueueMatchCheckpoint();
@@ -208,6 +219,7 @@ public partial class MainWindow
     {
         if (_matchAcquisition is null) return;
         if (!force && (!_matchStorageWrite.IsCompleted || DateTimeOffset.UtcNow - _lastMatchCheckpoint < TimeSpan.FromSeconds(5))) return;
+        _matchCaptureStopped |= stopped;
         // Keep guesses in their own collection, including explicitly selected/pinned guesses.
         // Never promote a projected slot merely because it also exists in a reference list.
         var guesses = (_lastProjection?.Slots ?? []).Where(s => s.Card is not null && s.State != DeckSlotState.Observed)
@@ -217,7 +229,13 @@ public partial class MainWindow
                 GwentCompanion.Core.Domain.CardProvenance.Unknown,
                 MatchAcquisition.Confidence(g.Select(s => s.ModelShare).FirstOrDefault()))).ToArray();
         _matchAcquisition.SetHypothesis(guesses);
-        _matchCaptureStopped |= stopped;
+        if (_matchCaptureStopped && _matchAcquisition.UserReferenceRejected &&
+            _completedUserHypothesisMatch != _matchAcquisition.MatchId)
+        {
+            try { _matchAcquisition.SetUserHypothesis(BuildUserDeckHypothesis()); }
+            catch { _matchAcquisition.SetUserHypothesis([]); } // Completion must never prevent the final local save.
+            _completedUserHypothesisMatch = _matchAcquisition.MatchId;
+        }
         var snapshot = _matchAcquisition.Snapshot(_matchCaptureStopped);
         if (snapshot is null) return;
         _lastMatchCheckpoint = DateTimeOffset.UtcNow;
@@ -237,6 +255,23 @@ public partial class MainWindow
                 _ = Dispatcher.InvokeAsync(() => MatchStorageStatus.Text = "Match data save failed: " + error.Message);
             }
         }, CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+    }
+
+    private MatchCard[] BuildUserDeckHypothesis()
+    {
+        var evidence = _userTracker.DeckBuildingObservations.ToArray();
+        if (evidence.Length == 0) return [];
+        var faction = evidence.Select(card => card.Card.Faction)
+            .Where(name => !string.IsNullOrWhiteSpace(name) && !name.Equals("Neutral", StringComparison.OrdinalIgnoreCase))
+            .GroupBy(name => name, StringComparer.OrdinalIgnoreCase).OrderByDescending(group => group.Count())
+            .Select(group => group.Key).FirstOrDefault() ?? _selectedUserDeck?.Faction;
+        var projection = new OpponentDeckProjector().Build(_cachedDecks, evidence, faction,
+            constraints: StartingDeckRules.EvaluateObservedDeck(evidence), catalog: _candidateCatalog);
+        return projection.Slots.Where(slot => slot.Card is not null && slot.State != DeckSlotState.Observed)
+            .GroupBy(slot => slot.Card!.Id)
+            .Select(group => new MatchCard(group.Key, group.Count(), MatchCardEvidence.Inferred,
+                CardProvenance.Unknown, MatchAcquisition.Confidence(group.Select(slot => slot.ModelShare).FirstOrDefault())))
+            .ToArray();
     }
 
     private async Task FlushMatchAcquisitionAsync()

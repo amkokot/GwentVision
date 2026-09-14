@@ -52,6 +52,41 @@ internal sealed class LocalMatchStorageValidationCase : IContributorValidationCa
             "Acquisition should consume detector deltas without storing an unnecessary play sequence.");
         Check(first.User.Reference.Single() is { CardId: "112101", Copies: 2 } && first.User.Faction == "Monsters",
             "Selected deck snapshot was lost or changed by the live library.");
+        var mismatchSelected = new DeckDefinition("mismatch-fixture", "Selected deck", "Monsters", "Fruits of Ysgith", 12,
+            [new(new("112101", "Selected", "Monsters", CardKind.Unit, 9), 2)]);
+        var mismatchTracker = new GameStateTracker(); mismatchTracker.Reset("reference-mismatch", mismatchSelected);
+        var mismatchCollector = new MatchAcquisition("fixture-v1", identity.Id, mismatchSelected);
+        var mismatchCards = new[]
+        {
+            new CardDefinition("off-created", "Created card", "Monsters", CardKind.Unit, 5),
+            new CardDefinition("off-one", "Different card one", "Monsters", CardKind.Unit, 5),
+            new CardDefinition("off-two", "Different card two", "Monsters", CardKind.Unit, 5),
+            new CardDefinition("off-three", "Different card three", "Monsters", CardKind.Unit, 5),
+        };
+        var mismatchObserved = new List<MatchCard>();
+        for (var i = 0; i < mismatchCards.Length; i++)
+        {
+            var time = at.AddMinutes(1).AddSeconds(i);
+            var mismatchSight = new CardSighting(mismatchCards[i], PlayerSide.User, CardSightSource.PlayPreview,
+                new(.82, .42, .92, .66), .02, .5);
+            var mismatchFrame = new VisualGameStateFrame(time, screen,
+                [], [new(time, mismatchSight, "clear player play")], false,
+                Measurements: new(Round: new(1, time, 1, EvidenceKind.Visual, "fixture")));
+            mismatchObserved.Add(new(mismatchCards[i].Id, 1, MatchCardEvidence.Observed,
+                i == 0 ? CardProvenance.Created : CardProvenance.ProbableStartingDeck, 240));
+            mismatchCollector.Observe(mismatchTracker.Observe(mismatchFrame), screen, mismatchObserved.ToArray(), []);
+            if (i == 2)
+                Check(!mismatchCollector.UserReferenceRejected,
+                    "A created card or two substitutions incorrectly discarded the selected deck.");
+        }
+        Check(mismatchCollector.UserReferenceRejected && mismatchCollector.Snapshot()!.User.Reference.Length == 0 &&
+            mismatchCollector.Snapshot()!.User.Observations.Length == 4,
+            "Three clear off-reference starting cards did not switch storage to detected player cards.");
+        mismatchCollector.SetUserHypothesis([new("user-fill", 1, MatchCardEvidence.Inferred,
+            CardProvenance.Unknown, 180)]);
+        Check(mismatchCollector.Snapshot()!.User.Hypothesis.Any(card => card.CardId == "user-fill") &&
+            mismatchCollector.Snapshot()!.User.Observations.Length == 4,
+            "Post-match player completion did not remain separate from detected player cards.");
         Check(first.StartedAtUtc == at.AddSeconds(1).ToUniversalTime(), "First game observation time was not preserved.");
         Check(first.Opponent.Observations.Length == 1 && first.Opponent.Observations[0].Origin == CardProvenance.Created,
             "Visual identity was confused with starting-deck membership.");
