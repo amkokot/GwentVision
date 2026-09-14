@@ -57,7 +57,6 @@ public partial class MainWindow
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
-        if (_reviewEvidencePath is null || _analysisControlTest) BeginOcrWarmup();
         if (_reviewEvidencePath is not null && !_analysisControlTest)
         {
             try { await LoadDeckIndexesAsync(loadVision: false); LoadOfflineReview(); }
@@ -576,7 +575,7 @@ public partial class MainWindow
             RestoreSelectedUserDeck();
             _deckArt.Clear();
             RenderLiveInference();
-            await ReloadVisionAsync();
+            if (art.Downloaded > 0) await ReloadVisionAsync();
             DeckDataStatusText.Text =
                 $"{result.Decks.Count:N0} complete decks ready · {result.Downloaded:N0} downloaded · " +
                 $"{result.LoadedFromCache:N0} cached · {result.Expired:N0} expired · {result.Errors.Count:N0} failed. " +

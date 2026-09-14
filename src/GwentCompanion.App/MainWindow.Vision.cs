@@ -60,6 +60,7 @@ public partial class MainWindow
         var decks = _cachedDecks;
         var catalog = _candidateCatalog?.ToArray();
         var knownPlayerCards = _selectedUserDeck?.Cards.Select(card => card.Card.Id).ToArray() ?? [];
+        var backgroundWarmup = !announce;
         ScreenStateRecognizer? warmedScreen = null;
         try
         {
@@ -70,19 +71,33 @@ public partial class MainWindow
             }
             var pipeline = await Task.Run(() =>
             {
-                if (_analysisControlTest && !_testFailureInjected && Environment.GetCommandLineArgs().Contains("--analysis-fail-once"))
-                { _testFailureInjected = true; throw new InvalidDataException("Simulated first-load failure (test only)."); }
-                var cache = Path.Combine(FindDataRoot(), "cache");
-                var cards = BuiltInCardCatalog.Merge((catalog ?? GwentOneCardCatalog.Load(Path.Combine(cache, "gwent-one-cards.json")))
-                    .Concat(decks.SelectMany(deck => deck.Cards).Select(item => item.Card)));
-                // Exact title OCR remains catalog-wide. Expensive SIFT/art references are
-                // loaded only for the known player list and current opponent candidates.
-                var result = new CardVisionPipeline(VisionReferenceLibrary.Load(cards, cache), cards,
-                    Path.Combine(cache, "recognition-features"), VisionReferenceScope.CandidateDecks, warmedScreen);
-                // This disk/native feature-cache work used to run synchronously in
-                // StartVision, freezing the Play button for several seconds.
-                result.SetKnownPlayerDeck(knownPlayerCards);
-                return result;
+                var originalPriority = System.Threading.Thread.CurrentThread.Priority;
+                var loweredPriority = false;
+                try
+                {
+                    if (backgroundWarmup)
+                        try { System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.BelowNormal; loweredPriority = true; }
+                        catch (System.Security.SecurityException) { }
+                    if (_analysisControlTest && !_testFailureInjected && Environment.GetCommandLineArgs().Contains("--analysis-fail-once"))
+                    { _testFailureInjected = true; throw new InvalidDataException("Simulated first-load failure (test only)."); }
+                    var cache = Path.Combine(FindDataRoot(), "cache");
+                    var cards = BuiltInCardCatalog.Merge((catalog ?? GwentOneCardCatalog.Load(Path.Combine(cache, "gwent-one-cards.json")))
+                        .Concat(decks.SelectMany(deck => deck.Cards).Select(item => item.Card)));
+                    // Exact title OCR remains catalog-wide. Expensive SIFT/art references are
+                    // loaded only for the known player list and current opponent candidates.
+                    var result = new CardVisionPipeline(VisionReferenceLibrary.Load(cards, cache), cards,
+                        Path.Combine(cache, "recognition-features"), VisionReferenceScope.CandidateDecks, warmedScreen);
+                    // This disk/native feature-cache work used to run synchronously in
+                    // StartVision, freezing the Play button for several seconds.
+                    result.SetKnownPlayerDeck(knownPlayerCards);
+                    return result;
+                }
+                finally
+                {
+                    if (loweredPriority)
+                        try { System.Threading.Thread.CurrentThread.Priority = originalPriority; }
+                        catch (System.Security.SecurityException) { }
+                }
             });
             warmedScreen = null; // Ownership transferred to the pipeline.
             if (_windowClosing) { pipeline.Dispose(); return; }
@@ -94,7 +109,24 @@ public partial class MainWindow
 
     private void BeginOcrWarmup()
     {
-        _ocrWarmupTask ??= Task.Run(() => new ScreenStateRecognizer());
+        _ocrWarmupTask ??= Task.Run(() =>
+        {
+            var thread = System.Threading.Thread.CurrentThread;
+            var originalPriority = thread.Priority;
+            var loweredPriority = false;
+            try
+            {
+                try { thread.Priority = System.Threading.ThreadPriority.BelowNormal; loweredPriority = true; }
+                catch (System.Security.SecurityException) { }
+                return new ScreenStateRecognizer();
+            }
+            finally
+            {
+                if (loweredPriority)
+                    try { thread.Priority = originalPriority; }
+                    catch (System.Security.SecurityException) { }
+            }
+        });
     }
 
     protected override async void OnClosing(System.ComponentModel.CancelEventArgs e)

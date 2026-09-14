@@ -220,10 +220,10 @@ public partial class DeckLibraryWindow : Window
         var service = new PlayGwentDeckCacheService();
         try
         {
-            _library.AddLinks(links); _library.Save(_libraryPath);
+            _library.AddLinks(links);
             var progress = new Progress<DeckCacheProgress>(value => ImportStatus.Text = $"{value.Completed}/{value.Requested} checked · {value.Loaded} valid · {value.Expired} unavailable · {value.Failed} failed");
             var result = await service.SyncAsync(links, _cache, int.MaxValue, progress, token);
-            var merge = _library.Merge(result.Decks); _library.Save(_libraryPath); _changed();
+            var merge = _library.Merge(result.Decks); await SaveLibraryAsync(); _changed();
             ImportStatus.Text = $"{merge.Added} new decks · {merge.Merged} duplicate imports merged · {result.Expired} unavailable · {result.Errors.Count} failed";
             ImportLog.Text = string.Join("\n", result.Errors.Concat(links.Where(entry => result.Decks.All(deck => deck.SourceUri != entry.DeckUri))
                 .Select(entry => "Unavailable / not imported: " + entry.DeckUri)));
@@ -233,13 +233,25 @@ public partial class DeckLibraryWindow : Window
             // Completed payloads are atomic files, so cancellation can safely recover successes.
             try
             {
-                var merge = _library.Merge(service.LoadCached(links, _cache, int.MaxValue)); _library.Save(_libraryPath); _changed();
+                var merge = _library.Merge(service.LoadCached(links, _cache, int.MaxValue)); await SaveLibraryAsync(); _changed();
                 ImportStatus.Text = $"Canceled. Retained {merge.Added} new decks; {merge.Merged} duplicates merged. Retry saved imports to continue.";
             }
             catch (Exception exception) { ImportStatus.Text = "Canceled; payload files retained, but library update failed: " + exception.Message; }
         }
-        catch (Exception exception) { ImportStatus.Text = "Import stopped: " + exception.Message; }
+        catch (Exception exception)
+        {
+            try { await SaveLibraryAsync(); }
+            catch (Exception saveError) { ImportStatus.Text = "Import stopped, and its retry links could not be saved: " + saveError.Message; return; }
+            ImportStatus.Text = "Import stopped: " + exception.Message;
+        }
         finally { EndBusy(); }
+    }
+    private Task SaveLibraryAsync()
+    {
+        // Finish the small group update on the UI thread, then serialize the
+        // immutable snapshot off-thread so a large library does not freeze input.
+        _library.EnsureVariationGroups(_catalog);
+        return Task.Run(() => _library.Save(_libraryPath));
     }
     private void SetBusy(bool scanning)
     {

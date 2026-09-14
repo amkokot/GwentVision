@@ -101,6 +101,14 @@ public partial class MainWindow
         var failOnceTest = _analysisControlTest && Environment.GetCommandLineArgs().Contains("--analysis-fail-once");
         if (failOnceTest || _reviewEvidencePath is not null && !_analysisControlTest || !_libraryReady || _windowClosing) return;
         if (_visionPipeline is not null || _visionLoadTask is { IsCompleted: false }) return;
+        // Let the first visible interaction win the CPU/disk budget. If the user
+        // opens Library or an editor immediately, leaving that surface schedules
+        // another idle warm-up; Play can always request recognition directly.
+        await Task.Delay(TimeSpan.FromSeconds(3));
+        if (_windowClosing || _page == UiPage.Library || _libraryWindow is not null ||
+            _builderWindow is not null || _libraryTransferBusy) return;
+        if (_visionPipeline is not null || _visionLoadTask is { IsCompleted: false }) return;
+        BeginOcrWarmup();
         try { await ReloadVisionAsync(announce: false); }
         catch (Exception error) { _visionError = error.Message; } // Play retries and reports a foreground error.
     }

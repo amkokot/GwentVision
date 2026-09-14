@@ -34,6 +34,7 @@ public partial class MainWindow
         UpdateSelectedUserDeckDisplay();
         RefreshHoverBanner();
         UpdateWorkspaceLayout();
+        if (page != UiPage.Library && _libraryReady && IsLoaded) BeginVisionWarmup();
     }
     private void Navigate_OnClick(object sender, RoutedEventArgs e)
     {
