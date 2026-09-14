@@ -792,7 +792,7 @@ public partial class MainWindow
             _restoringReviewPreference = true;
             try
             {
-                ReviewNewDecksChoice.IsChecked = settings?.ReviewNewOpponentDecks ?? true;
+                ReviewNewDecksChoice.IsChecked = settings?.ReviewNewOpponentDecks ?? false;
                 DetailedReachChoice.IsChecked = settings?.DetailedReach ?? false;
                 RecordTrainingChoice.IsChecked = settings?.RecordTraining ?? false;
                 ShowObservedDecksChoice.IsChecked = settings?.ShowObservedDecks ?? true;
@@ -940,7 +940,7 @@ public partial class MainWindow
     }
     private sealed record LiveDeckCandidateItem(string Name, string Context, DeckDefinition Deck);
     private sealed record PinnedCaptureItem(string Name, string Path);
-    private sealed record UserSettings(string? SelectedUserDeckId, bool ReviewNewOpponentDecks = true, bool DetailedReach = false,
+    private sealed record UserSettings(string? SelectedUserDeckId, bool ReviewNewOpponentDecks = false, bool DetailedReach = false,
         bool RecordTraining = false, bool ShowObservedDecks = true, bool AutoStopOnMmr = false,
         int TrainingRecordingFps = TrainingRecordingFrameRate.Recommended, bool UseOpponentModel = false);
 

@@ -260,8 +260,8 @@
 </StackPanel></Border>
 <TextBlock Text="TRACKING" Foreground="{StaticResource AccentBrush}" FontFamily="Georgia" FontSize="14" Margin="0,0,0,8"/>
 <CheckBox x:Name="ShowHoverThreats" Visibility="Collapsed" Content="Show hover Reach at the top of the companion" IsChecked="False" Checked="HoverThreatSetting_OnChanged" Unchecked="HoverThreatSetting_OnChanged" Foreground="{StaticResource TextBrush}" Margin="0,0,0,10"/>
-<CheckBox x:Name="ReviewNewDecksChoice" Content="Review opponent cards after matches" IsChecked="True" Checked="ReviewNewDecks_OnChanged" Unchecked="ReviewNewDecks_OnChanged" Foreground="{StaticResource TextBrush}" Margin="0,0,0,6"/>
-<TextBlock Text="Turn this off to save observed cards quietly. You can review them later from Library." TextWrapping="Wrap" FontSize="10" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,0,10"/>
+<CheckBox x:Name="ReviewNewDecksChoice" Content="Review opponent cards after matches" IsChecked="False" Checked="ReviewNewDecks_OnChanged" Unchecked="ReviewNewDecks_OnChanged" Foreground="{StaticResource TextBrush}" Margin="0,0,0,6"/>
+<TextBlock Text="Matches save automatically. Turn this on to open the detected cards for review after a match." TextWrapping="Wrap" FontSize="10" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,0,10"/>
 <CheckBox x:Name="AutoStopOnMmrChoice" Content="Stop tracking after a confirmed result" IsChecked="False" Checked="AutoStopOnMmr_OnChanged" Unchecked="AutoStopOnMmr_OnChanged" Foreground="{StaticResource TextBrush}" Margin="0,0,0,6"/>
 <TextBlock Text="Tracking started from a menu waits for the next match. A new match closes the previous capture using its best available rating." TextWrapping="Wrap" FontSize="10" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,0,10"/>
 <TextBlock x:Name="WindowDetailText" TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource MutedTextBrush}" Margin="0,0,0,8"/>

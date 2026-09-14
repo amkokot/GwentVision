@@ -206,7 +206,8 @@ internal static class ProvisionEncounterTests
         loaded.Save(path); loaded = OpponentDeckMemoryStore.Load(path);
         Check(loaded.Records.Single().SuggestedCards?.Single().Count == 2, "Quiet-cache suggestions not persisted");
         var ui = File.ReadAllText(Path.Combine(root,"GwentCompanion/src/GwentCompanion.App/MainWindow.xaml"));
-        Check(ui.Contains("ReviewNewDecksChoice") && ui.Contains("Review new opponent decks after matches"), "Review preference missing");
+        Check(ui.Contains("ReviewNewDecksChoice") && ui.Contains("Review opponent cards after matches"), "Review preference control or wording missing");
+        Check(ui.Contains("x:Name=\"ReviewNewDecksChoice\"") && ui.Contains("Review opponent cards after matches\" IsChecked=\"False\""), "Opponent-card review must be opt-in so matches save quietly by default");
         Console.WriteLine("PASS provision copies/averages, Sunset growth, MMR capture, inferred prior, idempotency, variants, partial merge, corrections and persistence.");
     }
 
