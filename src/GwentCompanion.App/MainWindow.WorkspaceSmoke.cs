@@ -147,6 +147,9 @@ public partial class MainWindow
             window.DataContributionConsentStatus.Text = "Data contribution is allowed. Uploads occur only when you click Push or on your monthly schedule.";
             window.SeasonCodePanel.Visibility = Visibility.Visible; window.SeasonCodeText.Text = "23456789ABCD";
             Render("settings", 900, 820, UiPage.Settings);
+            Check(ReferenceEquals(window.PublicMmrSiteButton.Parent, window.PushToDatabaseButton.Parent) &&
+                window.PublicMmrSiteButton.Content?.ToString()?.Contains("public MMR website", StringComparison.OrdinalIgnoreCase) == true,
+                "The public MMR website button is not beside Push to database.");
             Check(window.FindName("TopmostCheckBox") is null && window.FindName("EnableExperimentalAnalysisChoice") is null &&
                 window.FindName("PinCurrentButton") is null && window.FindName("OpenSessionButton") is null,
                 "Retired Settings controls returned.");

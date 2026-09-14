@@ -1,6 +1,6 @@
 # Gwent Vision
 
-Gwent Vision is a free, open-source Windows companion for *GWENT: The Witcher Card Game*. Version 0.3 tracks the opponent cards shown during a match, adds an extended deck library with new quality-of-life features, saves your match history, and displays matchup and MMR charts.
+Gwent Vision is a free, open-source Windows companion for *GWENT: The Witcher Card Game*. New features in version 0.3 include an in-game tracker that records opponent cards played, an extended deck library with new quality-of-life features, and a new statistical center to analyze match data.
 
 It is an unofficial, not-for-profit fan project. Gwent Vision provides no predictive gameplay features.
 
@@ -8,27 +8,25 @@ It is an unofficial, not-for-profit fan project. Gwent Vision provides no predic
 
 ## Live tracking
 
-The **Opponent Cards** view records cards as they appear on the game screen. It marks cards created or spawned during the match so they are not mistaken for cards from the opponent's starting deck. The Candidates view provides a searchable list of every card in the usual deck-builder order.
+The **Opponent Cards** view records cards as they appear on the game screen. It marks cards created or spawned during the match so the saved opponent list distinguishes them from starting-deck cards. The Candidates view provides a searchable list of cards the player can use to fill gaps in the opponent list.
 
-In the wide layout, Opponent Cards, Candidates, and Snapshots appear in three columns. Compact mode shows the same tools one at a time beside a windowed game. The selected player deck shares the Library row in wide mode, so it remains obvious without taking space from opponent cards.
+In the wide layout, Opponent Cards, Candidates, and Snapshots appear in three columns. Compact mode shows the same tools one at a time beside a windowed game. Players can also select the deck they are using, and Gwent Vision saves that complete deck with each match.
 
 ![Wide Gwent Vision view with Opponent Cards, Candidates, and Snapshots](docs/images/live-opponent-cards.png)
 
 ## Match Data
 
-Every completed match is saved on your computer with its date, game patch, result, round scores, faction MMR when available, your selected deck, and the opponent cards that were detected. Match Data opens in its own resizable or full-screen window and initially shows the latest saved patch.
+Every completed match is saved on your computer with its date, game patch, result, round scores, faction MMR when available, your selected deck, and the opponent cards that were detected. The Match Data button opens a window with charts and summaries. We welcome suggestions for other statistics the community would find useful.
 
-- **Match history** shows wins in green and losses in red, together with both factions and leader abilities. Expanding a match shows your complete saved deck on the left and the opponent deck information on the right. Detected cards and estimated cards appear in one list, with labels and a slight fade to show which is which.
+- **Expanding a match** shows your complete saved deck on the left and the opponent deck information on the right. Detected cards and estimated cards appear in one list, with labels and a slight fade to show which is which.
 - **Factions and leaders** shows how often you face each faction or leader and your win rate against each one. It can also show the same information for the factions and leaders you play.
-- **Your progress** plots each faction's MMR against the number of games played with that faction. It also highlights results that may be useful to review when improving your play.
+- **Your progress** plots each faction's MMR against the number of games played with that faction.
 
 ![Patch-filtered match history](docs/images/match-data-history.png)
 
 ![Faction matchup view](docs/images/match-data-matchups.png)
 
 ![Faction MMR progress and gameplay statistics](docs/images/match-data-progress.png)
-
-Players below Pro Rank do not have faction MMR, so those matches remain in history and matchup summaries while rating charts leave the unavailable rating blank.
 
 ## Deck library, snapshots, and recording
 
@@ -40,15 +38,15 @@ Snapshots keep selected game screens available for quick review. Optional diagno
 
 ## Optional data contribution
 
-The first time Gwent Vision opens, it asks whether you would like to contribute match data for Balance Council recommendations. You can press **Push to database** more than once; each push sends only new matches or updated results from the current patch. You can also choose to share automatically after your first match played on or after the 18th of each month.
+The first time Gwent Vision opens, it asks whether you would like to contribute match data for Balance Council recommendations. Throughout the month, you can press **Push to database** in Settings to upload your completed matches to a private, anonymized database. Approved contributors can use the combined results to prepare Balance Council recommendations. You can also turn on automatic sharing, which sends new data once on or after the 18th of each month.
 
-The connection is already included in the download, so there is no account, API key, or database setup for users. Submitted matches are linked to a random installation ID rather than a player name. This research data is not published and can be accessed only by approved analysts. It does not include player names, Gwent account IDs, screenshots, or recordings. Read the [data contribution and privacy policy](docs/DATA-CONTRIBUTION-PRIVACY.md) for the complete details.
+This research data is not published in full and can be accessed only by approved contributors. It does not include player names, Gwent account IDs, screenshots, or recordings. Read the [data contribution and privacy policy](docs/DATA-CONTRIBUTION-PRIVACY.md) for the complete details.
 
-The option to display your MMR curve anonymously is separate and is turned on by default. After a successful push, the app gives you a season code. Enter that code on the [public season site](https://amkokot.github.io/GwentVision/) to highlight your own line. The public charts contain only anonymous MMR points grouped into 15-minute time blocks. They do not include decks, opponents, match IDs, installation IDs, or exact times.
+As a community feature, you have the option to display your faction MMR progress through the month against other players. After a successful push, the app gives you a season code to identify your curve among the many presented on the [public season site](https://amkokot.github.io/GwentVision/).
 
 The site provides:
 
-- a Total MMR line based on the highest rating reached with up to four factions; factions you have not played count as zero, and the line never moves down;
+- a Total MMR line based on the highest rating reached with up to four factions;
 - separate MMR lines for each faction, with the option to display all factions together; and
 - daily faction popularity and win rate once enough users have contributed data to protect privacy.
 
