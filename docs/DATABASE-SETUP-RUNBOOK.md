@@ -26,6 +26,9 @@ passes.
 - `backend/supabase/migrations/202609130007_safe_season_activation.sql` makes
   the intentional public-season activation update explicit for Supabase's
   protected-database policy.
+- `backend/supabase/migrations/202609140001_collaborator_match_import.sql` adds
+  individual collaborator producer authorization and transactional, versioned
+  match imports without granting direct database access.
 - `backend/supabase/functions/gw-api` is the signed HTTP boundary.
 - `backend/supabase/operations` contains guarded analyst, archive, cron, and
   status scripts.
@@ -206,6 +209,21 @@ The API validates the analyst's Supabase Auth token and checks the UUID and
 `read_matches` scope in `private.analysts`. Removing the allowlist row or setting
 `disabled_at` immediately removes export access. Analyst exports are pseudonymous
 private research files and must stay outside the public repository.
+
+## 6a. Add collaborator producers
+
+1. Create or invite one Supabase Auth account per uploader.
+2. Copy `backend/supabase/operations/06-add-collaborator-producer.example.sql`,
+   replace the email and producer label, and run it in SQL Editor.
+3. Give the uploader the project URL, publishable key, and
+   `backend/collaborator/Import-GwentVisionMatches.ps1`.
+4. Agree on a stable, non-personal source locator and keep the raw source file
+   outside the repository.
+
+The account can write only through the reviewed namespace and version in its
+private allowlist row. It receives no raw-table access and cannot publish an MMR
+curve. The full interface and record contract are in
+[`COLLABORATOR-IMPORT.md`](COLLABORATOR-IMPORT.md).
 
 ## 7. Configure protected GitHub deployment
 

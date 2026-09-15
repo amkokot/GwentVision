@@ -32,6 +32,11 @@ source-locator digest make these sources filterable and prevent silent pooling o
 data with different sampling mechanisms. Only opted-in `live_game` contributors
 may receive a public monthly MMR curve.
 
+Approved match pipelines use the authenticated interface in
+[`docs/COLLABORATOR-IMPORT.md`](../docs/COLLABORATOR-IMPORT.md). Each uploader has
+an individual account bound to a reviewed namespace and version; imported match
+rows remain marked `collaborator_import` for filtering and analysis.
+
 Reviewed non-match collaborator data belongs in `private.dataset_observations`,
 never in the match table. Each such dataset needs an enabled row in
 `private.dataset_contracts`; this supplies a namespace, schema version, retention
