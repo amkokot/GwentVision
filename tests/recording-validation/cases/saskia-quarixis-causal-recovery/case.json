@@ -1,7 +1,7 @@
 {
   "SchemaVersion": 1,
   "Id": "saskia-quarixis-causal-recovery",
-  "Summary": "Retains Saskia Commander deploy, its far-right Abandoned Girl deck summon, a misleading Miner feature match on that body, and the two-frame QUARIHIS tooltip followed by the Quarixis hand cost.",
+  "Summary": "Retains missed-preview Saskia Commander recovery, its far-right Abandoned Girl deck summon, a misleading Miner feature match on that body, and the two-frame QUARIHIS tooltip followed by the Quarixis hand cost.",
   "AddedIn": "0.2.78",
   "Anonymization": {
     "Status": "anonymized",

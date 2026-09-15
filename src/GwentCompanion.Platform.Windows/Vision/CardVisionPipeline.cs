@@ -282,6 +282,20 @@ public sealed class CardVisionPipeline(IEnumerable<(CardDefinition Card, string 
             var named = CompanionCardRules.NamedDeckSummonTargets(source, _catalog);
             _cards.ObserveOpponentSummonSource(source, recurring, named);
         }
+        // A repeated exact far-side tooltip can recover a persistent recurring
+        // source whose play animation was missed. Board evidence does not activate
+        // ordinary Deploy/Create outputs, but this source must expand the bounded
+        // target-art index so subsequent printed summons remain detectable.
+        foreach (var source in committed.Where(item => item.Sighting.Side == PlayerSide.Opponent &&
+                     item.Sighting.Source == CardSightSource.Board &&
+                     CompanionCardRules.IsRecurringDeckSummonSource(item.Sighting.Card))
+                 .Select(item => item.Sighting.Card))
+        {
+            var recurring = CompanionCardRules.RecurringSummonPool(source, _catalog,
+                result.OpponentLeader?.Card.Faction);
+            var named = CompanionCardRules.NamedDeckSummonTargets(source, _catalog);
+            _cards.ObserveOpponentSummonSource(source, recurring, named);
+        }
         _cards.ObserveOpponentCards(CandidateIds(committed, PlayerSide.Opponent).Distinct(StringComparer.Ordinal));
         // Loading the newly measured identity can advance the reference generation.
         // Refresh the fallback before handing it the committed action.

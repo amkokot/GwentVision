@@ -42,6 +42,42 @@ internal sealed class SaskiaQuarixisCausalRecoveryRegressionCase : IRecordingVal
         pipeline.SetKnownPlayerDeck([]);
         pipeline.SetLikelyOpponentCards(pool.Append(saskia.Id).Append(quarixis.Id));
         var at = DateTimeOffset.UnixEpoch;
+        using (var missedSourcePipeline = new CardVisionPipeline(references, catalog,
+                   Path.Combine(cache, "recognition-features"), VisionReferenceScope.CandidateDecks))
+        {
+            missedSourcePipeline.SetKnownPlayerDeck([]);
+            missedSourcePipeline.SetLikelyOpponentCards([]);
+            var sourcePopup = board with { HasCardTooltip = true, TooltipRegion = new(.542, .286, .708, .643),
+                IsCardSelectionOverlay = false, ScreenHeader = null };
+            var firstSource = missedSourcePipeline.Commit(new CardVisionResult(at, sourcePopup, [], [], false, false,
+                HoveredCard: saskia));
+            var sourceOnlyReferences = missedSourcePipeline.CachedReferenceImages + missedSourcePipeline.ComputedReferenceImages;
+            var secondSource = missedSourcePipeline.Commit(new CardVisionResult(at.AddSeconds(.3), sourcePopup, [], [], false, false,
+                HoveredCard: saskia));
+            if (firstSource.Events.Count != 0 || secondSource.Events is not [{ Sighting.Source: CardSightSource.Board }] ||
+                secondSource.Events[0].Sighting.Card.Id != saskia.Id)
+                throw new InvalidOperationException("The production pipeline did not recover missed-preview Saskia as board presence.");
+            if (missedSourcePipeline.CachedReferenceImages + missedSourcePipeline.ComputedReferenceImages <= sourceOnlyReferences)
+                throw new InvalidOperationException("Recovered Saskia did not expand the production recognizer to its legal summon pool.");
+            missedSourcePipeline.Commit(new CardVisionResult(at.AddSeconds(1),
+                board with { OpponentHandCount = 8, OpponentDeckCount = 13 }, [], [], false, false));
+            var targetPopup = board with { OpponentHandCount = 8, OpponentDeckCount = 13, HasCardTooltip = true,
+                TooltipRegion = new(.583, .286, .750, .500), IsCardSelectionOverlay = false, ScreenHeader = null };
+            var firstTarget = missedSourcePipeline.Commit(new CardVisionResult(at.AddSeconds(1.2), targetPopup, [], [], false, false,
+                HoveredCard: abandoned));
+            if (firstTarget.Events.Count != 0)
+                throw new InvalidOperationException("One target title bypassed confirmation after production recovered Saskia.");
+            var recoveredTarget = missedSourcePipeline.Commit(new CardVisionResult(at.AddSeconds(1.5), targetPopup, [], [], false, false,
+                HoveredCard: abandoned));
+            if (recoveredTarget.Events is not [{ Sighting.Source: CardSightSource.Board, ResolvedDeckCopies: 1 }] ||
+                recoveredTarget.Events[0].Sighting.Card.Id != abandoned.Id)
+                throw new InvalidOperationException("Production did not join recovered Saskia to its confirmed deck summon.");
+            var laterHandDrop = missedSourcePipeline.Commit(new CardVisionResult(at.AddSeconds(2),
+                board with { OpponentHandCount = 7, OpponentDeckCount = 13 }, [], [], false, false));
+            if (laterHandDrop.Events.Any(item => item.Sighting.Card.Id == abandoned.Id &&
+                    item.Sighting.Source == CardSightSource.PlayPreview))
+                throw new InvalidOperationException("A confirmed Saskia summon was later reclassified as a hand play.");
+        }
         var abandonedPopup = await pipeline.PrepareAsync(definition.Load("evidence-04.png"), at.AddSeconds(30));
         if (abandonedPopup.HoveredCard?.Id != abandoned.Id)
             throw new InvalidOperationException("The retained exact Abandoned Girl board tooltip no longer resolves.");

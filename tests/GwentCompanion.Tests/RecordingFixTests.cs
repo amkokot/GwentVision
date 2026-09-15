@@ -135,6 +135,38 @@ internal static class RecordingFixTests
             index.ReadGlyphEquivalent("QUARIHIS")?.Name=="Quarixis" && index.ReadGlyphEquivalent("SEER") is null &&
             index.ReadGlyphEquivalent("ELVEN SEE") is null,"Font equivalence missed a complete GWENT-font title or accepted a truncated/fuzzy title.");
         var saskia=Card("Saskia: Commander"); var abandoned=Card("Abandoned Girl");
+        var adept=Card("Cat Witcher Adept");
+        var missedSourceLedger=new MatchVisionLedger();
+        var sourceHud=hud with {OpponentHandCount=7,OpponentDeckCount=13,HasCardTooltip=true,
+            TooltipRegion=new(.542,.286,.708,.643),ScreenHeader=null};
+        Check(missedSourceLedger.Observe(at,sourceHud,[],boardWasScanned:false,confirmedHover:saskia,artworkWasScanned:false).Count==0,
+            "One exact Saskia board tooltip bypassed temporal confirmation.");
+        var recoveredSource=missedSourceLedger.Observe(at.AddMilliseconds(300),sourceHud,[],boardWasScanned:false,
+            confirmedHover:saskia,artworkWasScanned:false);
+        Check(recoveredSource is [{Sighting.Source:CardSightSource.Board,ResolvedDeckCopies:null}] &&
+            recoveredSource[0].Sighting.Card.Id==saskia.Id,
+            "Repeated exact opponent-board Saskia tooltip did not recover controller-safe board presence.");
+        missedSourceLedger.Observe(at.AddSeconds(32),sourceHud with {OpponentHandCount=6},[],boardWasScanned:false);
+        missedSourceLedger.Observe(at.AddSeconds(41),sourceHud with {OpponentHandCount=6,OpponentDeckCount=12},[],boardWasScanned:false);
+        var missedTargetHud=sourceHud with {OpponentHandCount=6,OpponentDeckCount=12,
+            TooltipRegion=new(.667,.286,.833,.500)};
+        Check(missedSourceLedger.Observe(at.AddSeconds(47),missedTargetHud,[],boardWasScanned:false,
+            confirmedHover:abandoned,artworkWasScanned:false).Count==0,
+            "One exact target tooltip bypassed temporal confirmation after recovered Saskia.");
+        var recoveredTarget=missedSourceLedger.Observe(at.AddSeconds(47.3),missedTargetHud,[],boardWasScanned:false,
+            confirmedHover:abandoned,artworkWasScanned:false);
+        Check(recoveredTarget is [{Sighting.Source:CardSightSource.Board,ResolvedDeckCopies:1}] &&
+            recoveredTarget[0].Sighting.Card.Id==abandoned.Id,
+            "Recovered Saskia did not retain its later summon after the conserved 13-to-12 deck departure.");
+        var unresolvedTargetHud=missedTargetHud with {TooltipRegion=new(.583,.286,.750,.643)};
+        Check(missedSourceLedger.Observe(at.AddSeconds(49),unresolvedTargetHud,[],boardWasScanned:false,
+            confirmedHover:adept,artworkWasScanned:false).Count==0,
+            "One exact Saskia target title bypassed temporal confirmation without pile evidence.");
+        var unresolvedTarget=missedSourceLedger.Observe(at.AddSeconds(49.3),unresolvedTargetHud,[],boardWasScanned:false,
+            confirmedHover:adept,artworkWasScanned:false);
+        Check(unresolvedTarget is [{Sighting.Source:CardSightSource.Board,ResolvedDeckCopies:null}] &&
+            unresolvedTarget[0].Sighting.Card.Id==adept.Id,
+            "A repeated exact legal Saskia target was discarded when its deck-counter transition was obscured.");
         var broadLedger=new MatchVisionLedger();
         var broadHud=hud with {OpponentHandCount=8,OpponentDeckCount=14,HasCardTooltip=false,TooltipRegion=null};
         broadLedger.Observe(at,broadHud,[new(saskia,PlayerSide.Opponent,CardSightSource.PlayPreview,

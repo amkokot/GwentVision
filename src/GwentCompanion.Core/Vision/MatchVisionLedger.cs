@@ -280,13 +280,39 @@ public sealed class MatchVisionLedger
                 at-priorTitle.At<=TimeSpan.FromSeconds(3) && Math.Abs(tooltip.Left-priorTitle.Region.Left)<.04 &&
                 Math.Abs(tooltip.Top-priorTitle.Region.Top)<.08 ? Math.Min(2,priorTitle.Count+1) : 1;
             _spatialHoverTitles[confirmedHover.Id]=new(at,tooltip,count);
+            // A recurring source can remain on the opponent board long after its
+            // enlarged play animation was missed. Its repeated exact title and the
+            // far-side tooltip lane establish identity/controller, but not how it
+            // arrived. Recover it as board presence so its later printed summons
+            // can still use their own title/art and conserved deck-departure proof.
+            var recoveredRecurringSource = count >= 2 && IsOpponentBoardTooltip(tooltip) &&
+                screen.View == GwentViewKind.Board && screen.MatchHudVisible == true &&
+                !screen.IsCardSelectionOverlay && string.IsNullOrWhiteSpace(screen.ScreenHeader) &&
+                confirmedHover.CanBeInStartingDeck &&
+                CompanionCardRules.IsRecurringDeckSummonSource(confirmedHover) &&
+                !_actionEvidence.Contains((PlayerSide.Opponent, confirmedHover.Id)) &&
+                !_boardEvidence.Contains((PlayerSide.Opponent, confirmedHover.Id)) &&
+                !sightings.Any(item => item.Side == PlayerSide.Opponent && item.Card.Id == confirmedHover.Id &&
+                    item.Source is CardSightSource.PlayPreview or CardSightSource.DeckRevealCandidate);
+            if (recoveredRecurringSource)
+            {
+                var recovered = new CardSighting(confirmedHover, PlayerSide.Opponent, CardSightSource.Board,
+                    OpponentCardBesideTooltip(tooltip), 0, 1,
+                    "Repeated exact far-side board tooltip; identity and controller established after the play preview was missed.");
+                _boardEvidence.Add((PlayerSide.Opponent, confirmedHover.Id));
+                _recurringDeckSummons[PlayerSide.Opponent] = (confirmedHover, at);
+                _recentBroadDeckSummons[PlayerSide.Opponent] = (at, confirmedHover);
+                _broadDeployConsumed.Remove(PlayerSide.Opponent);
+                events.Add(new(at, recovered,
+                    "Repeated exact opponent-board tooltip recovered this persistent summon source as board presence; the missed play route remains unresolved."));
+            }
             // Some opponent plays never expose enough unobscured art for even a
             // quarantined preview candidate, while their exact GWENT-font title is
             // readable beside the newly placed board card. Hold the repeated title
             // as an identity candidate, but require the opponent hand HUD to pay one
             // card on a later settled sample before emitting a play. Board browsing,
             // spawned cards and leader-created cards therefore remain non-counting.
-            if (count >= 2 && IsOpponentBoardTooltip(tooltip) &&
+            if (!recoveredRecurringSource && count >= 2 && IsOpponentBoardTooltip(tooltip) &&
                 screen.View == GwentViewKind.Board && screen.MatchHudVisible == true &&
                 !screen.IsCardSelectionOverlay && string.IsNullOrWhiteSpace(screen.ScreenHeader) &&
                 confirmedHover.CanBeInStartingDeck &&
@@ -596,10 +622,36 @@ public sealed class MatchVisionLedger
                     $"Repeated exact far-side board tooltip after {activeBroad.Source.Name}; " +
                     (counterCredit ? "conserved deck departure" : "one bounded Deploy summon credit"));
                 _boardEvidence.Add((PlayerSide.Opponent, broadArrival.Id));
+                if (_pendingOpponentPreview?.Sighting.Card.Id == broadArrival.Id)
+                    _pendingOpponentPreview = null;
                 events.Add(new(at, sighting,
                     $"{activeBroad.Source.Name}'s printed random deck summon and the repeated exact target tooltip establish this board arrival without inventing a play preview.",
                     ResolvedDeckCopies: 1));
             }
+        }
+        // If the public pile counters were obscured, a legal recurring-source
+        // target can still be retained as a seen card. The repeated exact far-side
+        // title proves identity and controller; without an unclaimed deck departure
+        // this deliberately leaves play/summon/original-copy provenance unresolved.
+        if (confirmedHover is { Kind: CardKind.Unit, IsGold: false, CanBeInStartingDeck: true } recurringPresence &&
+            !string.Equals(recurringPresence.Faction, "Neutral", StringComparison.OrdinalIgnoreCase) &&
+            !effectiveHandHover && screen.View == GwentViewKind.Board && screen.MatchHudVisible == true &&
+            !screen.IsCardSelectionOverlay && string.IsNullOrWhiteSpace(screen.ScreenHeader) &&
+            _spatialHoverTitles.TryGetValue(recurringPresence.Id, out var recurringTitle) && recurringTitle.Count >= 2 &&
+            IsOpponentBoardExactTooltip(recurringTitle.Region) &&
+            _recurringDeckSummons.TryGetValue(PlayerSide.Opponent, out var visibleRecurring) &&
+            at >= visibleRecurring.StartedAt && at - visibleRecurring.StartedAt <= TimeSpan.FromMinutes(10) &&
+            CompanionCardRules.RecurringSummonPool(visibleRecurring.Source, [recurringPresence]).Contains(recurringPresence.Id) &&
+            !_actionEvidence.Contains((PlayerSide.Opponent, recurringPresence.Id)) &&
+            _boardEvidence.Add((PlayerSide.Opponent, recurringPresence.Id)))
+        {
+            if (_pendingOpponentPreview?.Sighting.Card.Id == recurringPresence.Id)
+                _pendingOpponentPreview = null;
+            var sighting = new CardSighting(recurringPresence, PlayerSide.Opponent, CardSightSource.Board,
+                OpponentCardBesideTooltip(recurringTitle.Region), 0, 1,
+                $"Repeated exact far-side board tooltip while {visibleRecurring.Source.Name} remained active; presence established, origin unresolved.");
+            events.Add(new(at, sighting,
+                $"Repeated exact opponent-board title retained this legal {visibleRecurring.Source.Name} target as seen; no unclaimed deck-counter evidence remains to assert its arrival route."));
         }
         // Sparse board scans can see the same difficult automatic arrival several
         // times, then stop matching it shortly before the player opens its tooltip.
