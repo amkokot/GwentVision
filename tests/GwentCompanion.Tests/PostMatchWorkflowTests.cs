@@ -16,6 +16,8 @@ internal static class PostMatchWorkflowTests
         var at=DateTimeOffset.UnixEpoch.AddDays(1);
         var screen=new GwentVisualObservation(GwentViewKind.Board,false,0,0,null,ScreenHeader:"DEFEAT",
             PostMatchMmr:new(2378,null,true,"verified ranked panel",2440));
+        var hud=screen with {ScreenHeader=null,PostMatchMmr=null,MatchHudVisible=true,IsCardSelectionOverlay=false};
+        var confirmedMenu=screen with {ScreenHeader="STANDARD MODE",PostMatchExitCue=true,MatchHudVisible=false};
         var gate=new PostMatchAutoStopGate();
         Check(!gate.TryRequest("one",screen,false,true,false),"Disabled setting stopped analysis.");
         Check(!gate.TryRequest("one",screen,true,false,false),"Idle analysis stopped.");
@@ -24,12 +26,19 @@ internal static class PostMatchWorkflowTests
         Check(!gate.TryRequest("one",screen with {PostMatchMmr=null},true,true,false),"Unread/unconfirmed MMR stopped analysis.");
         Check(!gate.TryRequest("one",screen with {PostMatchMmr=new(null,7,true,"delta")},true,true,false),"Delta-only MMR stopped analysis.");
         Check(!gate.TryRequest("one",screen with {PostMatchMmr=new(9750,null,false,"total")},true,true,false),"Unknown rating scope stopped analysis.");
-        Check(gate.TryRequest("one",screen,true,true,false)&&!gate.TryRequest("one",screen,true,true,false),"Stop did not trigger once per session.");
-        Check(gate.TryRequest("two",screen,true,true,false),"Next match could not auto-stop.");
-        gate.Reset(); Check(gate.TryRequest("two",screen,true,true,false),"Explicit reset did not clear old session.");
+        gate.TryRequest("one",hud,true,true,false);
+        Check(!gate.TryRequest("one",screen,true,true,false),"Confirmed result MMR stopped before the main-menu cross-check.");
+        Check(gate.TryRequest("one",confirmedMenu,true,true,false)&&!gate.TryRequest("one",confirmedMenu,true,true,false),"Main-menu MMR did not stop exactly once per session.");
+        gate.TryRequest("two",hud,true,true,false);
+        Check(!gate.TryRequest("two",screen,true,true,false)&&gate.TryRequest("two",confirmedMenu,true,true,false),"Next match could not wait for and stop at its menu MMR.");
+        gate.Reset(); gate.TryRequest("two",hud,true,true,false);
+        Check(!gate.TryRequest("two",screen,true,true,false)&&gate.TryRequest("two",confirmedMenu,true,true,false),"Explicit reset did not clear old session.");
         gate.Reset(); var rankScreen=screen with {PostMatchMmr=null,PostMatchRank=new(3,"verified rank shield")};
-        Check(gate.TryRequest("rank",rankScreen,true,true,false)&&!gate.TryRequest("rank",rankScreen,true,true,false),
-            "Confirmed standard rank did not trigger exactly one stop.");
+        gate.TryRequest("rank",hud,true,true,false);
+        Check(!gate.TryRequest("rank",rankScreen,true,true,false),"Confirmed standard rank stopped before the main menu.");
+        var rankMenu=confirmedMenu with {PostMatchMmr=null};
+        Check(gate.TryRequest("rank",rankMenu,true,true,false)&&!gate.TryRequest("rank",rankMenu,true,true,false),
+            "Confirmed standard rank did not stop exactly once at the authenticated main menu.");
         gate.Reset(); var unreadRankScreen=rankScreen with {PostMatchRank=new(null,"confirmed RANKED result")};
         Check(!gate.TryRequest("rank-unread",unreadRankScreen,true,true,false),
             "A RANKED label without a number stopped capture before MMR could be acquired.");
@@ -43,7 +52,8 @@ internal static class PostMatchWorkflowTests
 
         // Fresh OCR on distinct retained result frames, not the cached MMR journal.
         var folder=Path.Combine(root,"GwentCompanion/sessions/20260831-122341");
-        using var ocr=new ScreenStateRecognizer(); var mmr=new PostMatchMmrRecognizer(); gate.Reset(); var stops=0;
+        using var ocr=new ScreenStateRecognizer(); var mmr=new PostMatchMmrRecognizer(); gate.Reset(); var stops=0; var confirmedResults=0;
+        gate.TryRequest("latest",hud,true,true,false);
         foreach(var file in Directory.GetFiles(folder,"frame-*12342*.jpg").Order(StringComparer.Ordinal)
             .GroupBy(file=>Path.GetFileNameWithoutExtension(file).Split('-')[2][..6]).Select(group=>group.First()))
         {
@@ -51,10 +61,10 @@ internal static class PostMatchWorkflowTests
             var time=at.AddHours(int.Parse(stamp[..2])).AddMinutes(int.Parse(stamp[2..4])).AddSeconds(int.Parse(stamp[4..6])).AddMilliseconds(int.Parse(stamp[6..]));
             var pixels=OakEffectProbe.Load(file);
             var reading=await mmr.ReadAsync(pixels,await ocr.AnalyzeAsync(pixels),time,ocr);
-            if(reading.PostMatchMmr is { } value) Check(value is {RatingAfter:2378,SeasonPeak:2440,Change:null},"Latest MMR current/peak misread.");
+            if(reading.PostMatchMmr is { } value) { confirmedResults++; Check(value is {RatingAfter:2378,SeasonPeak:2440,Change:null},"Latest MMR current/peak misread."); }
             if(gate.TryRequest("latest",reading,true,true,false)) stops++;
         }
-        Check(stops==1,"Latest result pixels did not produce exactly one confirmed MMR stop.");
+        Check(confirmedResults>0&&stops==0,"Latest result pixels did not confirm MMR or stopped before the main-menu cross-check.");
 
         // The latest recording deliberately skips the progression animation. The
         // fixed Standard Mode panel must recover current/peak MMR and provide an

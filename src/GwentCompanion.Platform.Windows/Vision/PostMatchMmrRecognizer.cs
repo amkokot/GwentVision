@@ -6,6 +6,8 @@ namespace GwentCompanion.Platform.Windows.Vision;
 /// <summary>Result-screen-only OCR for mutually exclusive faction-MMR and standard-rank layouts.</summary>
 public sealed class PostMatchMmrRecognizer
 {
+    private const int ResultReadIntervalMilliseconds = 100;
+    private const int RankVoteIntervalMilliseconds = 250;
     private DateTimeOffset _lastRead;
     private DateTimeOffset _lastVote;
     private PostMatchMmr? _candidate;
@@ -28,7 +30,7 @@ public sealed class PostMatchMmrRecognizer
             // The progression animation can be skipped before its first retained
             // sample. Standard Mode exposes the same current/season-peak pair in a
             // fixed central panel and is also a reliable end-of-match exit cue.
-            if (at - _lastRead < TimeSpan.FromMilliseconds(200)) return screen;
+            if (at - _lastRead < TimeSpan.FromMilliseconds(ResultReadIntervalMilliseconds)) return screen;
             _lastRead = at;
             var labelLines = await reader.ReadLinesAsync(frame, new(.35, .29, .72, .43),
                 scale: 2, enhance: false, whiteLetterMask: true, smooth: true).ConfigureAwait(false);
@@ -45,7 +47,7 @@ public sealed class PostMatchMmrRecognizer
                     menuCandidate = new(current, null, true, "Standard Mode summary (current / season peak)", peak);
             }
             var exitCue = ConfirmMainMenu(at);
-            var menuReading = Confirm(menuCandidate, at, 200);
+            var menuReading = Confirm(menuCandidate, at, ResultReadIntervalMilliseconds);
             _rankCandidate = null; _rankVotes = 0; _rankNumberCandidate = null; _rankNumberVotes = 0;
             return screen with { IsCardSelectionOverlay = true, CardSelectionConfidence = 1,
                 ScreenHeader = "STANDARD MODE", PostMatchMmr = menuReading, PostMatchRank = null,
@@ -55,10 +57,9 @@ public sealed class PostMatchMmrRecognizer
         _mainMenuVotes = 0; _lastMainMenuVote = default;
         screen = screen with { IsCardSelectionOverlay = true, CardSelectionConfidence = 1 };
         // Result/progression panels are sometimes skipped in under a second. The
-        // post-game pipeline is numeric-only, so sample it at 200 ms and retain
-        // the three-independent-read requirement for MMR. Rank still uses its
-        // separate 600 ms confirmation gate below.
-        if (at - _lastRead < TimeSpan.FromMilliseconds(200)) return screen;
+        // post-game pipeline is numeric-only. Two independently captured reads at
+        // capture cadence confirm the fixed result layout before it can be skipped.
+        if (at - _lastRead < TimeSpan.FromMilliseconds(ResultReadIntervalMilliseconds)) return screen;
         _lastRead = at;
         // User/central result panel only. Never read the right-hand opponent profile as ours.
         var lines = await reader.ReadLinesAsync(frame, new(.02, .12, .75, .94), scale: 2).ConfigureAwait(false);
@@ -87,7 +88,7 @@ public sealed class PostMatchMmrRecognizer
                 }
             }
         }
-        var reading = Confirm(candidate, at, 200);
+        var reading = Confirm(candidate, at, ResultReadIntervalMilliseconds);
         var rankReading = ConfirmRank(rankCandidate, at);
         return screen with { PostMatchMmr = reading, PostMatchRank = rankReading,
             PostMatchMmrCandidate = candidate is null ? null : candidate with { Confirmed = false, ReadCount = _votes } };
@@ -153,12 +154,12 @@ public sealed class PostMatchMmrRecognizer
             candidate.IsFactionRating == _candidate.IsFactionRating && candidate.SeasonPeak == _candidate.SeasonPeak
             ? _votes + 1 : candidate is null ? 0 : 1;
         _candidate = candidate;
-        return _votes >= 3 ? candidate : null;
+        return _votes >= 2 ? candidate : null;
     }
 
     public PostMatchRank? ConfirmRank(PostMatchRank? candidate, DateTimeOffset at)
     {
-        if (at <= _lastRankVote || at - _lastRankVote < TimeSpan.FromMilliseconds(600)) return null;
+        if (at <= _lastRankVote || at - _lastRankVote < TimeSpan.FromMilliseconds(RankVoteIntervalMilliseconds)) return null;
         if (at - _lastRankVote > TimeSpan.FromSeconds(4))
         { _rankCandidate = null; _rankVotes = 0; _rankNumberCandidate = null; _rankNumberVotes = 0; }
         _lastRankVote = at;
@@ -171,7 +172,7 @@ public sealed class PostMatchMmrRecognizer
         else if (candidate is null) { _rankNumberCandidate = null; _rankNumberVotes = 0; }
         _rankCandidate = candidate;
         // The standard-rank progression panel can be visible for only about
-        // 1.4 seconds. Two 600-ms-spaced reads fit that animation while the
+        // 1.4 seconds. Two capture-separated reads fit that animation while the
         // exact VICTORY/DEFEAT header plus fixed RANKED label keep the screen
         // gate substantially stronger than an ordinary OCR number match.
         return _rankVotes >= 2 && candidate?.Rank is not null && _rankNumberVotes >= 2
@@ -181,10 +182,10 @@ public sealed class PostMatchMmrRecognizer
 
     private bool ConfirmMainMenu(DateTimeOffset at)
     {
-        if (at <= _lastMainMenuVote || at - _lastMainMenuVote < TimeSpan.FromMilliseconds(200)) return false;
+        if (at <= _lastMainMenuVote || at - _lastMainMenuVote < TimeSpan.FromMilliseconds(ResultReadIntervalMilliseconds)) return false;
         _mainMenuVotes = at - _lastMainMenuVote <= TimeSpan.FromSeconds(4) ? _mainMenuVotes + 1 : 1;
         _lastMainMenuVote = at;
-        return _mainMenuVotes >= 3;
+        return _mainMenuVotes >= 2;
     }
 
     public static PostMatchMmr? Parse(string? header, IReadOnlyList<VisibleTextLine> lines)

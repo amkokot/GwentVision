@@ -62,17 +62,16 @@ internal static class PostMatchMmrTests
             PostMatchMmrRecognizer.ParseRankPanel("VICTORY", "RANKED", [rankLine with {Region=new(.493,.50,.509,.53)}]),
             PostMatchMmrRecognizer.ParseRankPanel("VICTORY", "RANKED", [rankLine,rankLine with {Text="4"}]) })
             Check(invalid is null, "Wrong context/progress/conflicting number was accepted as ladder rank.");
-        Check(reader.Confirm(full, At) is null && reader.Confirm(full, At) is null && reader.Confirm(full, At.AddSeconds(1)) is null &&
-            reader.Confirm(full, At.AddSeconds(2)) == full, "Rating not confirmed from three distinct spaced frames.");
+        Check(reader.Confirm(full, At) is null && reader.Confirm(full, At) is null &&
+            reader.Confirm(full, At.AddSeconds(1)) == full, "Rating not confirmed from two distinct spaced frames.");
         reader.Reset();
-        Check(reader.Confirm(full,At,200) is null && reader.Confirm(full,At.AddMilliseconds(200),200) is null &&
-            reader.Confirm(full,At.AddMilliseconds(400),200)==full,
+        Check(reader.Confirm(full,At,100) is null && reader.Confirm(full,At.AddMilliseconds(100),100)==full,
             "Fast result-only cadence could not confirm an early MMR before the main menu.");
         reader.Reset();
         Check(reader.Confirm(full, At) is null && reader.Confirm(full, At.AddMilliseconds(599)) is null &&
-            reader.Confirm(full! with { Label = "FMMR" }, At.AddMilliseconds(600)) is null &&
-            reader.Confirm(full, At.AddMilliseconds(1200)) == full,
-            "Three 600-ms OCR reads failed to confirm the same rating when label spelling changed.");
+            reader.Confirm(full! with { Label = "FMMR" }, At.AddMilliseconds(600)) is
+                { RatingAfter: 2442, Change: 7, IsFactionRating: true },
+            "Two 600-ms OCR reads failed to confirm the same rating when label spelling changed.");
         reader.Reset(); reader.Confirm(full, At); reader.Confirm(full, At.AddSeconds(1)); reader.Confirm(null, At.AddSeconds(2));
         Check(reader.Confirm(full, At.AddSeconds(3)) is null, "An unread frame did not break consensus.");
         Check(reader.Confirm(full, At.AddSeconds(9)) is null, "Stale consensus carried across long gap.");

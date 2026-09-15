@@ -120,23 +120,33 @@ public partial class MainWindow
             DeckBuilderSmoke.Render(window,Path.Combine(folder,"mmr-setting.png"),510,850);
             var mmrResult=new CardVisionResult(at,new(GwentViewKind.Board,false,0,0,null,ScreenHeader:"DEFEAT",
                 PostMatchMmr:new(2378,null,true,"fixture",2440)),[],[],false);
+            var matchHud=new CardVisionResult(at.AddSeconds(-1),new(GwentViewKind.Board,false,0,0,null,
+                IsCardSelectionOverlay:false,MatchHudVisible:true),[],[],false);
+            var menuResult=mmrResult with {Screen=mmrResult.Screen with {ScreenHeader="STANDARD MODE",
+                MatchHudVisible=false,PostMatchExitCue=true}};
             var drained=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var savedEncounter=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            window._visionWorker=drained.Task; window._autoEncounterSave=savedEncounter.Task; window._builderWindow=editor;
+            var visionCancellation=new CancellationTokenSource();
+            window._visionWorker=drained.Task; window._visionCancellation=visionCancellation;
+            window._autoEncounterSave=savedEncounter.Task; window._builderWindow=editor;
             window.RefreshAnalysisButton(); Check(window.DiagnosticButton.IsEnabled,"Open post-match builder disabled manual Stop.");
             var reviewField=typeof(MainWindow).GetField("_reviewEvidencePath",BindingFlags.NonPublic|BindingFlags.Instance)!;
-            reviewField.SetValue(window,folder); window.TryAutoStopOnMmr(mmrResult);
+            window.TryAutoStopOnMmr(matchHud);
+            reviewField.SetValue(window,folder); window.TryAutoStopOnMmr(menuResult);
             Check(window._autoStopTask is null,"Offline review triggered automatic stop."); reviewField.SetValue(window,null);
-            window._analysisTransition=true; window.TryAutoStopOnMmr(mmrResult); Check(window._autoStopTask is null,"Concurrent transition triggered another stop.");
+            window._analysisTransition=true; window.TryAutoStopOnMmr(menuResult); Check(window._autoStopTask is null,"Concurrent transition triggered another stop.");
             window._analysisTransition=false; window.TryAutoStopOnMmr(mmrResult);
+            Check(window._autoStopTask is null,"Confirmed result-panel MMR stopped before the main-menu cross-check.");
+            window.TryAutoStopOnMmr(menuResult);
             var stopping=window._autoStopTask!;
             Check(stopping is not null&&!stopping.IsCompleted&&window._analysisTransition,"Auto-stop did not wait for retained analysis.");
-            window.TryAutoStopOnMmr(mmrResult); Check(ReferenceEquals(stopping,window._autoStopTask),"Repeated MMR launched another stop.");
+            Check(visionCancellation.IsCancellationRequested,"Confirmed automatic stop did not discard duplicate queued result frames.");
+            window.TryAutoStopOnMmr(menuResult); Check(ReferenceEquals(stopping,window._autoStopTask),"Repeated MMR launched another stop.");
             drained.SetResult(); await Task.Delay(50);
             Check(!stopping!.IsCompleted,"Stop finished before encounter save.");
             savedEncounter.SetResult(); await stopping;
             Check(window._visionWorker is null&&!window._analysisTransition&&window.AnalysisStatusText.Text.Contains("automatically"),"Auto-stop did not finish/release controls.");
-            window.TryAutoStopOnMmr(mmrResult); Check(ReferenceEquals(stopping,window._autoStopTask),"Late MMR restarted idle analysis.");
+            window.TryAutoStopOnMmr(menuResult); Check(ReferenceEquals(stopping,window._autoStopTask),"Late MMR restarted idle analysis.");
             window._builderWindow=null;
             var after=Hashes(); Check(before.Count==after.Count&&before.All(item=>after.GetValueOrDefault(item.Key)==item.Value),"Live caches/settings/journal changed during offline smoke.");
                 File.WriteAllText(Path.Combine(folder,"result.txt"),"PASS: maximized shared builder; observed FIXED vs proposed AUTO copies; proposal click cycle AUTO → FIXED → removed; one-toggle proposal removal; undo state restoration; dirty draft protection; review header/name/card persistence; raw evidence preservation; ordinary-mode isolation; settings defaults/round trip; live Stop availability; offline/reentrant/duplicate stop guards and drain-before-save order. Rendered wide/compact review and settings; live file hashes unchanged; no capture or network.");

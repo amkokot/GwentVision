@@ -30,6 +30,7 @@ public partial class MainWindow
     private PreviewPriorityWindow _opponentPreviewPriority = new();
     private readonly GameplayWorkPriority _gameplayPriority = new();
     private Task? _visionWorker;
+    private CancellationTokenSource? _visionCancellation;
     private Task<ScreenStateRecognizer>? _ocrWarmupTask;
     private string? _visionError;
     private int _analyzedFrames;
@@ -200,18 +201,30 @@ public partial class MainWindow
                     ProtectResultCapture(DateTimeOffset.UtcNow.AddSeconds(20));
                 QueueFastHover(result with { HoverInPlayerHand = result.HoverInPlayerHand || progress.PointerInPlayerHand });
             } };
-        _visionWorker = Task.Run(() => RunVisionAsync(queue));
+        _visionCancellation?.Dispose();
+        _visionCancellation = new CancellationTokenSource();
+        _visionWorker = Task.Run(() => RunVisionAsync(queue, _visionCancellation.Token));
     }
 
-    private async Task StopVisionAsync()
+    private async Task StopVisionAsync(bool discardPending = false)
     {
         _suspendReach = true;
         _threatCancellation?.Cancel();
         _threatKey = null; _reachProgress = null;
         _liveHover = null; RefreshHoverBanner();
+        var cancellation = _visionCancellation;
+        // Once a confirmed post-match result has been applied, every remaining
+        // queued frame is an older or duplicate capture. Cancel that backlog so
+        // automatic stop does not spend seconds OCRing the same menu again.
+        if (discardPending) cancellation?.Cancel();
         _visionQueue?.Complete();
         try { if (_visionWorker is not null) await _visionWorker; }
-        finally { _visionWorker = null; _visionQueue = null; }
+        finally
+        {
+            _visionWorker = null; _visionQueue = null;
+            if (ReferenceEquals(_visionCancellation, cancellation)) _visionCancellation = null;
+            cancellation?.Dispose();
+        }
     }
 
     private void DiagnosticSession_OnProgress(object? sender, DiagnosticProgress progress)
@@ -288,7 +301,7 @@ public partial class MainWindow
         }
     }
 
-    private async Task RunVisionAsync(RollingVisionBuffer<DiagnosticProgress> reader)
+    private async Task RunVisionAsync(RollingVisionBuffer<DiagnosticProgress> reader, CancellationToken cancellationToken)
     {
         var lastBoardScan = DateTimeOffset.MinValue;
         BitmapSource? previous = null;
@@ -305,7 +318,7 @@ public partial class MainWindow
         var pending = new List<(string Directory, RecordedPlayEvent Record)>();
         try
         {
-            await foreach (var output in _streamingVision!.RunAsync(VisionInputs(reader)))
+            await foreach (var output in _streamingVision!.RunAsync(VisionInputs(reader, cancellationToken), cancellationToken))
             {
                 var progress = output.Context;
                 sessionDirectory = progress.SessionDirectory;
@@ -350,8 +363,8 @@ public partial class MainWindow
                     }
                     foreach (var item in pending)
                     {
-                        SavePng(source, Path.Combine(item.Directory, "after.png"));
-                        _playEventStore.SaveRecord(item.Directory, item.Record with { AfterImage = "after.png",
+                        SaveDiagnosticJpeg(source, Path.Combine(item.Directory, "after.jpg"));
+                        _playEventStore.SaveRecord(item.Directory, item.Record with { AfterImage = "after.jpg",
                             AfterPosition = latestState is null ? null : PositionNotation.Write(CalculationPositionAdapter.FromObserved(latestState.After)) });
                     }
                     pending.Clear();
@@ -360,11 +373,11 @@ public partial class MainWindow
                         var sighting = evidence.Sighting;
                         var eventId = $"{at:yyyyMMdd-HHmmssfff}-{sighting.Side}";
                         var directory = _playEventStore.CreateEventDirectory(progress.SessionDirectory, eventId);
-                        if (previous is not null) SavePng(previous, Path.Combine(directory, "before.png"));
-                        SavePng(source, Path.Combine(directory, "during.png"));
+                        if (previous is not null) SaveDiagnosticJpeg(previous, Path.Combine(directory, "before.jpg"));
+                        SaveDiagnosticJpeg(source, Path.Combine(directory, "during.jpg"));
                         var record = new RecordedPlayEvent(eventId, at, sighting.Card.Id, sighting.Card.Name,
                             sighting.Card.Kind, 1 - sighting.Distance, sighting.Side, 0.98, sighting.Region,
-                            previous is null ? null : "before.png", "during.png", null,
+                            previous is null ? null : "before.jpg", "during.jpg", null,
                             evidence.Description + " " + sighting.Evidence,
                             "Structured state is partial and timestamped. Before is the previous analyzed frame; after is the next, not guaranteed settled. Unread power/statuses and trigger chains remain unknown.",
                             board.Select(item => new BoardCardEvidence(item.Card.Id, item.Card.Name, item.Side, item.Region)).ToArray(),
@@ -379,6 +392,7 @@ public partial class MainWindow
                 catch (Exception exception) { _visionError = exception.Message; }
             }
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception exception) { _visionError = exception.Message; }
         finally
         {

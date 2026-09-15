@@ -225,7 +225,7 @@ public partial class MainWindow
             _diagnosticSession ??= new DiagnosticCaptureSession(
                 _frameCapture,
                 _analysisControlTest ? Path.Combine(FindDataRoot(), "diagnostics", "analysis-control-tests", Environment.ProcessId.ToString()) :
-                Path.Combine(FindDataRoot(), "sessions"));
+                DiagnosticSessionDirectory);
             _diagnosticSession.RetainTrainingFrames = RecordTrainingChoice.IsChecked == true;
             _diagnosticSession.RetainedFramesPerSecond = SelectedRecordingFrameRate;
             _diagnosticSession.Progress -= DiagnosticSession_OnProgress;
@@ -912,9 +912,9 @@ public partial class MainWindow
         }
     }
 
-    private static void SavePng(BitmapSource source, string path)
+    private static void SaveDiagnosticJpeg(BitmapSource source, string path)
     {
-        var encoder = new PngBitmapEncoder();
+        var encoder = new JpegBitmapEncoder { QualityLevel = 84 };
         encoder.Frames.Add(BitmapFrame.Create(source));
         using var stream = File.Create(path);
         encoder.Save(stream);

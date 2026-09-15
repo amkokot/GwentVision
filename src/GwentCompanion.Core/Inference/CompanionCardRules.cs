@@ -41,10 +41,17 @@ public static class CompanionCardRules
     public static bool HasExplicitInherentDeckArrival(CardDefinition card)
     {
         var ability = card.AbilityText ?? "";
-        return !ability.Contains("deck or graveyard", StringComparison.OrdinalIgnoreCase) &&
-            System.Text.RegularExpressions.Regex.IsMatch(ability,
-                @"\bSummon (?:self|this card) from (?:your |the )?deck\b",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (ability.Contains("deck or graveyard", StringComparison.OrdinalIgnoreCase)) return false;
+        return System.Text.RegularExpressions.Regex.IsMatch(ability,
+                   @"\bSummon (?:self|this card) from (?:your |the )?deck\b",
+                   System.Text.RegularExpressions.RegexOptions.IgnoreCase) ||
+               // Mage Assassin's deck origin is stated by the triggering clause,
+               // while its resolution only says "Summon self". Keep the match
+               // bounded to that same sentence so unrelated deck movement plus a
+               // later summon instruction cannot manufacture an automatic arrival.
+               System.Text.RegularExpressions.Regex.IsMatch(ability,
+                   @"\bWhen moved to the top of (?:your|the) deck\b[^.\r\n]{0,160}\bSummon (?:self|this card)\b",
+                   System.Text.RegularExpressions.RegexOptions.IgnoreCase);
     }
 
     /// <summary>

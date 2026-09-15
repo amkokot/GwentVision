@@ -32,6 +32,7 @@ public partial class MainWindow
     private string? _automaticShareDuePeriod;
     private static string PersistentUserDataDirectory => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GwentVision");
+    private static string DiagnosticSessionDirectory => Path.Combine(PersistentUserDataDirectory, "diagnostics", "sessions");
     private string MatchStorageDirectory => _matchStorageDirectoryOverride ?? Path.Combine(PersistentUserDataDirectory, "match-data");
     private static string DataContributionPreferencesPath => Path.Combine(PersistentUserDataDirectory, "data-contribution.json");
     private static string DataContributionSyncStatePath => Path.Combine(PersistentUserDataDirectory, "data-contribution-state.json");

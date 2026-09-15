@@ -48,7 +48,7 @@ public partial class MainWindow
                   item.Meta?.CopyRecommendations?.ElementAtOrDefault(item.Copy - 1)?.Evidence +
                   (_opponentEdits.CorrectedEvidence.Contains(new(item.Card.Id, item.Copy)) ? " You removed this detected copy from Opponent Cards; click to restore it." :
                    _opponentEdits.Excluded.Contains(new(item.Card.Id, item.Copy)) ? " You dismissed this suggestion; it will not auto-fill again this match." : "")
-                : $"Eligible starting-deck card · copy {item.Copy} · deck-builder order.",
+                : $"Eligible starting-deck card · copy {item.Copy} · click to mark as seen.",
             _useOpponentModel && item.Copy == 1 ? item.Package : null))).ToArray();
         CandidateTrayStatus.Text = candidates.Length == 0 ? "No matching candidates. Try another card name." :
             _useOpponentModel
@@ -60,12 +60,14 @@ public partial class MainWindow
 
     private void CandidateCard_OnActivated(object? sender, object row)
     {
+        if (row is not DeckStripRow { Slot.Card: { } card } item || _lastProjection is null) return;
         if (!_useOpponentModel)
         {
-            CandidateTrayStatus.Text = "Candidate catalog · deck-builder order.";
+            MarkCandidateSeen(card, item.Slot.Copy);
+            RenderLiveInference(); PersistCurrentMatch();
+            FooterStatusText.Text = $"Marked {card.Name} as seen in Opponent Cards.";
             return;
         }
-        if (row is not DeckStripRow { Slot.Card: { } card } item || _lastProjection is null) return;
         if (_opponentEdits.RestoreEvidence(card, item.Slot.Copy))
         {
             RenderLiveInference(); PersistCurrentMatch();
@@ -80,6 +82,16 @@ public partial class MainWindow
         _opponentEdits.Include(card, item.Slot.Copy);
         RenderLiveInference(); PersistCurrentMatch();
         FooterStatusText.Text = $"Assumed {card.Name}; updating related suggestions. No observed evidence was changed.";
+    }
+
+    private bool MarkCandidateSeen(CardDefinition card, int copy)
+    {
+        const string evidence = "User marked this card as seen from the candidate catalog.";
+        var changed = _opponentTracker.ConsiderDirectPlay(card, 1, _opponentTime, evidence,
+            CardProvenance.ConfirmedStartingDeck);
+        changed |= _opponentTracker.SetProvenance(card.Id, CardProvenance.ConfirmedStartingDeck, evidence);
+        changed |= _opponentTracker.SetObservedCopyLowerBound(card.Id, copy, "user-marked copies");
+        return changed;
     }
 
     private void OpponentSlot_OnActivated(object? sender, object row)

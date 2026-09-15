@@ -56,14 +56,12 @@ internal static class PostMatchScoreTests
             var firstScreen = await quickOcr.AnalyzeAsync(first);
             var secondScreen = await quickOcr.AnalyzeAsync(second);
             var timer = System.Diagnostics.Stopwatch.StartNew();
-            Check((await reader.ReadAsync(first, firstScreen, at, quickOcr)).PostMatchRoundScores is null,
-                "A single frame was called a confirmed result.");
-            Check((await reader.ReadAsync(second, secondScreen, at.AddMilliseconds(100), quickOcr)).PostMatchRoundScores is { } quick && quick.SequenceEqual(three),
-                "Two quick result frames failed to confirm all round scores.");
+            Check((await reader.ReadAsync(first, firstScreen, at, quickOcr)).PostMatchRoundScores is { } quick && quick.SequenceEqual(three),
+                "One fully glyph-verified result frame failed to confirm all round scores.");
             var calls = quickOcr.OcrCalls;
-            Check((await reader.ReadAsync(second, secondScreen, at.AddMilliseconds(200), quickOcr)).PostMatchRoundScores is not null &&
+            Check((await reader.ReadAsync(second, secondScreen, at.AddMilliseconds(100), quickOcr)).PostMatchRoundScores is not null &&
                 quickOcr.OcrCalls == calls, "Confirmed scores were unnecessarily read again.");
-            Console.WriteLine($"PASS quick result: two distinct frames at simulated 100-ms spacing; {timer.ElapsedMilliseconds} ms reader work including first-use initialization; confirmed table reused without OCR.");
+            Console.WriteLine($"PASS quick result: one fully glyph-verified frame; {timer.ElapsedMilliseconds} ms reader work including first-use initialization; confirmed table reused without OCR.");
         }
 
         var audit = new List<object>();
@@ -124,9 +122,9 @@ internal static class PostMatchScoreTests
         lifecycle.Observe(board,at.AddSeconds(1));
         Check(!lifecycle.WaitingForGame && !lifecycle.NewGameStarted, "First game did not resume tracking.");
         lifecycle.Observe(finalScreen,at.AddSeconds(2));
-        var provisional = new PostMatchMmr(2434,null,true,"menu",2441,Confirmed:false,ReadCount:2);
+        var provisional = new PostMatchMmr(2434,null,true,"menu",2441,Confirmed:false,ReadCount:1);
         lifecycle.Observe(menu with { PostMatchMmr=null,PostMatchMmrCandidate=provisional },at.AddSeconds(3));
-        lifecycle.Observe(menu with { PostMatchMmr=null,PostMatchMmrCandidate=provisional with {RatingAfter=2435,ReadCount=1} },at.AddSeconds(4));
+        lifecycle.Observe(menu with { PostMatchMmr=null,PostMatchMmrCandidate=provisional with {RatingAfter=2435,ReadCount=0} },at.AddSeconds(4));
         Check(lifecycle.BestRating == provisional, "A weaker later read replaced the best available rating.");
         lifecycle.Observe(board with {ScreenHeader="REDRAW"},at.AddSeconds(5));
         Check(lifecycle.NewGameStarted && lifecycle.BestRating == provisional, "Next-game boundary lost the previous rating.");
