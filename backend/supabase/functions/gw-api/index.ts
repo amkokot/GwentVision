@@ -130,8 +130,14 @@ function hex(bytes: ArrayBuffer | Uint8Array): string {
   return Array.from(data, (value) => value.toString(16).padStart(2, "0")).join("");
 }
 
+function ownedBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy.buffer;
+}
+
 async function sha256(bytes: Uint8Array): Promise<string> {
-  return hex(await crypto.subtle.digest("SHA-256", bytes));
+  return hex(await crypto.subtle.digest("SHA-256", ownedBuffer(bytes)));
 }
 
 function derToP1363(der: Uint8Array): Uint8Array {
@@ -153,9 +159,10 @@ function derToP1363(der: Uint8Array): Uint8Array {
 
 async function verifySignature(spki: Uint8Array, message: string, signatureDer: Uint8Array): Promise<void> {
   try {
-    const key = await crypto.subtle.importKey("spki", spki, { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]);
+    const key = await crypto.subtle.importKey("spki", ownedBuffer(spki),
+      { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]);
     const valid = await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, key,
-      derToP1363(signatureDer), new TextEncoder().encode(message));
+      ownedBuffer(derToP1363(signatureDer)), ownedBuffer(new TextEncoder().encode(message)));
     if (!valid) throw new Error();
   } catch { throw new ApiError(401, "Signature is invalid."); }
 }
@@ -228,11 +235,11 @@ function validatePlayer(value: unknown): { faction: string | null } {
 }
 
 async function gzip(bytes: Uint8Array): Promise<Uint8Array> {
-  const compressed = new Blob([bytes]).stream().pipeThrough(new CompressionStream("gzip"));
+  const compressed = new Blob([ownedBuffer(bytes)]).stream().pipeThrough(new CompressionStream("gzip"));
   return new Uint8Array(await new Response(compressed).arrayBuffer());
 }
 
-async function validateRecord(bytes: Uint8Array): Promise<RpcRow> {
+async function validateRecord(bytes: Uint8Array, requireInstallationIdentity = true): Promise<RpcRow> {
   let record: JsonObject;
   try { record = object(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)), "record"); }
   catch { throw new ApiError(400, "Match record is not valid UTF-8 JSON."); }
@@ -240,7 +247,8 @@ async function validateRecord(bytes: Uint8Array): Promise<RpcRow> {
     "patch", "patchInferred", "revision", "captureStopped", "resultObserved", "result", "mmrAfter",
     "mmrChange", "mmrPeak", "factionMmr", "rank", "user", "opponent", "rounds", "actions",
     "sequenceTruncated", "startedAtUtc", "mmrUnconfirmed"]);
-  uuid(record.installationId, "installationId");
+  if (requireInstallationIdentity) uuid(record.installationId, "installationId");
+  else if (record.installationId != null) uuid(record.installationId, "installationId");
   const matchId = uuid(record.matchId, "matchId");
   const gameDateUtc = requiredString(record.gameDateUtc, "gameDateUtc", 10, DATE);
   requiredString(record.detectorVersion, "detectorVersion", 80);
@@ -304,8 +312,10 @@ async function validateRecord(bytes: Uint8Array): Promise<RpcRow> {
 async function keyedDigest(domain: string, value: string): Promise<string> {
   const pepper = base64ToBytes(env("GV_CODE_PEPPER"), 64);
   if (pepper.length < 32) throw new ApiError(503, "Server code secret is invalid.");
-  const key = await crypto.subtle.importKey("raw", pepper, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  return hex(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${domain}\n${value}`)));
+  const key = await crypto.subtle.importKey("raw", ownedBuffer(pepper),
+    { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return hex(await crypto.subtle.sign("HMAC", key,
+    ownedBuffer(new TextEncoder().encode(`${domain}\n${value}`))));
 }
 
 const pepperDigest = (code: string) => keyedDigest("season-code", code);
@@ -321,7 +331,8 @@ async function enforceNetworkRateLimit(request: Request, path: string): Promise<
   const routeClass = path === "/register/challenge" || path === "/register" ? "register" :
     path === "/upload" ? "upload" : path === "/public/highlight" ? "highlight" :
     path === "/code/rotate" || path === "/curve/visibility" || path === "/data/delete" ? "device" :
-    path.startsWith("/public/") ? "public" : path === "/analyst/export" ? "analyst" : null;
+    path.startsWith("/public/") ? "public" : path === "/analyst/export" ? "analyst" :
+    path === "/collaborator/import" ? "collaborator" : null;
   if (!routeClass) return;
   const forwarded = request.headers.get("cf-connecting-ip") ?? request.headers.get("x-real-ip") ??
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unavailable";
@@ -543,6 +554,48 @@ async function analystExport(request: Request): Promise<Response> {
   return response(request, 200, { schema: API_VERSION, rows });
 }
 
+async function collaboratorImport(request: Request): Promise<Response> {
+  const userId = await authenticatedUser(request);
+  await consumeRateLimit("collaborator", "auth-user", userId);
+  const body = await bodyObject(request);
+  exactKeys(body, "collaborator upload", ["schema", "batchId", "season", "datasetNamespace",
+    "metadataSchemaVersion", "producerVersion", "sourceLocator", "matches"]);
+  if (body.schema !== API_VERSION) throw new ApiError(400, "API schema is unsupported.");
+  const batchId = uuid(body.batchId, "batchId");
+  const season = requiredString(body.season, "season", 40, /^[a-z0-9][a-z0-9._-]*$/);
+  const datasetNamespace = requiredString(body.datasetNamespace, "datasetNamespace", 80,
+    /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/);
+  const metadataSchemaVersion = integer(body.metadataSchemaVersion, "metadataSchemaVersion", 1, 1000, false)!;
+  const producerVersion = requiredString(body.producerVersion, "producerVersion", 80,
+    /^[A-Za-z0-9][A-Za-z0-9._+-]*$/);
+  const sourceLocator = requiredString(body.sourceLocator, "sourceLocator", 160,
+    /^[A-Za-z0-9][A-Za-z0-9._:/+-]*$/);
+  const envelopes = array(body.matches, "matches", 250);
+  if (envelopes.length === 0) throw new ApiError(400, "Upload contains no matches.");
+  const matches = await Promise.all(envelopes.map(async (value) => {
+    const envelope = object(value, "match");
+    exactKeys(envelope, "match envelope", ["format", "recordBase64"]);
+    if (envelope.format !== "json-v1") throw new ApiError(400, "Match format is unsupported.");
+    return await validateRecord(base64ToBytes(envelope.recordBase64, MAX_MATCH_BYTES), false);
+  }));
+  if (new Set(matches.map((match) => match.observationKey)).size !== matches.length)
+    throw new ApiError(400, "Upload contains a duplicate match identity.");
+  const patch = matches[0].patch;
+  if (matches.some((match) => match.patch !== patch) || season !== patch)
+    throw new ApiError(400, "One upload batch must contain exactly one patch season.");
+  const rows = await rpc("gw_accept_collaborator_match_upload", {
+    p_user_id: userId, p_dataset_namespace: datasetNamespace,
+    p_metadata_schema_version: metadataSchemaVersion,
+    p_source_locator_digest_hex: await keyedDigest("collaborator-source", `${userId}\n${sourceLocator}`),
+    p_season_slug: season, p_client_batch_id: batchId,
+    p_body_digest_hex: await sha256(new TextEncoder().encode(JSON.stringify(body))),
+    p_producer_version: producerVersion, p_matches: matches,
+  });
+  if (rows.length !== 1) throw new ApiError(503, "Upload did not produce a receipt.");
+  return response(request, 200, { schema: API_VERSION, receiptId: rows[0].receipt_id,
+    accepted: rows[0].accepted_count, unchanged: rows[0].unchanged_count });
+}
+
 Deno.serve(async (request: Request) => {
   try {
     allowedOrigin(request);
@@ -560,6 +613,7 @@ Deno.serve(async (request: Request) => {
     if (request.method === "GET" && path === "/public/curves") return await publicCurves(request);
     if (request.method === "GET" && path === "/public/faction-daily") return await publicFactionDaily(request);
     if (request.method === "GET" && path === "/analyst/export") return await analystExport(request);
+    if (request.method === "POST" && path === "/collaborator/import") return await collaboratorImport(request);
     return response(request, 404, { error: "Route not found." });
   } catch (error) {
     const status = error instanceof ApiError ? error.status : 500;

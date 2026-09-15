@@ -31,6 +31,7 @@ is supplied by Supabase. A populated environment file must never be committed.
 | `GET /public/faction-daily` | Returns daily faction match counts and results only for cells with at least five contributing installations. |
 | `POST /public/highlight` | Turns a season code into the corresponding public curve ID without exposing an installation. |
 | `GET /analyst/export` | Requires a valid Supabase Auth bearer token whose user UUID is allowlisted in `private.analysts`. |
+| `POST /collaborator/import` | Requires a valid Supabase Auth bearer token whose user UUID, dataset namespace, and schema version are allowlisted in `private.collaborator_producers`. |
 
 ## Signed request contract
 
@@ -75,6 +76,10 @@ transport record but is never retained in that payload or projected publicly.
 Network addresses are HMACed in the Edge Function. PostgreSQL receives only the
 keyed digest, retains one-minute counters for at most ten minutes, and exposes
 neither the digest nor rate tables to analysts.
+
+The collaborator match interface, authentication flow, idempotency rules, and
+complete `json-v1` record shape are documented in
+[`docs/COLLABORATOR-IMPORT.md`](../../../../docs/COLLABORATOR-IMPORT.md).
 
 Daily faction aggregates include only installations with anonymous public
 publication enabled. They contain no curve identifier and are calculated on

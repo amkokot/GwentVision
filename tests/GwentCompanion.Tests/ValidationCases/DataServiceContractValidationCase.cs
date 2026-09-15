@@ -27,7 +27,11 @@ internal sealed class DataServiceContractValidationCase : IContributorValidation
         var challengeFix = Read("backend", "supabase", "migrations", "202609130005_registration_challenge_column_fix.sql");
         var publicKeyFix = Read("backend", "supabase", "migrations", "202609130006_canonical_public_key_base64.sql");
         var seasonActivationFix = Read("backend", "supabase", "migrations", "202609130007_safe_season_activation.sql");
+        var collaboratorMigration = Read("backend", "supabase", "migrations",
+            "202609140001_collaborator_match_import.sql");
         var edge = Read("backend", "supabase", "functions", "gw-api", "index.ts");
+        var collaboratorDocs = Read("docs", "COLLABORATOR-IMPORT.md");
+        var collaboratorUtility = Read("backend", "collaborator", "Import-GwentVisionMatches.ps1");
         var clientSource = Read("src", "GwentCompanion.Platform.Windows", "Data", "DataContributionClient.cs");
         var workflow = Read(".github", "workflows", "data-service.yml");
         var pagesWorkflow = Read(".github", "workflows", "pages.yml");
@@ -89,6 +93,19 @@ internal sealed class DataServiceContractValidationCase : IContributorValidation
             routines.Contains("installation_season.publish_anonymous_curve", StringComparison.OrdinalIgnoreCase) &&
             !edge.Contains("console.log", StringComparison.Ordinal),
             "The Edge Function lacks signature, strict-shape, rate, pagination, or log protections.");
+        Check(collaboratorMigration.Contains("private.collaborator_producers", StringComparison.OrdinalIgnoreCase) &&
+            collaboratorMigration.Contains("source_kind = 'collaborator_import'", StringComparison.OrdinalIgnoreCase) &&
+            collaboratorMigration.Contains("excluded.revision > private.matches.revision", StringComparison.OrdinalIgnoreCase) &&
+            collaboratorMigration.Contains("grant execute on function public.gw_accept_collaborator_match_upload",
+                StringComparison.OrdinalIgnoreCase) &&
+            edge.Contains("/collaborator/import", StringComparison.Ordinal) &&
+            edge.Contains("authenticatedUser(request)", StringComparison.Ordinal) &&
+            edge.Contains("keyedDigest(\"collaborator-source\"", StringComparison.Ordinal) &&
+            collaboratorDocs.Contains("Authorization: Bearer TOKEN", StringComparison.Ordinal) &&
+            collaboratorDocs.Contains("collaborator_import", StringComparison.Ordinal) &&
+            collaboratorUtility.Contains("Get-Credential", StringComparison.Ordinal) &&
+            !collaboratorUtility.Contains("GV_SERVER_KEY", StringComparison.Ordinal),
+            "Collaborator imports lack per-user authorization, provenance, idempotency, or a secret-free client contract.");
         Check(workflow.Contains("workflow_dispatch", StringComparison.Ordinal) &&
             workflow.Contains("data-staging", StringComparison.Ordinal) &&
             workflow.Contains("data-production", StringComparison.Ordinal) &&
