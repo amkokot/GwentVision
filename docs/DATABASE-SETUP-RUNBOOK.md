@@ -29,6 +29,9 @@ passes.
 - `backend/supabase/migrations/202609140001_collaborator_match_import.sql` adds
   individual collaborator producer authorization and transactional, versioned
   match imports without granting direct database access.
+- `backend/supabase/migrations/202609140002_collaborator_rate_limit_route.sql`
+  permits the collaborator API route in the short-lived request counter used
+  for abuse protection.
 - `backend/supabase/functions/gw-api` is the signed HTTP boundary.
 - `backend/supabase/operations` contains guarded analyst, archive, cron, and
   status scripts.

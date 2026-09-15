@@ -29,6 +29,8 @@ internal sealed class DataServiceContractValidationCase : IContributorValidation
         var seasonActivationFix = Read("backend", "supabase", "migrations", "202609130007_safe_season_activation.sql");
         var collaboratorMigration = Read("backend", "supabase", "migrations",
             "202609140001_collaborator_match_import.sql");
+        var collaboratorRateLimitMigration = Read("backend", "supabase", "migrations",
+            "202609140002_collaborator_rate_limit_route.sql");
         var edge = Read("backend", "supabase", "functions", "gw-api", "index.ts");
         var collaboratorDocs = Read("docs", "COLLABORATOR-IMPORT.md");
         var collaboratorUtility = Read("backend", "collaborator", "Import-GwentVisionMatches.ps1");
@@ -98,6 +100,8 @@ internal sealed class DataServiceContractValidationCase : IContributorValidation
             collaboratorMigration.Contains("excluded.revision > private.matches.revision", StringComparison.OrdinalIgnoreCase) &&
             collaboratorMigration.Contains("grant execute on function public.gw_accept_collaborator_match_upload",
                 StringComparison.OrdinalIgnoreCase) &&
+            collaboratorRateLimitMigration.Contains("request_windows_route_check", StringComparison.OrdinalIgnoreCase) &&
+            collaboratorRateLimitMigration.Contains("'collaborator'", StringComparison.OrdinalIgnoreCase) &&
             edge.Contains("/collaborator/import", StringComparison.Ordinal) &&
             edge.Contains("authenticatedUser(request)", StringComparison.Ordinal) &&
             edge.Contains("keyedDigest(\"collaborator-source\"", StringComparison.Ordinal) &&
@@ -208,7 +212,7 @@ internal sealed class DataServiceContractValidationCase : IContributorValidation
             "Intentional all-season activation update lacks the explicit protected-database predicate.");
 
         var backendText = schema + routines + automaticSeasons + serviceProjection + challengeFix + publicKeyFix +
-            seasonActivationFix + edge + workflow;
+            seasonActivationFix + collaboratorMigration + collaboratorRateLimitMigration + edge + workflow;
         Check(!Regex.IsMatch(backendText, @"sb_secret_(?!REPLACE)[A-Za-z0-9_-]{20,}", RegexOptions.IgnoreCase) &&
             !Regex.IsMatch(backendText, @"postgres(?:ql)?://[^\s]+:[^\s]+@", RegexOptions.IgnoreCase),
             "A plausible deployed secret or database connection string is present in source.");
