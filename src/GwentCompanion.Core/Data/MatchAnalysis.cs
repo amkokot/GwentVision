@@ -88,6 +88,14 @@ public static class MatchAnalysis
         }).OrderByDescending(g => g.Games).ThenBy(g => g.Key, StringComparer.Ordinal).ToArray();
     }
 
+    public static MatchBreakdown? MatchupToReview(IEnumerable<MatchBreakdown> groups) => groups
+        .Where(g => g.Key != "Unknown faction" && g.Losses > 0 && g.Wins + g.Losses >= 3)
+        .OrderBy(g => g.WinRate)
+        .ThenByDescending(g => g.Losses)
+        .ThenByDescending(g => g.Games)
+        .ThenBy(g => g.Key, StringComparer.Ordinal)
+        .FirstOrDefault();
+
     public static MatchAnalysisTotals Totals(IReadOnlyCollection<MatchAnalysisEntry> entries)
     {
         var wins = entries.Count(m => m.Outcome == MatchOutcome.Win);

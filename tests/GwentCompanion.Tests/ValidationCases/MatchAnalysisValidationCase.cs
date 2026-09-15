@@ -36,6 +36,13 @@ internal sealed class MatchAnalysisValidationCase : IContributorValidationCase
         Check(groups.Single(g => g.Key == "Skellige") is { Draws: 1, WinRate: null }, "Draw-only sample should have no decisive win rate.");
         Check(groups.Single(g => g.Key == "Syndicate") is { Games: 0, Share: 0, WinRate: null }, "Absent factions should remain visible without invented win rates.");
         Check(groups.Sum(g => g.Share) == 100, "Unknown opponents must count in exposure denominator.");
+        var review = MatchAnalysis.MatchupToReview([
+            new("Nilfgaard", 5, 5, 0, 0, 0, 33.3, 100),
+            new("Monsters", 4, 1, 3, 0, 0, 26.7, 25),
+            new("Northern Realms", 2, 0, 2, 0, 0, 13.3, 0)]);
+        Check(review is { Key: "Monsters" }, "An undefeated five-game faction displaced a matchup with recorded losses.");
+        Check(MatchAnalysis.MatchupToReview([new("Nilfgaard", 5, 5, 0, 0, 0, 100, 100)]) is null,
+            "An undefeated faction was presented as a matchup to review.");
         Check(MatchAnalysis.Totals([]) is { Games: 0, WinRate: null, AverageFactionMmr: null }, "Empty sample became a real zero rating / win rate.");
         Check(MatchAnalysisEntry.From("", draw with { Rank = 3 }).RatingLabel == "Rank 3", "Known ladder rank displayed as missing MMR.");
         Check(MatchAnalysisEntry.From("", loss).RatingLabel == "9999 MMR*", "Unqualified rating was hidden or mislabeled as faction MMR.");

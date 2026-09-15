@@ -161,15 +161,15 @@ public partial class MatchAnalysisWindow : Window
         var latest = _filtered.Length == 0 ? DateOnly.FromDateTime(DateTime.UtcNow) : _filtered.Max(m => m.Date);
         var recent = MatchAnalysis.Totals(_filtered.Where(m => m.Date > latest.AddDays(-7)).ToArray());
         var previous = MatchAnalysis.Totals(_filtered.Where(m => m.Date <= latest.AddDays(-7) && m.Date > latest.AddDays(-14)).ToArray());
-        var eligible = MatchAnalysis.Breakdown(_filtered, m => m.OpponentFaction)
-            .Where(g => g.Wins + g.Losses >= 5 && g.Key != "Unknown faction").ToArray();
-        var toughest = eligible.OrderBy(g => g.WinRate).ThenByDescending(g => g.Games).FirstOrDefault();
+        var breakdown = MatchAnalysis.Breakdown(_filtered, m => m.OpponentFaction);
+        var eligible = breakdown.Where(g => g.Wins + g.Losses >= 5 && g.Key != "Unknown faction").ToArray();
+        var toughest = MatchAnalysis.MatchupToReview(breakdown);
         var strongest = eligible.OrderByDescending(g => g.WinRate).ThenByDescending(g => g.Games).FirstOrDefault();
         StatisticsList.ItemsSource = new[]
         {
             new MetricVm("Recent win rate", Percent(recent.WinRate), $"7 days ending {latest:dd MMM}: {recent.Wins} wins / {recent.Losses} losses. Draws excluded."),
             new MetricVm("Change from the previous week", recent.WinRate is { } now && previous.WinRate is { } before ? $"{now - before:+0.#;-0.#;0} pp" : "—", $"Previous 7 days: {Percent(previous.WinRate)} across {previous.Wins + previous.Losses} decisive games. Opponents and decks may differ."),
-            new MetricVm("Matchup to review", toughest?.Key ?? "—", toughest is null ? "Needs at least 5 wins + losses against one faction." : $"{Percent(toughest.WinRate)} · {toughest.Wins} W / {toughest.Losses} L. Review these losses in match history; this combines your decks."),
+            new MetricVm("Matchup to review", toughest?.Key ?? "—", toughest is null ? "Needs at least 3 wins + losses, including one loss, against a faction." : $"{Percent(toughest.WinRate)} · {toughest.Wins} W / {toughest.Losses} L. Review these losses in match history; small samples can change quickly."),
             new MetricVm("Strongest matchup so far", strongest?.Key ?? "—", strongest is null ? "Needs at least 5 wins + losses against one faction." : $"{Percent(strongest.WinRate)} · {strongest.Wins} W / {strongest.Losses} L. Small samples can change quickly; this combines your decks."),
             new MetricVm("Draw rate", t.Wins + t.Losses + t.Draws == 0 ? "—" : $"{100d * t.Draws / (t.Wins + t.Losses + t.Draws):0.#}%", $"{t.Draws} draws among {t.Wins + t.Losses + t.Draws} completed results.")
         };
