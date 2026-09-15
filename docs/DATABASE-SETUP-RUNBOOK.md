@@ -238,6 +238,12 @@ After the database files are merged into `amkokot/GwentVision`:
 3. In each Environment add `SUPABASE_DB_PASSWORD` and `SUPABASE_ACCESS_TOKEN` as
    **environment secrets**. Create the access token at
    [Supabase account access tokens](https://supabase.com/dashboard/account/tokens).
+   The current Supabase CLI cannot reliably run `supabase link` with scoped
+   access tokens, so use a dedicated legacy token for this deployment workflow.
+   Supabase limits new tokens to 90 days. Rotate the token before it expires by
+   replacing `SUPABASE_ACCESS_TOKEN` in both GitHub Environments and rerunning
+   the workflow. This credential is for deployment only; it is never included
+   in the desktop app or public website.
 4. Require a reviewer for `data-production` and restrict it to protected branches.
 5. Open [Actions](https://github.com/amkokot/GwentVision/actions), select
    **Deploy data service**, choose `data-staging`, and run it. The workflow previews
