@@ -14,9 +14,16 @@ internal sealed class AutomaticSummonCandidateCoverageRegressionCase : IRecordin
         var cache = Path.Combine(project, "cache");
         var catalog = GwentOneCardCatalog.Load(Path.Combine(cache, "gwent-one-cards.json"));
         var service = catalog.Single(card => card.Id == "203224");
+        var mageAssassin = catalog.Single(card => card.Id == "202908");
+        var tacticalDecision = catalog.Single(card => card.Name == "Tactical Decision");
+        var morvran = catalog.Single(card => card.Name == "Morvran Voorhis");
         if (!CompanionCardRules.IsInherentDeckArrival(service) ||
             !FactionCompatibility.IsPlayableBy(service, "Northern Realms"))
             throw new InvalidOperationException("Redanian Secret Service is no longer eligible for faction-bounded automatic-summon coverage.");
+        if (!CompanionCardRules.HasExplicitInherentDeckArrival(mageAssassin) ||
+            !FactionCompatibility.IsPlayableBy(mageAssassin, "Nilfgaard") ||
+            !LeaderSpawnCatalog.NamesSpawnedUnit(tacticalDecision, morvran))
+            throw new InvalidOperationException("Tactical Decision's Morvran route no longer keeps Mage Assassin eligible for faction-bounded automatic-summon coverage.");
 
         var references = VisionReferenceLibrary.Load(catalog, cache);
         using var pipeline = new CardVisionPipeline(references, catalog,

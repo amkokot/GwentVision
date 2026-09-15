@@ -68,6 +68,13 @@ public partial class MainWindow
             Check(candidateRows.All(row => row.Badge.Length == 0) &&
                 window.PresentedOpponentSlots(window._lastProjection).All(slot => slot.State == DeckSlotState.Observed),
                 "Standard live tracking exposed unseen recommendations.");
+            var mageAssassin = candidateRows.Single(row => row.Slot.Card?.Id == "202908");
+            Check(mageAssassin.Slot.Reason.Contains("click to mark as seen", StringComparison.OrdinalIgnoreCase) &&
+                window.MarkCandidateSeen(mageAssassin.Slot.Card!, mageAssassin.Slot.Copy) &&
+                window._opponentTracker.DeckBuildingObservations.Single(card => card.Card.Id == "202908") is
+                    { Provenance: CardProvenance.ConfirmedStartingDeck, ObservedCopies: 1 },
+                "A legal Mage Assassin candidate could not be moved into Opponent Cards as user-verified evidence.");
+            window._opponentTracker.Reset();
             window.OpponentFactionText.Text = deck.Faction;
             window.GameStatusText.Text = "DEMONSTRATION · sample data · no game capture";
             window.DeckDataStatusText.Text = "Read-only sample library · " + window._cachedDecks.Length + " public decks";

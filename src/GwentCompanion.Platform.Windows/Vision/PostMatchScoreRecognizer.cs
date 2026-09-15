@@ -33,30 +33,38 @@ public sealed class PostMatchScoreRecognizer
         { Confirm(null, at); return screen; }
 
         var scores = new List<PostMatchRoundScore>();
+        var allGlyphs = true;
         var tops = new[] { .347, .514, .680 };
         for (var round = 0; round < 3; round++)
         {
             var user = await Number(new(.405, tops[round], .462, tops[round] + .069));
             var opponent = await Number(new(.535, tops[round], .594, tops[round] + .069));
-            if (user is null || opponent is null) { Confirm(null, at); return screen; }
-            scores.Add(new(round + 1, user.Value, opponent.Value));
+            if (user.Value is null || opponent.Value is null) { Confirm(null, at); return screen; }
+            allGlyphs &= user.FromGlyph && opponent.FromGlyph;
+            scores.Add(new(round + 1, user.Value.Value, opponent.Value.Value));
         }
-        _confirmed = Confirm(scores.ToArray(), at);
+        var candidate = scores.ToArray();
+        // The result header, exact NEXT control, six fixed-lane glyph reads and
+        // matching winner are independent layout checks. That combination is
+        // strong enough to retain a score table from one briefly shown frame.
+        var independentlyVerified = allGlyphs && OutcomeMatches(screen.ScreenHeader!, candidate);
+        _confirmed = Confirm(candidate, at, independentlyVerified);
         return screen with { PostMatchRoundScores = _confirmed?.ToArray() };
 
-        async Task<int?> Number(NormalizedRegion region)
+        async Task<(int? Value, bool FromGlyph)> Number(NormalizedRegion region)
         {
             // Exclude the diamond border. Result digits use a different font from
             // the live scoreboard; the shared glyph reader rejects ambiguous shapes.
             var glyph = Digits.Value.Read(frame, new(region.Left + .009, region.Top, region.Left + .048, region.Bottom));
-            if (glyph is not null) return glyph;
+            if (glyph is not null) return (glyph, true);
             var lines = await reader.ReadLinesAsync(frame, region, scale: 3, enhance: false, smooth: true).ConfigureAwait(false);
             var numbers = lines.Where(l => Regex.IsMatch(l.Text.Trim(), @"^[0-9]{1,4}$"))
                 .Select(l => int.Parse(l.Text.Trim())).Distinct().ToArray();
-            return numbers.Length == 1 ? numbers[0] : null;
+            return (numbers.Length == 1 ? numbers[0] : null, false);
         }
     }
-    public PostMatchRoundScore[]? Confirm(PostMatchRoundScore[]? candidate, DateTimeOffset at)
+    public PostMatchRoundScore[]? Confirm(PostMatchRoundScore[]? candidate, DateTimeOffset at,
+        bool independentlyVerified = false)
     {
         if (at <= _lastVote) return null;
         if (at - _lastVote > TimeSpan.FromSeconds(3)) { _candidate = null; _votes = 0; }
@@ -66,7 +74,7 @@ public sealed class PostMatchScoreRecognizer
         { _candidate = null; _votes = 0; return null; }
         _votes = _candidate is not null && _candidate.SequenceEqual(candidate) ? _votes + 1 : 1;
         _candidate = candidate.ToArray();
-        if (_votes < 2) return null;
+        if (_votes < (independentlyVerified ? 1 : 2)) return null;
         // Two trailing empty rows can also follow an early forfeit. Do not invent
         // a played second round when the table alone cannot establish it.
         if (candidate[1] is { UserScore: 0, OpponentScore: 0 } &&
@@ -78,6 +86,21 @@ public sealed class PostMatchScoreRecognizer
         if (endedInTwo)
             return candidate[2] is { UserScore: 0, OpponentScore: 0 } ? candidate[..2] : null;
         return candidate.ToArray();
+    }
+
+    private static bool OutcomeMatches(string header, IReadOnlyList<PostMatchRoundScore> scores)
+    {
+        var played = scores.Count == 3 && scores[2] is { UserScore: 0, OpponentScore: 0 }
+            ? scores.Take(2) : scores;
+        var userRounds = played.Count(score => score.UserScore >= score.OpponentScore);
+        var opponentRounds = played.Count(score => score.OpponentScore >= score.UserScore);
+        return header.Trim().ToUpperInvariant() switch
+        {
+            "VICTORY" => userRounds > opponentRounds,
+            "DEFEAT" => opponentRounds > userRounds,
+            "DRAW" => userRounds == opponentRounds,
+            _ => false,
+        };
     }
 
     public void Reset() { _lastRead = default; _lastVote = default; _candidate = null; _confirmed = null; _votes = 0; }

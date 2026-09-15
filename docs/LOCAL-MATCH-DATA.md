@@ -71,8 +71,12 @@ can lose observations since the last successful checkpoint (normally up to five
 seconds; longer on a slow/failing disk). Errors appear in the Settings section.
 
 Starting tracking in a menu waits for the game; the menu's existing MMR is not
-assigned to the upcoming match. After a game, the Standard Mode rating panel is
-sampled at most every 200 ms, with three agreeing reads required for confirmation.
+assigned to the upcoming match. After a game, the result and Standard Mode rating
+panels are sampled at most every 100 ms, with two independent agreeing reads required
+for confirmation. A fully verified round-score glyph table can be accepted from one
+frame so a quickly skipped result panel is still retained; ambiguous or OCR-derived
+scores continue to require a second matching frame. Automatic stop waits for the
+authenticated Standard Mode menu reading, then discards redundant queued menu frames.
 The optional rating auto-stop waits for the actual confirmed number, not merely
 the menu. If the next game appears first (opening redraw, ROUND 1, or match HUD),
 capture closes before accepting its cards, leaders or scores, even with rating
@@ -209,8 +213,11 @@ versus inferred evidence, stale player-reference rejection, replacement of hypot
 compression round trips, checksum failures, stable installation identity, atomic
 checkpoint replacement and stale-write/corruption protection.
 
-The MMR reader confirms three numeric readings at its actual 600-ms OCR cadence.
-The shared RANKED label alone cannot identify a standard-rank result or stop capture;
-automatic stopping requires a confirmed numeric faction rating or ladder rank.
+The MMR reader confirms two numeric readings at its 100-ms result/menu cadence;
+the standard-rank reader uses separate 250-ms votes. The shared RANKED label alone
+cannot identify a standard-rank result or stop capture. Automatic stopping requires
+an authenticated completed match followed by the Standard Mode menu; pro-rank games
+wait for its confirmed faction rating, while a previously confirmed ladder rank lets
+below-pro games close at that menu without inventing an MMR.
 History shows rank where recorded, and unqualified MMR has an explicit scope marker.
 Historical missing values cannot be recovered from the compact record alone.

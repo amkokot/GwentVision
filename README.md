@@ -34,7 +34,7 @@ The extended Library can store any number of decks. It adds search and filters, 
 
 ![The Gwent Vision deck library and selected player deck](docs/images/deck-library.png)
 
-Snapshots keep selected game screens available for quick review. Optional diagnostic recording helps reproduce missed or incorrectly recognized cards. These files stay on your computer unless you deliberately share a copy after removing personal information.
+Snapshots keep selected game screens available for quick review. Gwent Vision also preserves an automatic cache of recent games for review and bug reporting. This rolling cache keeps at most five games and 256 MB, removing the oldest games first. Optional diagnostic recording can retain additional frames for reproducing missed or incorrectly recognized cards. These files stay on your computer unless you deliberately share a copy after removing personal information.
 
 ## Optional data contribution
 

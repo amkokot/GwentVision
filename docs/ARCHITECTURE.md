@@ -6,7 +6,7 @@ Before recognition, `VisionFrameNormalizer` retains ordinary 16:9 frames, reduce
 
 ## Runtime path
 
-The app locates `Gwent.exe` by walking up from the working directory and executable directory. Release data is loaded from the `cache` folder beside `GwentVision.exe`. Development builds fall back to the existing `GwentCompanion` workspace below the game directory. User-created snapshots, settings, observed decks, and diagnostics stay under that data root and are excluded from the public repository.
+The app locates `Gwent.exe` by walking up from the working directory and executable directory. Release data is loaded from the `cache` folder beside `GwentVision.exe`. Development builds fall back to the existing `GwentCompanion` workspace below the game directory. Decks, snapshots, and recognition caches stay under that data root. Installation identity, sharing preferences, match records, and automatic diagnostic sessions live under `%LOCALAPPDATA%/GwentVision` so an update cannot replace them. All runtime state is excluded from the public repository.
 
 ## Recognition and inference
 
@@ -51,6 +51,14 @@ Local analytics acquisition consumes accepted game-state deltas and writes atomi
 Brotli-compressed match checkpoints, independently of screenshot recording. Visual
 observations, selected references and inferred deck hypotheses remain separate.
 See [Local match data](LOCAL-MATCH-DATA.md) for the format, identity, lifecycle and decoder.
+
+Automatic diagnostic sessions are kept under
+`%LOCALAPPDATA%/GwentVision/diagnostics/sessions`. A session retains the compact
+vision/state journals and JPEG before/during/after evidence for recognized plays.
+At startup and after a clean stop, oldest-first pruning retains no more than five
+sessions or 256 MiB in total. The newest session is always kept, so one explicitly
+enabled training recording may temporarily exceed the byte ceiling until a later
+session is available. This policy does not delete `.gvm` match history.
 
 `MainWindow` is divided into partial classes by responsibility: navigation, analysis, deck projection, candidates, snapshots, settings, and vision lifecycle. Compact mode shows one Live pane at a time; wide mode places the three default panes left to right. Snapshot capture always requests a fresh game frame and writes a PNG before selecting it in the review pane.
 

@@ -36,7 +36,8 @@ public partial class MainWindow
         _analysisTransition = true; RefreshAnalysisButton();
         try { await StopAnalysisCoreAsync(_closedAtNextGame
             ? "Tracking stopped as the next game began · best available rating and previous match saved."
-            : "Tracking stopped automatically after confirmed rating result · evidence retained."); }
+            : "Tracking stopped automatically after the main-menu rating was confirmed · evidence retained.",
+            discardVisionBacklog: true); }
         catch (Exception error) { ShowAnalysisFailure("Automatic stop needs attention; use Stop to retry.", error); }
         finally
         {
@@ -49,11 +50,16 @@ public partial class MainWindow
         }
     }
 
-    private async Task StopAnalysisCoreAsync(string status)
+    private async Task StopAnalysisCoreAsync(string status, bool discardVisionBacklog = false)
     {
         ShowAnalysisStatus("Stopping analysis and saving queued evidence…");
+        var completedDiagnosticSession = _analysisControlTest ? null : _diagnosticSession?.CurrentSessionDirectory;
+        // Automatic post-match shutdown has all required evidence. Cancel expensive
+        // queued recognition immediately, before waiting for the capture journal to
+        // close, so no redundant result/menu frames delay the visible stop.
+        if (discardVisionBacklog) _visionCancellation?.Cancel();
         if (_diagnosticSession is not null) await _diagnosticSession.StopAsync();
-        await StopVisionAsync(); // Drain retained text/artwork before persisting the final state.
+        await StopVisionAsync(discardVisionBacklog);
         if (_autoEncounterSave is { } save) await save;
         PersistCurrentMatch(); RefreshDeckList();
         if (_projectionQueue is not null) await _projectionQueue.Idle;
@@ -67,10 +73,21 @@ public partial class MainWindow
             _observedPostMatchMmr?.RatingAfter is null && _observedPostMatchRank is null
             ? "Observation snapshot saved. No confirmed post-match rating result: encounter history was not auto-updated; review/save is available here."
             : "Observation snapshot saved. The post-match rating result triggered the separate encounter-history save; check its save status.";
+        QueueDiagnosticRetention(completedDiagnosticSession);
+    }
+
+    private static void QueueDiagnosticRetention(string? protectedSessionDirectory = null)
+    {
+        // Retention runs after every writer has closed, but stays off the UI path so
+        // automatic post-match shutdown remains immediate. Startup also invokes it
+        // so an interrupted prior run cannot leave the rolling history over budget.
+        _ = Task.Run(() => DiagnosticSessionRetention.Enforce(
+            DiagnosticSessionDirectory, protectedSessionDirectory));
     }
 
     private async Task InitializeAnalysisAsync()
     {
+        if (!_analysisControlTest && _reviewEvidencePath is null) QueueDiagnosticRetention();
         var identity = InitializeMatchIdentityAsync();
         SetLoadingStage("Indexing the deck library…");
         ShowAnalysisStatus("Loading deck library… You can click Play to start when ready.");

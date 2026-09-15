@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <Deterministic>true</Deterministic>
-    <Version>0.3.1</Version>
+    <Version>0.3.2</Version>
     <Product>Gwent Vision</Product>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>

@@ -17,7 +17,7 @@ internal sealed class PostMatchLifecycleValidationCase : IContributorValidationC
             IsCardSelectionOverlay = true };
         var fadedBoard = board with { ScreenHeader = null, IsCardSelectionOverlay = false };
         var candidate = new PostMatchMmr(2434, null, true, "Standard Mode fallback", 2441,
-            Confirmed: false, ReadCount: 2);
+            Confirmed: false, ReadCount: 1);
         var menu = board with { MatchHudVisible = false, ScreenHeader = "STANDARD MODE",
             PostMatchExitCue = true, PostMatchMmrCandidate = candidate };
 
@@ -25,6 +25,15 @@ internal sealed class PostMatchLifecycleValidationCase : IContributorValidationC
         var gate = new PostMatchAutoStopGate();
         lifecycle.Observe(board, at);
         Check(!gate.TryRequest(session, board, true, true, false), "An active match requested automatic stop.");
+        var directGate = new PostMatchAutoStopGate();
+        var directSession = session + "-direct";
+        directGate.TryRequest(directSession, board, true, true, false);
+        var directRating = new PostMatchMmr(2434, -7, true, "result panel", Confirmed: true, ReadCount: 2);
+        Check(!directGate.TryRequest(directSession, victory with { PostMatchMmr = directRating }, true, true, false),
+            "A confirmed result-panel MMR stopped before the main-menu cross-check.");
+        Check(directGate.TryRequest(directSession, menu with { PostMatchMmr = directRating, PostMatchMmrCandidate = null },
+                true, true, false),
+            "The confirmed main-menu MMR did not stop the armed match immediately.");
         lifecycle.Observe(victory, at.AddSeconds(1));
         Check(!gate.TryRequest(session, victory, true, true, false),
             "A result without a rating stopped before the menu fallback.");
