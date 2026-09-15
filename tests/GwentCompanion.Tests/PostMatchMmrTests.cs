@@ -50,6 +50,12 @@ internal static class PostMatchMmrTests
         Check(PostMatchMmrRecognizer.ParseMainMenu(menuLabel,
             [new("2434 2441 3017", new(.45,.50,.64,.54))]) is { RatingAfter: 2434, SeasonPeak: 2441 },
             "A single OCR line containing all three Standard Mode values did not retain the first MMR pair.");
+        Check(PostMatchMmrRecognizer.ParseMainMenu(menuLabel,
+            [new("2434", new(.46,.50,.50,.54))]) is { RatingAfter: 2434, SeasonPeak: null },
+            "A spatially verified current MMR was discarded when season peak was unreadable.");
+        Check(PostMatchMmrRecognizer.ParseMainMenu(menuLabel,
+            [new("3017", new(.59,.50,.64,.54))]) is null,
+            "A lone leaderboard position was accepted as current MMR.");
         var rankLine = new VisibleTextLine("3", new(.493,.378,.509,.415));
         var rank = PostMatchMmrRecognizer.ParseRankPanel("VICTORY", "RANKED", [rankLine]);
         Check(rank is { Rank:3, IsProRank:false }, "Standard-ladder rank shield did not parse.");
@@ -67,6 +73,9 @@ internal static class PostMatchMmrTests
         reader.Reset();
         Check(reader.Confirm(full,At,100) is null && reader.Confirm(full,At.AddMilliseconds(100),100)==full,
             "Fast result-only cadence could not confirm an early MMR before the main menu.");
+        reader.Reset(); var currentOnly=full! with {SeasonPeak=null};
+        Check(reader.Confirm(currentOnly,At,100) is null && reader.Confirm(full,At.AddMilliseconds(100),100)==full,
+            "Compatible current-only and current/peak reads did not confirm the richer MMR result.");
         reader.Reset();
         Check(reader.Confirm(full, At) is null && reader.Confirm(full, At.AddMilliseconds(599)) is null &&
             reader.Confirm(full! with { Label = "FMMR" }, At.AddMilliseconds(600)) is

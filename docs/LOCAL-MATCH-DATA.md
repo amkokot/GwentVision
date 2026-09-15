@@ -77,8 +77,10 @@ for confirmation. A fully verified round-score glyph table can be accepted from 
 frame so a quickly skipped result panel is still retained; ambiguous or OCR-derived
 scores continue to require a second matching frame. Automatic stop waits for the
 authenticated Standard Mode menu reading, then discards redundant queued menu frames.
-The optional rating auto-stop waits for the actual confirmed number, not merely
-the menu. If the next game appears first (opening redraw, ROUND 1, or match HUD),
+The optional rating auto-stop normally waits for the actual confirmed number, not
+merely the menu. If the authenticated menu is visible but no rating can be read,
+capture closes after a 1.5 second grace period rather than running indefinitely. If the
+next game appears first (opening redraw, ROUND 1, or match HUD),
 capture closes before accepting its cards, leaders or scores, even with rating
 auto-stop disabled. The strongest retained rating is used; an unconfirmed fallback
 is explicitly marked `MmrUnconfirmed=true`. Confirmed readings take priority over
