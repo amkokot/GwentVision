@@ -41,6 +41,15 @@ public sealed class PostMatchMmrRecognizer
             var menuCandidate = ParseMainMenu(label, numbers);
             if (menuCandidate is null)
             {
+                // Some display/scaling combinations render the gold digits too dimly
+                // for the white-letter mask. Retry a taller/wider lane with ordinary
+                // contrast OCR before falling back to the fixed glyph reader.
+                var alternateNumbers = await reader.ReadLinesAsync(frame, new(.42, .46, .70, .60),
+                    scale: 3, enhance: true, whiteLetterMask: false, smooth: true).ConfigureAwait(false);
+                menuCandidate = ParseMainMenu(label, alternateNumbers);
+            }
+            if (menuCandidate is null)
+            {
                 var current = HudDigitReader.ReadDefault(frame, new(.455, .495, .505, .55));
                 var peak = HudDigitReader.ReadDefault(frame, new(.515, .495, .565, .55));
                 if (current is >= 0 and <= 10000 && peak is >= 0 and <= 10000 && current <= peak)
@@ -131,7 +140,16 @@ public sealed class PostMatchMmrRecognizer
                 Regex.Matches(line.Text, @"(?<![0-9])[0-9]{3,4}(?![0-9])").Cast<Match>()
                     .Select(match => (Value: int.Parse(match.Value), line.Region)))
             .Where(item => item.Value is >= 0 and <= 10000).ToArray();
-        if (values.Length < 2) return null;
+        if (values.Length < 2)
+        {
+            // The left lane is always current faction MMR. Retain it when peak OCR
+            // fails; two agreeing frames are still required before confirmation.
+            var currentOnly = values.Where(item => item.Region.Left >= .43 && item.Region.Right <= .53)
+                .Select(item => item.Value).Distinct().ToArray();
+            return currentOnly.Length == 1
+                ? new(currentOnly[0], null, true, "Standard Mode summary (current; season peak unread)")
+                : null;
+        }
         // The panel can show current MMR, season peak, and a rightmost leaderboard
         // position. With all three present the first pair is unambiguous. When OCR
         // sees only two, reject a right-lane second value instead of caching rank
@@ -149,12 +167,14 @@ public sealed class PostMatchMmrRecognizer
         if (at <= _lastVote || at - _lastVote < TimeSpan.FromMilliseconds(intervalMs)) return null;
         if (at - _lastVote > TimeSpan.FromSeconds(4)) { _candidate = null; _votes = 0; }
         _lastVote = at;
-        _votes = candidate is not null && _candidate is not null &&
+        var compatible = candidate is not null && _candidate is not null &&
             candidate.RatingAfter == _candidate.RatingAfter && candidate.Change == _candidate.Change &&
-            candidate.IsFactionRating == _candidate.IsFactionRating && candidate.SeasonPeak == _candidate.SeasonPeak
-            ? _votes + 1 : candidate is null ? 0 : 1;
-        _candidate = candidate;
-        return _votes >= 2 ? candidate : null;
+            candidate.IsFactionRating == _candidate.IsFactionRating &&
+            (candidate.SeasonPeak == _candidate.SeasonPeak || candidate.SeasonPeak is null || _candidate.SeasonPeak is null);
+        _votes = compatible ? _votes + 1 : candidate is null ? 0 : 1;
+        _candidate = compatible && candidate!.SeasonPeak is null && _candidate!.SeasonPeak is not null
+            ? _candidate : candidate;
+        return _votes >= 2 ? _candidate : null;
     }
 
     public PostMatchRank? ConfirmRank(PostMatchRank? candidate, DateTimeOffset at)

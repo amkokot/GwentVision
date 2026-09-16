@@ -27,7 +27,7 @@ public partial class MainWindow
     {
         if (_mmrStopGate.TryRequest(CurrentEncounterId, result.Screen, AutoStopOnMmrChoice.IsChecked == true,
             _diagnosticSession?.IsRunning == true || _visionWorker is not null,
-            _analysisTransition || _windowClosing || _reviewEvidencePath is not null))
+            _analysisTransition || _windowClosing || _reviewEvidencePath is not null, result.SampledAt))
             _autoStopTask = AutoStopAtMmrAsync();
     }
 
@@ -36,7 +36,7 @@ public partial class MainWindow
         _analysisTransition = true; RefreshAnalysisButton();
         try { await StopAnalysisCoreAsync(_closedAtNextGame
             ? "Tracking stopped as the next game began · best available rating and previous match saved."
-            : "Tracking stopped automatically after the main-menu rating was confirmed · evidence retained.",
+            : "Tracking stopped automatically after the post-match menu · best available rating and evidence retained.",
             discardVisionBacklog: true); }
         catch (Exception error) { ShowAnalysisFailure("Automatic stop needs attention; use Stop to retry.", error); }
         finally

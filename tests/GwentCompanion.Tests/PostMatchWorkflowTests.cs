@@ -39,6 +39,16 @@ internal static class PostMatchWorkflowTests
         var rankMenu=confirmedMenu with {PostMatchMmr=null};
         Check(gate.TryRequest("rank",rankMenu,true,true,false)&&!gate.TryRequest("rank",rankMenu,true,true,false),
             "Confirmed standard rank did not stop exactly once at the authenticated main menu.");
+        var unreadMenuGate=new PostMatchAutoStopGate();
+        var unreadAt=new DateTimeOffset(2026,9,15,20,49,25,TimeSpan.Zero);
+        unreadMenuGate.TryRequest("unread-menu",hud,true,true,false,unreadAt.AddSeconds(-10));
+        var unreadMenu=confirmedMenu with {PostMatchMmr=null,PostMatchMmrCandidate=null};
+        Check(!unreadMenuGate.TryRequest("unread-menu",unreadMenu,true,true,false,unreadAt),
+            "Unread menu stopped before the rating grace period.");
+        Check(!unreadMenuGate.TryRequest("unread-menu",unreadMenu,true,true,false,unreadAt.AddMilliseconds(1499)),
+            "Unread menu stopped before the full rating grace period.");
+        Check(unreadMenuGate.TryRequest("unread-menu",unreadMenu,true,true,false,unreadAt.AddMilliseconds(1500)),
+            "Unread authenticated menu left capture running after the bounded rating grace period.");
         gate.Reset(); var unreadRankScreen=rankScreen with {PostMatchRank=new(null,"confirmed RANKED result")};
         Check(!gate.TryRequest("rank-unread",unreadRankScreen,true,true,false),
             "A RANKED label without a number stopped capture before MMR could be acquired.");
