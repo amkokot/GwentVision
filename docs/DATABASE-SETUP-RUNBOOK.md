@@ -167,7 +167,7 @@ Run `backend/supabase/operations/05-storage-status.sql` to force an initial size
 measurement and confirm that `pressure_mode` is false and `last_error` is null.
 
 The repository workflow `.github/workflows/database-activity.yml` also queries the
-read-only public season feed at 02:23 UTC each day. Each request
+read-only public season feed at 02:23, 10:23, and 18:23 UTC each day. Each request
 uses a unique query value so it reaches the Edge Function and performs a database
 read instead of reusing a cached response. It requires no secret and cannot access
 raw matches, installation identifiers, or analyst functions. Check the **Actions**

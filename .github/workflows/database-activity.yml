@@ -2,9 +2,9 @@ name: Keep data service active
 
 on:
   schedule:
-    # Supabase considers activity over a seven-day window. This daily public
-    # database read supplements normal app and website traffic.
-    - cron: "23 2 * * *"
+    # Supabase considers activity over a seven-day window. These three public
+    # database reads per day supplement normal app and website traffic.
+    - cron: "23 2,10,18 * * *"
   workflow_dispatch:
 
 permissions:
