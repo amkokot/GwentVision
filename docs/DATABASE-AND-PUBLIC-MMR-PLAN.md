@@ -242,9 +242,10 @@ its index instead of issuing a large row-by-row delete.
 - Alert at 350 MB and treat 450 MB as an operational incident; waiting for 500 MB
   risks read-only mode.
 - The Free plan has no downloadable automatic backups and may pause after a week
-  of low activity. Make an encrypted off-platform `pg_dump` before retirement and
-  test restoration. Public traffic may usually prevent pausing, but it is not an
-  availability guarantee.
+  of low activity. The public repository therefore makes three small, uncached
+  reads of the public season feed each day. Make an encrypted off-platform
+  `pg_dump` before retirement and test restoration. Scheduled reads reduce the
+  chance of inactivity pausing but are not an availability guarantee.
 
 At current documented limits, Supabase Free also includes 500,000 Edge Function
 invocations and 5 GB egress monthly. GitHub Pages is free for this public repository

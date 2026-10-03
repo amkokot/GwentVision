@@ -166,6 +166,15 @@ before enabling the job.
 Run `backend/supabase/operations/05-storage-status.sql` to force an initial size
 measurement and confirm that `pressure_mode` is false and `last_error` is null.
 
+The repository workflow `.github/workflows/database-activity.yml` also queries the
+read-only public season feed at 02:23, 10:23, and 18:23 UTC each day. Each request
+uses a unique query value so it reaches the Edge Function and performs a database
+read instead of reusing a cached response. It requires no secret and cannot access
+raw matches, installation identifiers, or analyst functions. Check the **Actions**
+tab occasionally: GitHub may disable scheduled workflows in a public repository
+after 60 days without repository activity, and Supabase Free does not guarantee
+continuous availability.
+
 ## 5. Perform the first access checks
 
 Replace `PROJECT_REF`, then check the public season endpoint:
