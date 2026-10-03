@@ -1,0 +1,33 @@
+name: Keep data service active
+
+on:
+  schedule:
+    # Supabase considers activity over a seven-day window. Three small public
+    # database reads per day provide a comfortable margin without meaningful load.
+    - cron: "23 2,10,18 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gwent-vision-data-service-activity
+  cancel-in-progress: false
+
+jobs:
+  query-public-database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      API_BASE_URL: https://tgqprdgszcmxodstgdmj.supabase.co/functions/v1/gw-api
+    steps:
+      - name: Read the public season feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/gwent-vision-seasons.json"
+          curl --fail-with-body --silent --show-error --max-time 30 \
+            --header "Cache-Control: no-cache" \
+            "$API_BASE_URL/public/seasons?activity-check=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
+            --output "$output"
+          jq --exit-status '.schema == 1 and (.seasons | type == "array")' "$output" >/dev/null
