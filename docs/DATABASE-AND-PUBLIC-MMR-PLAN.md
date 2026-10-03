@@ -242,8 +242,8 @@ its index instead of issuing a large row-by-row delete.
 - Alert at 350 MB and treat 450 MB as an operational incident; waiting for 500 MB
   risks read-only mode.
 - The Free plan has no downloadable automatic backups and may pause after a week
-  of low activity. The public repository therefore makes three small, uncached
-  reads of the public season feed each day. Make an encrypted off-platform
+  of low activity. The public repository therefore makes one small, uncached read
+  of the public season feed each day. Make an encrypted off-platform
   `pg_dump` before retirement and test restoration. Scheduled reads reduce the
   chance of inactivity pausing but are not an availability guarantee.
 
